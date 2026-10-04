@@ -53,3 +53,11 @@ dkms.conf
 
 # debug information files
 *.dwo
+# looked like "owo" ngl...
+
+# Local compilation databases and build output
+b.json
+compile_commands.json
+.b/
+__pycache__/
+*.pyc
