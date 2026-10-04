@@ -46,11 +46,22 @@ b build c                      # compile this directory's top-level .c files
 b build c ./native             # produce one executable, requiring a main()
 b build java ./java-src         # javac this directory's top-level .java files
 b build rust ./crate            # compile this directory's top-level .rs files
+b run instance ./app.py          # run Python as-is through the interpreter
+b python ./app.py                # shorthand for b run instance ./app.py
+b build python ./scripts         # bytecode syntax check, cache kept out of source
 ```
+
+Adapters live in `languages/`: `b.c` is the suite (argv + dispatch + the
+existing-executable fallback); each `languages/<lang>.{c,h}` owns one `Language`
+record with a `build` and a `run`. Adding a language is one file pair plus one
+row in `languages/language.c` — the suite does not change.
 
 Rust support requires a `rustc` on `PATH` (install via `rustup`); b does not
 download it. Rust is compiled, so it has no `run instance` source runtime and
-rejects instance mode like C. C# and other languages remain planned.
+rejects instance mode like C. Python support requires `python3` on `PATH`; it is
+interpreted, so `run instance` and `run exec` both execute the interpreter, and
+`build` performs a bytecode syntax check with `PYTHONPYCACHEPREFIX` redirected
+out of the source tree. C# and other languages remain planned.
 
 `run instance` runs a file as-is through its runtime, or runs an existing native
 executable. It does not build an app, package, supervise or manage instances.
@@ -123,7 +134,8 @@ its toolchain and is consumed rather than replaced by a new package registry.
 | --- | --- |
 | C (initial file/directory support) / C++ | Clang, GCC, MSVC |
 | Rust (initial exec/build via `rustc`) | rustc; Cargo for full projects |
-| C# | dotnet |
+| Python (initial run/bytecode check) | python3 |
+| C# (reserved; rejects until wired) | dotnet |
 | Java (initial file/directory support) | JDK source launcher/compiler and project build tooling |
 | JavaScript / TypeScript | Node, Bun, npm/package scripts and project bundlers |
 | HTML / web | Browser launch, loopback development server when needed |

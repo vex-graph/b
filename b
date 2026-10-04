@@ -6,8 +6,9 @@ case "$(uname -s)" in
     Darwin) state="${B_HOME:-$HOME/Library/Application Support/b}" ;;
     *) state="${B_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/b}" ;;
 esac
-source="$here/b.c"
-bin="$state/cli"
+mkdir -p "$state"
+
+# Workspace compatibility mode: the ecosystem graph engine, unchanged.
 if [ "${1:-}" = workspace ]; then
     if [ "$#" -lt 3 ]; then
         echo 'b: usage: b workspace <workspace-directory> <command> [arguments...]' >&2
@@ -17,17 +18,36 @@ if [ "${1:-}" = workspace ]; then
     workspace=$1
     shift
     cd "$workspace"
-    source="$here/workspace.c"
     bin="$state/workspace-cli"
+    if [ ! -x "$bin" ] || [ "$here/workspace.c" -nt "$bin" ]; then
+        temp="$bin.$$"
+        trap 'rm -f "$temp"' EXIT
+        trap 'rm -f "$temp"; exit 130' HUP INT TERM
+        case "$(uname -s)" in
+            Darwin) "${CC:-cc}" -std=gnu23 -O2 -Wall -Wextra -Werror -arch arm64 -mcpu=apple-m1 -mmacosx-version-min=14.0 "$here/workspace.c" -o "$temp" ;;
+            *) "${CC:-cc}" -std=gnu23 -O2 -Wall -Wextra -Werror "$here/workspace.c" -o "$temp" ;;
+        esac
+        mv "$temp" "$bin"
+        trap - EXIT HUP INT TERM
+    fi
+    exec "$bin" "$@"
 fi
-mkdir -p "$state"
-if [ ! -x "$bin" ] || [ "$source" -nt "$bin" ]; then
+
+# Suite mode: b.c dispatches to the language adapters in languages/.
+bin="$state/cli"
+stale=0
+[ -x "$bin" ] || stale=1
+for f in "$here/b.c" "$here/util.c" "$here/util.h" "$here/b.h" "$here"/languages/*.c "$here"/languages/*.h; do
+    [ -e "$f" ] || continue
+    [ "$f" -nt "$bin" ] && stale=1
+done
+if [ "$stale" = 1 ]; then
     temp="$bin.$$"
     trap 'rm -f "$temp"' EXIT
     trap 'rm -f "$temp"; exit 130' HUP INT TERM
     case "$(uname -s)" in
-        Darwin) "${CC:-cc}" -std=gnu23 -O2 -Wall -Wextra -Werror -arch arm64 -mcpu=apple-m1 -mmacosx-version-min=14.0 "$source" -o "$temp" ;;
-        *) "${CC:-cc}" -std=gnu23 -O2 -Wall -Wextra -Werror "$source" -o "$temp" ;;
+        Darwin) "${CC:-cc}" -std=gnu23 -O2 -Wall -Wextra -Werror -I"$here" -arch arm64 -mcpu=apple-m1 -mmacosx-version-min=14.0 "$here/b.c" "$here/util.c" "$here"/languages/*.c -o "$temp" ;;
+        *) "${CC:-cc}" -std=gnu23 -O2 -Wall -Wextra -Werror -I"$here" "$here/b.c" "$here/util.c" "$here"/languages/*.c -o "$temp" ;;
     esac
     mv "$temp" "$bin"
     trap - EXIT HUP INT TERM
