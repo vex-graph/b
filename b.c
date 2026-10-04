@@ -1,10 +1,12 @@
 // MODULE: b language CLI. No owned public class; argv and source paths are borrowed.
 // DEFINITION: A cold command dispatcher invokes compilers through posix_spawnp,
-// never through a shell. Child status reaches the caller; export and instance
-// requests fail before outputs or processes exist. Build artifacts are outside
+// never through a shell. Child status reaches the caller; export requests fail
+// before outputs or processes exist. Instance runs use the source runtime or
+// an existing executable, without constructing an artifact. Exec builds C/Java/
+// Rust source artifacts first. Build artifacts are outside
 // source trees. This initial adapter has no incremental graph or supervisor.
 // OVERVIEW: command validation; execute (child launch/status); outputDirectory
-// (canonical project identity); compile (C/Java); run (source/executable dispatch).
+// (canonical project identity); compile (C/Java/Rust); run (source/executable dispatch).
 #define _XOPEN_SOURCE 700
 #include <errno.h>
 #include <glob.h>
@@ -122,6 +124,18 @@ static bool endsWith(const char *text, const char *suffix) {
     return a >= b && strcmp(text + a - b, suffix) == 0;
 }
 
+static bool supportedLanguage(const char *language) {
+    return strcmp(language, "c") == 0 || strcmp(language, "java") == 0 || strcmp(language, "rust") == 0;
+}
+
+static const char *sourceExtension(const char *language) {
+    if (strcmp(language, "java") == 0)
+        return "/*.java";
+    if (strcmp(language, "rust") == 0)
+        return "/*.rs";
+    return "/*.c";
+}
+
 static int compile(const char *language, const char *project, char **sources, size_t count, char **output) {
     if (count > SIZE_MAX / sizeof(char*) - 20) {
         THROW("source argument count overflow");
@@ -131,6 +145,7 @@ static int compile(const char *language, const char *project, char **sources, si
     if (directory == nullptr)
         return EXIT_FAILURE;
     bool java = strcmp(language, "java") == 0;
+    bool rust = strcmp(language, "rust") == 0;
     *output = combine(directory, java ? "/classes" : "/program");
     if (java && !makeDirectory(*output)) {
         free(directory);
@@ -140,9 +155,13 @@ static int compile(const char *language, const char *project, char **sources, si
     char **arguments = allocate((count + 20) * sizeof(char*));
     size_t n = 0;
     const char *compiler = getenv("CC");
-    arguments[n++] = (char*) (java ? "javac" : compiler != nullptr && *compiler ? compiler : "cc");
+    arguments[n++] = (char*) (java ? "javac" : rust ? "rustc" : compiler != nullptr && *compiler ? compiler : "cc");
     if (java) {
         arguments[n++] = "-d";
+        arguments[n++] = *output;
+    } else if (rust) {
+        arguments[n++] = "--edition=2021";
+        arguments[n++] = "-o";
         arguments[n++] = *output;
     } else {
         arguments[n++] = "-std=gnu23";
@@ -169,7 +188,7 @@ static int compile(const char *language, const char *project, char **sources, si
 }
 
 static int build(const char *language, const char *input) {
-    if (strcmp(language, "c") != 0 && strcmp(language, "java") != 0) {
+    if (!supportedLanguage(language)) {
         THROW("unsupported language: %s", language);
         return EXIT_FAILURE;
     }
@@ -194,7 +213,7 @@ static int build(const char *language, const char *input) {
             escaped[position++] = '\\';
         escaped[position++] = project[i];
     }
-    char *pattern = combine(escaped, strcmp(language, "java") == 0 ? "/*.java" : "/*.c");
+    char *pattern = combine(escaped, sourceExtension(language));
     free(escaped);
     glob_t files = {0};
     int found = glob(pattern, 0, nullptr, &files);
@@ -215,7 +234,7 @@ static int build(const char *language, const char *input) {
     return status;
 }
 
-static int run(const char *input, int argc, char **argv) {
+static int run(const char *input, int argc, char **argv, bool buildArtifact) {
     char *file = realpath(input, nullptr);
     struct stat info;
     if (file == nullptr || stat(file, &info) != 0 || !S_ISREG(info.st_mode)) {
@@ -224,31 +243,53 @@ static int run(const char *input, int argc, char **argv) {
         return EXIT_FAILURE;
     }
     bool java = endsWith(file, ".java");
+    bool rust = endsWith(file, ".rs");
+    bool c = endsWith(file, ".c");
+    bool compiled = c || rust;
     char *output = nullptr;
+    char *mainClass = nullptr;
     int status = 0;
-    if (endsWith(file, ".c")) {
+    if (compiled && !buildArtifact) {
+        THROW("%s has no source runtime; use b run exec to compile then launch", rust ? "Rust" : "C");
+        status = EXIT_FAILURE;
+    } else if (compiled || (java && buildArtifact)) {
         char *project = combine(file, "");
         char *slash = strrchr(project, '/');
         if (slash != nullptr)
             slash[1] = '\0';
-        status = compile("c", project, &file, 1, &output);
+        status = compile(java ? "java" : rust ? "rust" : "c", project, &file, 1, &output);
         free(project);
+        if (java) {
+            const char *base = strrchr(file, '/');
+            mainClass = combine(base != nullptr ? base + 1 : file, "");
+            char *dot = strrchr(mainClass, '.');
+            if (dot != nullptr)
+                *dot = '\0';
+        }
     } else if (!java && access(file, X_OK) != 0) {
-        THROW("file is not executable or a supported C/Java source: %s", input);
+        THROW("file is not executable or a supported C/Java/Rust source: %s", input);
         status = EXIT_FAILURE;
     }
     if (status == 0) {
-        char **arguments = allocate(((size_t) argc + 3) * sizeof(char*));
+        char **arguments = allocate(((size_t) argc + 5) * sizeof(char*));
         size_t n = 0;
         arguments[n++] = java ? "java" : output != nullptr ? output : file;
-        if (java)
-            arguments[n++] = file;
+        if (java) {
+            if (buildArtifact) {
+                arguments[n++] = "-cp";
+                arguments[n++] = output;
+                arguments[n++] = mainClass;
+            } else {
+                arguments[n++] = file;
+            }
+        }
         for (int i = 0; i < argc; ++i)
             arguments[n++] = argv[i];
         status = execute(arguments);
         free(arguments);
     }
     free(output);
+    free(mainClass);
     free(file);
     return status;
 }
@@ -256,25 +297,27 @@ static int run(const char *input, int argc, char **argv) {
 int main(int argc, char **argv) {
     if (argc == 1 || (argc == 2 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "help") == 0))) {
         puts("b run <exec|instance> <filename> [-- arguments...]\n"
-             "b build <c|java> [directory]\n"
+             "b build <c|java|rust> [directory]\n"
              "b export <manifestmainfile> <destination> <exe|app|msi|iso|zip>\n"
              "b java <filename.java> [-- arguments...]\n"
-             "instance/export: planned, not implemented");
+             "instance: direct runtime/executable; exec: build source artifact then launch\n"
+             "export: planned, not implemented");
         return EXIT_SUCCESS;
     }
     if (strcmp(argv[1], "build") == 0 && (argc == 3 || argc == 4))
         return build(argv[2], argc == 4 ? argv[3] : ".");
     if (strcmp(argv[1], "run") == 0 && argc >= 4) {
-        if (strcmp(argv[2], "exec") != 0) {
-            THROW("run mode %s is unsupported; instance supervision is not implemented", argv[2]);
+        bool buildArtifact = strcmp(argv[2], "exec") == 0;
+        if (!buildArtifact && strcmp(argv[2], "instance") != 0) {
+            THROW("unsupported run mode: %s", argv[2]);
             return EXIT_FAILURE;
         }
         int start = argc > 4 && strcmp(argv[4], "--") == 0 ? 5 : 4;
-        return run(argv[3], argc - start, argv + start);
+        return run(argv[3], argc - start, argv + start, buildArtifact);
     }
     if (strcmp(argv[1], "java") == 0 && argc >= 3 && endsWith(argv[2], ".java")) {
         int start = argc > 3 && strcmp(argv[3], "--") == 0 ? 4 : 3;
-        return run(argv[2], argc - start, argv + start);
+        return run(argv[2], argc - start, argv + start, false);
     }
     if (strcmp(argv[1], "export") == 0 && argc == 5) {
         THROW("export is not implemented; no destination was created");
