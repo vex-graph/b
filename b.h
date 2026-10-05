@@ -21,7 +21,8 @@
 /* MODULE: shared utility API (implementation: util.c).
  * PUBLIC: Util_allocate; Util_combine; Util_endsWith; Util_makeDirectory;
  * Util_outputDirectory; Util_parentDirectory; Util_execute; Util_executeBuild;
- * Util_executeWithEnvironment; Util_collectSources; Util_freeSources;
+ * Util_executeWithEnvironment; Util_runCommand; Util_checkSources;
+ * Util_collectSources; Util_freeSources;
  * Util_environmentWith; Util_freeEnvironment.
  * MACRO: THROW — one recoverable cold rejection diagnostic.
  * No owned class or persistent state; callers release successful allocations.
@@ -44,6 +45,10 @@ int Util_execute(char **arguments);
 // Build diagnostics go to stderr; stdout remains the build result path.
 int Util_executeBuild(char **arguments);
 int Util_executeWithEnvironment(char **arguments, char **environment);
+// Append literal program arguments to a borrowed command prefix.
+int Util_runCommand(char **prefix, size_t prefixCount, int argc, char **argv);
+// Check each matching source independently; return the checked directory.
+int Util_checkSources(const char *project, const char *pattern, char **prefix, size_t prefixCount, char **output);
 
 char **Util_collectSources(const char *project, const char *extension, size_t *count, bool *ok);
 void Util_freeSources(char **sources, size_t count);
