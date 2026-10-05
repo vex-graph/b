@@ -6,6 +6,23 @@
 #include "languages/java.h"
 #include "b.h"
 
+;;DEFINITION
+/* The Java adapter preserves the difference between JDK source launching and
+ * compiled-class execution. Instance delegates to java; exec first invokes
+ * javac, then runs the filename's default-package main class. Directory builds
+ * compile top-level .java sources into out-of-tree classes. Dependency/package
+ * discovery is not inferred; allocated paths and argument lists are temporary.
+ */
+;;OVERVIEW
+/* MODULE: Java adapter; exported record: JAVA_LANGUAGE (languages/java.h).
+ * PRIVATE STATIC: compileJava — javac sources into classes directory;
+ * mainClass — allocate default-package filename stem;
+ * buildJava — discover directory sources and compile;
+ * runJava — source-launch instance or compile and launch classes.
+ * RECORD FIELDS: name="java"; extension=".java"; build=buildJava; run=runJava.
+ * Capability boundary: installed JDK required; no Maven/Gradle project discovery.
+ */
+
 #include <stdlib.h>
 #include <string.h>
 
