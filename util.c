@@ -74,6 +74,25 @@ int Util_execute(char **arguments) {
     return Util_executeWithEnvironment(arguments, environ);
 }
 
+int Util_executeBuild(char **arguments) {
+    posix_spawn_file_actions_t actions;
+    int error = posix_spawn_file_actions_init(&actions);
+    if (error != 0) {
+        THROW("cannot initialize build output: %s", strerror(error));
+        return EXIT_FAILURE;
+    }
+    error = posix_spawn_file_actions_adddup2(&actions, STDERR_FILENO, STDOUT_FILENO);
+    pid_t child;
+    if (error == 0)
+        error = posix_spawnp(&child, arguments[0], &actions, nullptr, arguments, environ);
+    posix_spawn_file_actions_destroy(&actions);
+    if (error != 0) {
+        THROW("cannot launch %s: %s", arguments[0], strerror(error));
+        return EXIT_FAILURE;
+    }
+    return reap(child);
+}
+
 bool Util_makeDirectory(char *path) {
     for (char *part = path + 1; ; ++part) {
         if (*part != '/' && *part != '\0')
