@@ -95,11 +95,12 @@
  * const char *label — display text.
  * Private global configuration/target/unit/generator/coverage tables persist
  * for this CLI invocation. No public class or cross-file ownership is added.
- * setup_graphvex registers five compositor shader entrypoints; color.frag also
+ * setup_graphvex registers six compositor shader entrypoints; color.frag also
  * watches filter/filter_type.h so its shared operation IDs invalidate SPIR-V.
  * Compositor GLSL resolves canonical includes from Graphvex's src root.
- * setup_graphvex_tests gives explicit Vulkan tests, including color_pass_test,
- * the Homebrew header directory and loader link/rpath flags.
+ * setup_graphvex_tests gives explicit Vulkan tests, including color_pass_test
+ * gpu_scope_test and filter_gallery_fixture_test, the Homebrew headers and
+ * loader link/rpath. Darling gallery apps already link that loader.
  */
 
 #include <stdarg.h>
@@ -780,7 +781,8 @@ static void setup_graphvex_tests(TargetList *tl) {
         if (!strcmp(name, "vk_renderer_test") || !strcmp(name, "device_test") ||
             !strcmp(name, "gpu_render_test") || !strcmp(name, "resize_clip_test") ||
             !strcmp(name, "surface_gpu_test") || !strcmp(name, "clip_rounded_test") ||
-            !strcmp(name, "color_pass_test")) {
+            !strcmp(name, "color_pass_test") || !strcmp(name, "gpu_scope_test") ||
+            !strcmp(name, "filter_gallery_fixture_test")) {
             strl_push(&(*t).includes, "/opt/homebrew/include");
             strl_push(&(*t).syslibs, "-L/opt/homebrew/lib");
             strl_push(&(*t).syslibs, "-lvulkan");
@@ -1071,7 +1073,7 @@ static void setup_graphvex(TargetList *tl) {
     // not embedded/bound by the flat renderer and do not confer GPU runtime
     // support. color.frag includes shared filter IDs; watch that header as well.
     const char *compositorShaders[] = {
-        "scatter.vert", "scatter.frag", "resolve.vert", "resolve.frag", "color.frag"
+        "scatter.vert", "scatter.frag", "resolve.vert", "resolve.frag", "color.frag", "scope.frag"
     };
     for (size_t i = 0; i < sizeof compositorShaders / sizeof compositorShaders[0]; i++) {
         char *src = strf("%s/src/shaders/compositor/%s", base, compositorShaders[i]);
