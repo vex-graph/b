@@ -3,7 +3,7 @@
 // `run exec` and `build` compile classes with javac into out-of-tree /classes,
 // then launch the default-package main class named by the file. Project/dependency
 // tooling is out of scope; this is the plain JDK path.
-#include "languages/java.h"
+#include "adapters/java.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -14,7 +14,8 @@
  * discovery is not inferred; allocated paths and argument lists are temporary.
  */
 ;;OVERVIEW
-/* MODULE: Java adapter; exported record: JAVA_LANGUAGE (languages/java.h).
+/* MODULE: Java adapter; exported record: JAVA_ADAPTER (adapters/java.h).
+ * METADATA: tools="java,javac"; capabilities="class build/exec; source instance".
  * PRIVATE STATIC: compileJava — javac sources into classes directory;
  * mainClass — allocate default-package filename stem;
  * buildJava — discover directory sources and compile;
@@ -103,4 +104,5 @@ static int runJava(const char *file, int argc, char **argv, bool buildArtifact) 
     return status;
 }
 
-const Language JAVA_LANGUAGE = { "java", ".java", buildJava, runJava };
+const Adapter JAVA_ADAPTER = { "java", ".java", buildJava, runJava,
+    "java,javac", "class build/exec; source instance" };
