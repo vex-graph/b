@@ -27,9 +27,12 @@ adapter names, run/build behavior, and separate workspace commands.
 
 ```text
 b run <exec|instance> <filename> [-- program arguments...]
-b build <language> [directory]
+b adapters
+b languages   # compatibility alias for adapters
+b doctor [adapter]
+b build <adapter> [directory]
 b upload arduino <sketch> --port <port> [--fqbn <matching-board>]
-b <language> <filename> [-- program arguments...]
+b <adapter> <filename> [-- program arguments...]
 b export <manifestmainfile> <destination> <exe|app|msi|iso|zip>
 ```
 
@@ -48,12 +51,21 @@ quoted. An omitted build directory means the current directory. Source discovery
 is top-level, not recursive. Builds print their result path; compiler diagnostics
 go to stderr. Failed compilation never launches an older artifact.
 
-## Supported languages — for now
+## Supported adapters — for now
+
+`Adapter` is the integration contract, not a claim that every entry is a
+programming language: CMake/npm/Cargo are project backends, HTML launches a
+document, and Arduino targets firmware deployment. Implementations live in
+`adapters/`. `b adapters` lists file selectors, capabilities and required tools;
+`b languages` is its compatibility alias. `b doctor [adapter]` checks executable
+presence on PATH or adapter overrides without running tools. It does **not**
+verify versions, SDKs, board cores or successful builds. Missing optional tools
+do not fail the unfiltered report; a selected missing/unknown adapter does.
 
 This list is a snapshot, not a ceiling. Install only the tools you need; b never
 downloads a toolchain automatically.
 
-| Language / CLI name | Required tool | What works today |
+| Adapter / CLI name | Required tool | What works today |
 | --- | --- | --- |
 | C / `c` | `cc` or `CC` | Single-file exec; directory build into one executable with `main()` |
 | Java / `java` | JDK (`java`, `javac`) | Source instance; compiled exec; top-level directory build |
@@ -71,10 +83,25 @@ downloads a toolchain automatically.
 | PHP / `php` | PHP CLI | Script runs; top-level `php -l` checks; no automatic web service |
 | POSIX shell / `shell` | `/bin/sh` | `.sh` runs; top-level `sh -n` syntax checks |
 | SQL / `sql` | PostgreSQL `psql` | Explicit-database `.sql` execution; no fake standalone compilation |
+| Go / `go` | `go` or `GO` | Package-directory build; single-file `go run` instance or compiled exec |
+| Lua / `lua` | `lua`/`luac` or `LUA`/`LUAC` | Script runtime in both modes; parse-only directory check with `luac -p` |
+| Zig / `zig` | `zig` or `ZIG` | Both source modes compile; directory uses build.zig, main.zig or exactly one source root |
+| Cargo / `cargo` | `cargo` or `CARGO`, `rustc` | Existing Cargo.toml builds/runs offline; external target directory, no guessed executable |
 
 Project backends are adapters too: `b build cmake` delegates to CMake, and
 `b build npm` delegates to the project's npm `build` script. They do not replace
 the native project metadata or package managers.
+
+Go retains native module/toolchain policy; b does not create modules or invoke
+`go get`. Set `GOTOOLCHAIN=local GOPROXY=off` for offline work. A non-main package
+may build an archive, not an executable. Cargo uses `--offline`, may write its
+lockfile and execute native build scripts; uncached dependencies reject.
+Multiple binaries require native `default-run` configuration. Zig project
+steps/dependency fetching remain build.zig policy. Lua is CLI Lua, not Luau or
+an engine-specific embedded dialect. New adapters have macOS-only test scope.
+
+Go instance preserves `go run`'s wrapper status (typically 1 for a failed
+program); Go exec preserves the native program's exit code.
 
 ```sh
 b run exec ./hello.c -- one two
@@ -264,14 +291,14 @@ which target to launch or run install/tests automatically. Other build backends
 can use the same delegation pattern; they are not all implemented yet.
 
 `b.c` is the suite: argument validation, registry dispatch and existing-executable
-fallback. Shared helpers live in `b.h`/`util.c`. Adding a language is one file pair
-under `languages/` and a registry entry in `languages/language.c`; adapter
-selection comes from the filename extension; build-only backends have no source
+fallback. Shared helpers live in `b.h`/`util.c`. Adding an adapter is one file pair
+under `adapters/` and a registry entry in `adapters/adapter.c`; adapter
+selection uses a file suffix or exact manifest basename; build-only backends have no source
 extension. Each C source/header begins with `;;DEFINITION` and `;;OVERVIEW`
 blueprints documenting capabilities, fields and public/private function registries.
 The markers compile to zero-runtime assertions in standalone `annotation.h`.
-Language shorthand should match
-that extension. Builds currently recompile rather than providing a shared cache.
+Adapter shorthand should match that file selector. Builds currently delegate
+incremental decisions to project backends rather than providing a shared cache.
 
 `workspace.c` is a compatibility adapter, not b's general project model. It
 preserves an existing workspace graph, shaders, tests and target launcher:
