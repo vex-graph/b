@@ -18,6 +18,9 @@ part is a goal, not a claim that export already works.
 
 ## What it can do
 
+See the **[command tree and examples](TREE.md)** for the complete command map,
+adapter names, run/build behavior, and separate workspace commands.
+
 ```text
 b run <exec|instance> <filename> [-- program arguments...]
 b build <language> [directory]
