@@ -11,15 +11,17 @@ Install the required toolchain before using its adapter.
 ```text
 b
 ├── help | --help                         (no command also prints help)
-├── build <language-or-backend> [directory]
-│   ├── native: c · cpp · objc · swift · java · rust · csharp
-│   ├── syntax/parse checks: python · r · javascript · typescript · php · shell
-│   ├── existing projects: cmake · npm
+├── adapters | languages                  (registry discovery; languages is an alias)
+├── doctor [adapter]                      (executable presence only)
+├── build <adapter> [directory]
+│   ├── native: c · cpp · objc · swift · java · rust · csharp · go · zig
+│   ├── syntax/parse checks: python · r · javascript · typescript · php · shell · lua
+│   ├── existing projects: cmake · npm · cargo · zig (build.zig)
 │   └── firmware compilation: arduino
 ├── run
 │   ├── exec <file> [-- arguments...]
 │   └── instance <file> [-- arguments...]
-├── <language> <file> [-- arguments...]     (instance shorthand)
+├── <adapter> <file> [-- arguments...]      (instance shorthand)
 ├── upload
 │   └── arduino <sketch> --port <port> [--fqbn <matching-board>]
 ├── export <manifestmainfile> <destination> <exe|app|msi|iso|zip>
@@ -54,9 +56,54 @@ builds a project but has no source run adapter.
 | `npm` | — | `package.json` |
 | `arduino` | — | `.ino` (build/upload only) |
 | `cmake` | — | Existing `CMakeLists.txt` project (build only) |
+| `go` | — | `.go` |
+| `lua` | — | `.lua` |
+| `zig` | — | `.zig` (directory builds may delegate build.zig) |
+| `cargo` | — | Exact `Cargo.toml` basename |
 
-Run dispatch uses the **file suffix**, including for language shorthand; a CLI
+Run dispatch uses the **file suffix** or exact manifest basename, including for adapter shorthand; a CLI
 name does not force a different compiler onto an incompatible file.
+
+## Discover adapters and inspect tools
+
+```sh
+b adapters
+b languages          # compatibility alias, identical output
+b doctor
+b doctor lua
+```
+
+Doctor searches PATH or named executable overrides without executing tools.
+It does not prove versions, SDKs or board cores. The full report permits absent
+optional tools; selecting a missing or unknown adapter returns an error.
+
+## Go, Lua, Zig and Cargo
+
+```sh
+b go ./main.go -- argument
+b run exec ./main.go
+b build go ./go-project
+b lua ./script.lua -- argument
+b build lua ./scripts
+b zig ./main.zig
+b build zig ./zig-project
+b build cargo ./rust-project
+b cargo ./rust-project/Cargo.toml -- argument
+b run exec ./rust-project/Cargo.toml
+```
+
+Go directory builds use native modules; single-file runs compile only that file.
+Instance returns go run's wrapper status; exec returns the native program status.
+`GOTOOLCHAIN=local GOPROXY=off` forbids toolchain/dependency downloads; b does not
+create go.mod or invoke go get. Non-main packages may produce archives.
+Lua build parses each source without running it; both run modes use Lua.
+Zig both run modes compile; a directory delegates build.zig or selects main.zig
+or exactly one root. Project build returns an external install prefix, not a
+guessed executable; build.zig owns its steps and dependency policy.
+Cargo uses `--offline` and an external target directory; native default-run
+selects binaries, ambiguity rejects. Exec builds before cargo run; instance
+delegates cargo run (which may compile). Cargo may write a lockfile and execute
+trusted build scripts. No automatic dependency installation is offered.
 
 ## Run: breeze
 
