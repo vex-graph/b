@@ -97,6 +97,8 @@
  * for this CLI invocation. No public class or cross-file ownership is added.
  * setup_graphvex registers five compositor shader entrypoints; color.frag also
  * watches filter/filter_type.h so its shared operation IDs invalidate SPIR-V.
+ * setup_graphvex_tests gives explicit Vulkan tests, including color_pass_test,
+ * the Homebrew header directory and loader link/rpath flags.
  */
 
 #include <stdarg.h>
@@ -773,10 +775,12 @@ static void setup_graphvex_tests(TargetList *tl) {
         strl_push(&(*t).defs, "UNDEBUG");
         strl_push(&(*t).deps, "graphvex");
         add_exe_libs(t);
-        // the renderer row references the Vulkan Device; its test links the loader
+        // Explicit Vulkan clients require both SDK headers and the loader.
         if (!strcmp(name, "vk_renderer_test") || !strcmp(name, "device_test") ||
             !strcmp(name, "gpu_render_test") || !strcmp(name, "resize_clip_test") ||
-            !strcmp(name, "surface_gpu_test") || !strcmp(name, "clip_rounded_test")) {
+            !strcmp(name, "surface_gpu_test") || !strcmp(name, "clip_rounded_test") ||
+            !strcmp(name, "color_pass_test")) {
+            strl_push(&(*t).includes, "/opt/homebrew/include");
             strl_push(&(*t).syslibs, "-L/opt/homebrew/lib");
             strl_push(&(*t).syslibs, "-lvulkan");
             strl_push(&(*t).syslibs, "-Wl,-rpath,/opt/homebrew/lib");
