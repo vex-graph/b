@@ -7,6 +7,23 @@
 #include "languages/csharp.h"
 #include "b.h"
 
+;;DEFINITION
+/* .NET 10+ provides file-based C# applications without a hand-written project.
+ * Build/exec request a managed program.dll outside source and preserve stdout
+ * for the result path. Exec launches only after a successful build; instance
+ * delegates to dotnet run --file, whose own runtime workflow compiles internally.
+ * Project discovery and self-contained publishing are deliberately not guessed.
+ */
+;;OVERVIEW
+/* MODULE: C# adapter; exported record: CSHARP_LANGUAGE (languages/csharp.h).
+ * PRIVATE STATIC: compileCsharp — build one file-based managed program;
+ * buildCsharp — require exactly one top-level .cs entry;
+ * runCsharp — file runner or compile-before-launch, forwarding args/status.
+ * RECORD FIELDS: name="csharp"; extension=".cs";
+ * build=buildCsharp; run=runCsharp.
+ * OWNERSHIP: temporary target paths and argument arrays are released per call.
+ */
+
 #include <stdlib.h>
 
 static int compileCsharp(const char *project, const char *file, char **output) {
