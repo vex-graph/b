@@ -19,7 +19,7 @@ if [ "${1:-}" = workspace ]; then
     shift
     cd "$workspace"
     bin="$state/workspace-cli"
-    if [ ! -x "$bin" ] || [ "$here/workspace.c" -nt "$bin" ]; then
+    if [ ! -x "$bin" ] || [ "$here/workspace.c" -nt "$bin" ] || [ "$here/annotation.h" -nt "$bin" ]; then
         temp="$bin.$$"
         trap 'rm -f "$temp"' EXIT
         trap 'rm -f "$temp"; exit 130' HUP INT TERM
@@ -37,7 +37,7 @@ fi
 bin="$state/cli"
 stale=0
 [ -x "$bin" ] || stale=1
-for f in "$here/b.c" "$here/util.c" "$here/util.h" "$here/b.h" "$here"/languages/*.c "$here"/languages/*.h; do
+for f in "$here/b.c" "$here/util.c" "$here/util.h" "$here/b.h" "$here/annotation.h" "$here"/languages/*.c "$here"/languages/*.h; do
     [ -e "$f" ] || continue
     [ "$f" -nt "$bin" ] && stale=1
 done
