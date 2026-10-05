@@ -1,4 +1,4 @@
-#include "languages/npm.h"
+#include "adapters/npm.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -9,10 +9,11 @@
  * execution (which may itself use a shell). No install/download is automatic.
  */
 ;;OVERVIEW
-/* MODULE: npm backend; PUBLIC RECORD: NPM_LANGUAGE (npm.h).
+/* MODULE: npm backend; PUBLIC RECORD: NPM_ADAPTER (npm.h).
  * PRIVATE STATIC: hasManifest — validate package.json; buildNpm — native build
  * script; runNpm — require literal package.json entry and forward start args.
  * RECORD FIELDS: name="npm", extension="package.json", build=buildNpm, run=runNpm.
+ * METADATA: tools="npm,node"; capabilities="build/start scripts; exec builds then starts".
  * Return paths are caller-owned; child diagnostics/status are preserved.
  */
 
@@ -65,4 +66,5 @@ static int runNpm(const char *file, int argc, char **argv, bool buildArtifact) {
     return status;
 }
 
-const Language NPM_LANGUAGE = { "npm", "package.json", buildNpm, runNpm };
+const Adapter NPM_ADAPTER = { "npm", "package.json", buildNpm, runNpm,
+    "npm,node", "build/start scripts; exec builds then starts" };
