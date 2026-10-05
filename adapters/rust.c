@@ -2,8 +2,8 @@
 // DEFINITION: Compiles a directory's single crate root with rustc (edition
 // 2021) into one native executable; `run exec` compiles a single file on demand.
 // Rust has no source runtime, so `run instance` rejects. Requires rustc on PATH;
-// b does not download it. Cargo projects are future work.
-#include "languages/rust.h"
+// b does not download it. Cargo projects use the separate cargo adapter.
+#include "adapters/rust.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -11,14 +11,15 @@
  * A directory chooses main.rs, otherwise its sole .rs file; ambiguous roots
  * reject before compilation. Exec builds then launches; instance rejects.
  * Modules are resolved by Rust's mod declarations. Output is an out-of-tree
- * native program; Cargo discovery is not implemented.
+ * native program; Cargo projects use the separate cargo adapter.
  */
 ;;OVERVIEW
-/* MODULE: Rust adapter; exported record: RUST_LANGUAGE (languages/rust.h).
+/* MODULE: Rust adapter; exported record: RUST_ADAPTER (adapters/rust.h).
  * PRIVATE STATIC: compileRust — rustc edition-2021 compilation;
  * buildRust — choose directory crate root and compile;
  * runRust — reject instance or compile then execute with program args.
  * RECORD FIELDS: name="rust"; extension=".rs"; build=buildRust; run=runRust.
+ * METADATA: tools="rustc"; capabilities="native build/exec; source instance rejects".
  * OWNERSHIP: temporary paths/source lists/argv are released after child status.
  */
 
@@ -91,4 +92,5 @@ static int runRust(const char *file, int argc, char **argv, bool buildArtifact) 
     return status;
 }
 
-const Language RUST_LANGUAGE = { "rust", ".rs", buildRust, runRust };
+const Adapter RUST_ADAPTER = { "rust", ".rs", buildRust, runRust,
+    "rustc", "native build/exec; source instance rejects" };

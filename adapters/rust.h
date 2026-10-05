@@ -3,8 +3,8 @@
 ;;DEFINITION
 /* Immutable crate-root compiler adapter contract; behavior lives in rust.c. */
 ;;OVERVIEW
-/* PUBLIC RECORD: RUST_LANGUAGE; fields name="rust", extension=".rs",
+/* PUBLIC RECORD: RUST_ADAPTER; fields name="rust", extension=".rs",
  * build=buildRust, run=runRust. No functions or owned state in this header.
  */
-#include "languages/language.h"
-extern const Language RUST_LANGUAGE;
+#include "adapters/adapter.h"
+extern const Adapter RUST_ADAPTER;
