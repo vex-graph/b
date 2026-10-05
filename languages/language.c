@@ -10,7 +10,24 @@
 #include "languages/rust.h"
 #include "languages/r.h"
 #include "languages/arduino.h"
+#include "languages/cmake.h"
 #include "b.h"
+
+;;DEFINITION
+/* One registry is the suite's adapter source of truth. Its static pointer list
+ * borrows immutable Language records exported by the adapter headers. Adding a
+ * record makes its CLI name and extension discoverable without toolchain logic
+ * in the suite. Lookup is linear over the current list and allocates nothing.
+ */
+;;OVERVIEW
+/* MODULE: adapter registry; public declarations: languages/language.h.
+ * PUBLIC: Language_forName — lookup by CLI name;
+ * Language_forFile — lookup by filename extension.
+ * PRIVATE DATA: LANGUAGES — borrowed const Language pointers, in dispatch order.
+ * RECORDS: C_LANGUAGE; JAVA_LANGUAGE; PYTHON_LANGUAGE; RUST_LANGUAGE;
+ * CSHARP_LANGUAGE; R_LANGUAGE; R_LOWER_LANGUAGE; ARDUINO_LANGUAGE; CMAKE_LANGUAGE.
+ * Records carry name, extension, build and run fields documented in language.h.
+ */
 
 #include <string.h>
 
@@ -23,6 +40,7 @@ static const Language *const LANGUAGES[] = {
     &R_LANGUAGE,
     &R_LOWER_LANGUAGE,
     &ARDUINO_LANGUAGE,
+    &CMAKE_LANGUAGE,
 };
 
 const Language *Language_forName(const char *name) {
@@ -34,7 +52,7 @@ const Language *Language_forName(const char *name) {
 
 const Language *Language_forFile(const char *path) {
     for (size_t i = 0; i < sizeof LANGUAGES / sizeof LANGUAGES[0]; ++i)
-        if (Util_endsWith(path, (*LANGUAGES[i]).extension))
+        if ((*LANGUAGES[i]).extension != nullptr && Util_endsWith(path, (*LANGUAGES[i]).extension))
             return LANGUAGES[i];
     return nullptr;
 }
