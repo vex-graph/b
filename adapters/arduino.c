@@ -8,8 +8,8 @@
 // standard sketch directories retain all their tabs and libraries. No renaming
 // or edits are made to the user's source.
 // OVERVIEW: cli; stageFile; sketchDirectory; boardFromHeader; compileSketch; buildArduino; runArduino rejects
-// host execution; Arduino_upload validates flags; ARDUINO_LANGUAGE.
-#include "languages/arduino.h"
+// host execution; Arduino_upload validates flags; ARDUINO_ADAPTER.
+#include "adapters/arduino.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -22,10 +22,12 @@
  * Installed CLI/IDE tooling owns cores and libraries; no downloads are inferred.
  */
 ;;OVERVIEW
-/* MODULE: Arduino adapter; public declarations: languages/arduino.h.
+/* MODULE: Arduino adapter; public declarations: adapters/arduino.h.
  * PUBLIC: Arduino_upload — validate flags, resolve/stage sketch, compile, flash.
- * EXPORTED RECORD: ARDUINO_LANGUAGE {name="arduino", extension=".ino",
+ * EXPORTED RECORD: ARDUINO_ADAPTER {name="arduino", extension=".ino",
  * build=buildArduino, run=runArduino}.
+ * METADATA: tools="ARDUINO_CLI=arduino-cli";
+ * capabilities="firmware build/upload; no host run".
  * PRIVATE STATIC: cli — override/PATH/macOS-bundle tool resolution;
  * stageFile — copy one standalone source without changing the original;
  * sketchDirectory — validate file/folder and choose standard or staged sketch;
@@ -286,4 +288,5 @@ int Arduino_upload(int argc, char **argv) {
     return status;
 }
 
-const Language ARDUINO_LANGUAGE = { "arduino", ".ino", buildArduino, runArduino };
+const Adapter ARDUINO_ADAPTER = { "arduino", ".ino", buildArduino, runArduino,
+    "ARDUINO_CLI=arduino-cli", "firmware build/upload; no host run" };
