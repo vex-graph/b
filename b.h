@@ -10,6 +10,23 @@
 // Util_freeEnvironment).
 #pragma once
 
+#include "annotation.h"
+
+;;DEFINITION
+/* Shared standalone services for every adapter. Arguments and inherited
+ * environment entries are borrowed; returned strings/arrays are caller-owned.
+ * Children run without a shell. Build output is separated from diagnostics.
+ */
+;;OVERVIEW
+/* MODULE: shared utility API (implementation: util.c).
+ * PUBLIC: Util_allocate; Util_combine; Util_endsWith; Util_makeDirectory;
+ * Util_outputDirectory; Util_parentDirectory; Util_execute; Util_executeBuild;
+ * Util_executeWithEnvironment; Util_collectSources; Util_freeSources;
+ * Util_environmentWith; Util_freeEnvironment.
+ * MACRO: THROW — one recoverable cold rejection diagnostic.
+ * No owned class or persistent state; callers release successful allocations.
+ */
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
