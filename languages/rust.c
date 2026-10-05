@@ -6,6 +6,22 @@
 #include "languages/rust.h"
 #include "b.h"
 
+;;DEFINITION
+/* Rust uses one rustc crate root, never treats every module as a separate root.
+ * A directory chooses main.rs, otherwise its sole .rs file; ambiguous roots
+ * reject before compilation. Exec builds then launches; instance rejects.
+ * Modules are resolved by Rust's mod declarations. Output is an out-of-tree
+ * native program; Cargo discovery is not implemented.
+ */
+;;OVERVIEW
+/* MODULE: Rust adapter; exported record: RUST_LANGUAGE (languages/rust.h).
+ * PRIVATE STATIC: compileRust — rustc edition-2021 compilation;
+ * buildRust — choose directory crate root and compile;
+ * runRust — reject instance or compile then execute with program args.
+ * RECORD FIELDS: name="rust"; extension=".rs"; build=buildRust; run=runRust.
+ * OWNERSHIP: temporary paths/source lists/argv are released after child status.
+ */
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
