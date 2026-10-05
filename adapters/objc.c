@@ -1,4 +1,4 @@
-#include "languages/objc.h"
+#include "adapters/objc.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -9,7 +9,9 @@
  * hosts reject explicitly rather than claiming an untested GNUstep contract.
  */
 ;;OVERVIEW
-/* MODULE: Objective-C adapter; PUBLIC RECORD: OBJC_LANGUAGE (objc.h).
+/* MODULE: Objective-C adapter; PUBLIC RECORD: OBJC_ADAPTER (objc.h).
+ * METADATA: tools="CC=clang";
+ * capabilities="macOS Foundation build/exec; source instance rejects".
  * PRIVATE STATIC: compileObjc — strict ARC/Foundation compilation;
  * buildObjc — directory source discovery; runObjc — compiled-only execution.
  * RECORD FIELDS: name="objc", extension=".m", build=buildObjc, run=runObjc.
@@ -94,4 +96,5 @@ static int runObjc(const char *file, int argc, char **argv, bool buildArtifact) 
     return status;
 }
 
-const Language OBJC_LANGUAGE = { "objc", ".m", buildObjc, runObjc };
+const Adapter OBJC_ADAPTER = { "objc", ".m", buildObjc, runObjc,
+    "CC=clang", "macOS Foundation build/exec; source instance rejects" };
