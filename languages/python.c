@@ -7,6 +7,23 @@
 #include "languages/python.h"
 #include "b.h"
 
+;;DEFINITION
+/* Python executes through the installed python3 interpreter in both modes;
+ * exec does not claim to make a native binary. Directory build is a py_compile
+ * syntax/bytecode check with cache redirected outside the source tree. The
+ * environment overlay borrows inherited entries and owns its replacement;
+ * every temporary allocation is freed after the child completes.
+ */
+;;OVERVIEW
+/* MODULE: Python adapter; exported record: PYTHON_LANGUAGE (languages/python.h).
+ * PRIVATE STATIC: buildPython — collect .py inputs and invoke py_compile with
+ * PYTHONPYCACHEPREFIX; runPython — interpreter invocation with program args.
+ * RECORD FIELDS: name="python"; extension=".py";
+ * build=buildPython; run=runPython.
+ * CAPABILITIES: source execution, bytecode check, exit-code forwarding;
+ * no packaging, native executable generation or package installation.
+ */
+
 #include <stdlib.h>
 
 static int buildPython(const char *project, char **output) {
