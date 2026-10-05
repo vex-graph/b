@@ -1,4 +1,4 @@
-#include "languages/cpp.h"
+#include "adapters/cpp.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -8,8 +8,10 @@
  * Library/project flags are not guessed; use the CMake backend for full projects.
  */
 ;;OVERVIEW
-/* MODULE: C++ adapter; PUBLIC RECORDS (cpp.h): CPP_LANGUAGE {cpp/.cpp},
- * CXX_LANGUAGE {cxx/.cc}, CPP_LONG_LANGUAGE {c++/.cxx}; build=buildCpp, run=runCpp.
+/* MODULE: C++ adapter; PUBLIC RECORDS (cpp.h): CPP_ADAPTER {cpp/.cpp},
+ * CXX_ADAPTER {cxx/.cc}, CPP_LONG_ADAPTER {c++/.cxx}; build=buildCpp, run=runCpp.
+ * METADATA (all records): tools="CXX=c++";
+ * capabilities="native build/exec; source instance rejects".
  * PRIVATE STATIC: compileCpp — compile explicit sources; buildCpp — discover
  * directory sources; runCpp — compile-before-launch, reject instance.
  * Temporary paths/source lists/argv freed; native child status preserved.
@@ -82,6 +84,9 @@ static int runCpp(const char *file, int argc, char **argv, bool buildArtifact) {
     return status;
 }
 
-const Language CPP_LANGUAGE = { "cpp", ".cpp", buildCpp, runCpp };
-const Language CXX_LANGUAGE = { "cxx", ".cc", buildCpp, runCpp };
-const Language CPP_LONG_LANGUAGE = { "c++", ".cxx", buildCpp, runCpp };
+const Adapter CPP_ADAPTER = { "cpp", ".cpp", buildCpp, runCpp,
+    "CXX=c++", "native build/exec; source instance rejects" };
+const Adapter CXX_ADAPTER = { "cxx", ".cc", buildCpp, runCpp,
+    "CXX=c++", "native build/exec; source instance rejects" };
+const Adapter CPP_LONG_ADAPTER = { "c++", ".cxx", buildCpp, runCpp,
+    "CXX=c++", "native build/exec; source instance rejects" };
