@@ -28,6 +28,72 @@
 
 #define _DARWIN_C_SOURCE
 
+#include "annotation.h"
+
+;;DEFINITION
+/* The preserved workspace coordinator owns a concrete target graph and the
+ * build-state lifecycle, not a replacement compiler. Targets become compile
+ * units; compiler depfiles and content hashes decide which objects can be
+ * reused. Child jobs produce logs, then libraries/programs are linked after
+ * dependencies. Generators stage shaders, runnable targets can be packaged,
+ * and explicit test/coverage commands collect scoped execution evidence.
+ * Its process-global records are private to this one-shot CLI. This overview
+ * documents the legacy engine without changing its implementation or ownership.
+ */
+;;OVERVIEW
+/* MODULE: workspace compatibility graph. PUBLIC ENTRY: main.
+ * PRIVATE STATIC FUNCTION REGISTRY:
+ * Allocation/diagnostics: die, xmalloc, xrealloc, xstrdup, strf.
+ * Files/paths: path_exists, is_dir, mkdir_p, mkdir_parent, read_file, write_file,
+ * relativize, json_escape, abspath, glob_rec.
+ * Lists/argv: strl_push, strl_pushf, strl_extend, cmp_str, strl_sort, cmd_argv,
+ * cmd_join, strl_push_unique.
+ * Hash/time: fnv1a, hash_str, hash_file, stamp_of.
+ * Processes: run_sync, run_capture, job_start, run_jobs, run_test.
+ * Target graph: tl_push, find_target, target_new, add_exe_libs, setup_targets.
+ * Toolchain: apple_frameworks, setup_paths, cc_version, base_cflags, base_lflags.
+ * Target declarations: setup_vexspoke, setup_darling, setup_graphvex_tests,
+ * setup_vexspoke_tests, setup_sesh, setup_impedance, setup_apihaven, setup_hotcwap,
+ * has_main, setup_apps, setup_graphvex, setup_darling_tests.
+ * Compilation/cache: mangle, unit_paths, collect_pub, unit_build_cmd,
+ * parse_depfile, unit_up_to_date, write_meta, unit_content_hash, cache_path,
+ * compile_all, target_objs_changed, target_obj_hash.
+ * Link/package/generation: make_app_bundle, collect_link_libs, target_dep_sig,
+ * link_target, add_gen, run_gens, build_all.
+ * Coverage parsing: ident_char, sl_has, load_lines, load_pairs, is_type_word,
+ * scrub_header, header_functions, word_in, unit_rel, own_header, owner_test_for,
+ * src_matches, cov_add, cov_has, load_lcov, baseline_path, run_coverage.
+ * Watch/IDE export: watch_snapshot, gen_compile_commands, ide_strings,
+ * export_ide_graph, rebuild_self.
+ * Runnable selection: target_runnable, target_label, target_group, list_runnables,
+ * match_targets, resolve_runnable, match_sources, find_source_for, synth_target,
+ * usage.
+ * PRIVATE HELPERS (file-local fields in declaration order):
+ * StrList: char **items — string rows; int count — used rows; int cap — storage.
+ * Cmd: alias of StrList — child argument collection, same fields.
+ * Stamp: long long sec — file modification seconds; long long nsec — fraction;
+ * long long size — file bytes.
+ * Job: Cmd cmd — arguments; char *log_path — captured output; pid_t pid — child;
+ * int status — completion; bool started — admitted; const char *label — job name.
+ * Target: const char *name — identity; TKind kind — lib/module/exe/app;
+ * StrList srcs — source files; StrList includes — include directories;
+ * StrList defs — own definitions; StrList pub_defs — propagated definitions;
+ * StrList cflags — compile options; StrList deps — dependency target names;
+ * StrList syslibs — platform link arguments; StrList objc_arc — ARC source files;
+ * char *out_path — output; bool is_test — test admission; bool selected — build set.
+ * TargetList: Target *items — target rows; int count — used; int cap — capacity.
+ * Unit: Target *t — owner; const char *src — source; char *obj — object path;
+ * char *dep — dependency file; char *meta — saved inputs; char *ohash_path — hash;
+ * Cmd cmd — compiler argv; uint64_t cmdhash — options identity;
+ * bool need_build — stale decision; Job job — child compile state.
+ * GenStep: char *src — input; char *out — generated output; Cmd cmd — tool argv.
+ * CovHit: char *test — owner test; char *src — subject; char *fn — covered function.
+ * Runnable: const char *group — menu group; const char *name — target identity;
+ * const char *label — display text.
+ * Private global configuration/target/unit/generator/coverage tables persist
+ * for this CLI invocation. No public class or cross-file ownership is added.
+ */
+
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
