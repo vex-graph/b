@@ -1,4 +1,4 @@
-#include "languages/cmake.h"
+#include "adapters/cmake.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -10,7 +10,8 @@
  * are not implicitly run. The caller runs its chosen built program explicitly.
  */
 ;;OVERVIEW
-/* MODULE: CMake build backend; exported record: CMAKE_LANGUAGE (cmake.h).
+/* MODULE: CMake build backend; exported record: CMAKE_ADAPTER (cmake.h).
+ * METADATA: tools="cmake"; capabilities="project configure/build; no source run".
  * PRIVATE STATIC: buildCmake — require CMakeLists.txt, configure, build;
  * runCmake — reject source execution and explain artifact selection.
  * RECORD FIELDS: name="cmake"; extension=nullptr (no filename dispatch);
@@ -53,4 +54,5 @@ static int runCmake(const char *file, int argc, char **argv, bool buildArtifact)
     return EXIT_FAILURE;
 }
 
-const Language CMAKE_LANGUAGE = { "cmake", nullptr, buildCmake, runCmake };
+const Adapter CMAKE_ADAPTER = { "cmake", nullptr, buildCmake, runCmake,
+    "cmake", "project configure/build; no source run" };
