@@ -6,7 +6,9 @@ C is the implementation language, not a restriction on what b can run.
 
 b isn't trying to be the next big build system or a replacement for Tsoding's
 [nob](https://github.com/tsoding/nob.h). It isn't a new compiler, package manager,
-or language. The aim is simpler: use the same small command vocabulary while
+or language. It is an orchestrator on top of existing toolchains and build
+systems, giving you another entry point rather than replacing their projects.
+The aim is simpler: use the same small command vocabulary while
 letting each language's existing tools do the work.
 
 ## What it can do
@@ -14,7 +16,7 @@ letting each language's existing tools do the work.
 ```text
 b run <exec|instance> <filename> [-- program arguments...]
 b build <language> [directory]
-b upload arduino <sketch> --fqbn <board> --port <port>
+b upload arduino <sketch> --port <port> [--fqbn <matching-board>]
 b <language> <filename> [-- program arguments...]
 b export <manifestmainfile> <destination> <exe|app|msi|iso|zip>
 ```
@@ -59,7 +61,7 @@ b build python ./scripts
 b build rust ./crate
 b build csharp ./csharp-src
 b build r ./r-scripts
-b upload arduino ./Blink/Blink.ino --fqbn arduino:avr:uno --port /dev/cu.YOUR_BOARD
+b upload arduino ./Blink/Blink.ino --port /dev/cu.YOUR_BOARD
 ```
 
 Java exec assumes a default-package main class matching the filename. Rust
@@ -76,16 +78,28 @@ directory; it does not create an artifact or install R packages. R runs use
 
 ### Arduino sketches
 
-`upload` compiles first and flashes only after compilation succeeds. Supply both
-the fully qualified board name (FQBN) and the actual port explicitly; b never
-guesses a connected board. Find them using `arduino-cli board list` and
-`arduino-cli board listall`. For an Uno, the FQBN is `arduino:avr:uno`.
-Uploading replaces the program on the board.
+Every primary sketch must begin with this first-line header (Uno example):
 
-For compile-only work, set `ARDUINO_FQBN` and use `b build arduino ./Blink`:
+```cpp
+// b_build("arduino:avr:uno")
+```
+
+The quoted value is the fully qualified board name (FQBN), not its display name.
+Use the board's real FQBN, including any required options; for example a Nano
+with the old bootloader uses `arduino:avr:nano:cpu=atmega328old`. Find board names
+with `arduino-cli board listall` and the current port with `arduino-cli board list`.
+Do not put a blank line or another comment before the header.
+
+`upload` reads the board from that header, compiles first, and flashes only after
+compilation succeeds. Supply the actual port explicitly; b never guesses the
+connected device. An optional `--fqbn` must match the header exactly or b rejects
+before compiling/uploading. Missing, malformed and oversized headers reject
+without launching Arduino CLI. Uploading replaces the program on the board.
+
+For compile-only work, the same header supplies the board:
 
 ```sh
-ARDUINO_FQBN=arduino:avr:uno b build arduino ./Blink
+b build arduino ./Blink
 ```
 
 A standard sketch folder has a primary `.ino` matching its folder name; b builds
@@ -143,10 +157,22 @@ It uses the current editor file, not a hardcoded project or language list.
 
 ### Layout and limits
 
+Existing CMake projects work through `b build cmake /path/to/project`. b invokes
+`cmake -S <source> -B <external-build-directory>`, then `cmake --build` only after
+configuration succeeds. CMake retains its targets, dependencies, flags and
+incremental decisions. The result path is a build directory; run the chosen
+artifact explicitly with `b run exec /path/to/build/program`. b does not guess
+which target to launch or run install/tests automatically. Other build backends
+can use the same delegation pattern; they are not all implemented yet.
+
 `b.c` is the suite: argument validation, registry dispatch and existing-executable
 fallback. Shared helpers live in `b.h`/`util.c`. Adding a language is one file pair
 under `languages/` and a registry entry in `languages/language.c`; adapter
-selection comes from the filename extension. Language shorthand should match
+selection comes from the filename extension; build-only backends have no source
+extension. Each C source/header begins with `;;DEFINITION` and `;;OVERVIEW`
+blueprints documenting capabilities, fields and public/private function registries.
+The markers compile to zero-runtime assertions in standalone `annotation.h`.
+Language shorthand should match
 that extension. Builds currently recompile rather than providing a shared cache.
 
 `workspace.c` is a compatibility adapter, not b's general project model. It
