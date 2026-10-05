@@ -1,14 +1,108 @@
 # b
 
-A general-purpose, language-agnostic build system written in C23.
+b is a general-purpose, language-agnostic build system written in C23: a small
+command suite for running files and handing builds to their native toolchains.
+C is the implementation language, not a restriction on what b can run.
 
-One CLI to **run, build and export** projects across languages and platforms.
-The build graph describes targets, inputs, dependencies and outputs; adapters
-connect that graph to language toolchains, execution environments and packaging
-formats. C is the implementation language, not a restriction on what b builds.
+b isn't trying to be the next big build system or a replacement for Tsoding's
+[nob](https://github.com/tsoding/nob.h). It isn't a new compiler, package manager,
+or language. The aim is simpler: use the same small command vocabulary while
+letting each language's existing tools do the work.
 
-The current implementation starts with C and Java. Other adapters and the shared
-project-manifest contract remain planned, as detailed below.
+## What it can do
+
+```text
+b run <exec|instance> <filename> [-- program arguments...]
+b build <language> [directory]
+b upload arduino <sketch> --fqbn <board> --port <port>
+b <language> <filename> [-- program arguments...]
+b export <manifestmainfile> <destination> <exe|app|msi|iso|zip>
+```
+
+`run instance` runs a file as-is through its runtime, or launches an existing
+native executable. It does not package an app. `run exec` builds a runnable
+source artifact first, then launches it for compiled languages. Python and R
+use their interpreters in both modes; there is no standalone binary build here.
+C# instance uses .NET's file runner, which itself compiles internally.
+C and Rust have no source runtime here and reject instance mode.
+
+Arguments and program exit codes are preserved. Paths with spaces work when
+quoted. An omitted build directory means the current directory. Source discovery
+is top-level, not recursive. Builds print their result path; compiler diagnostics
+go to stderr. Failed compilation never launches an older artifact.
+
+## Supported languages — for now
+
+This list is a snapshot, not a ceiling. Install only the tools you need; b never
+downloads a toolchain automatically.
+
+| Language / CLI name | Required tool | What works today |
+| --- | --- | --- |
+| C / `c` | `cc` or `CC` | Single-file exec; directory build into one executable with `main()` |
+| Java / `java` | JDK (`java`, `javac`) | Source instance; compiled exec; top-level directory build |
+| Python / `python` | `python3` | Interpreter runs; directory bytecode syntax check |
+| Rust / `rust` | `rustc` | Single-file exec; directory build with `main.rs` or one `.rs` crate root |
+| C# / `csharp` | .NET SDK 10+ (`dotnet`) | File-based `.cs` instance/exec; directory build with exactly one `.cs` entry |
+| R / `r` (also `R`) | `Rscript` | `.R`/`.r` interpreter runs; parse-only directory check |
+| Arduino / `arduino` | Arduino CLI and installed board core | Sketch compilation and explicit compile-before-upload |
+
+```sh
+b run exec ./hello.c -- one two
+b java ./Hello.java -- world
+b python ./app.py
+b run exec ./hello.rs
+b run exec ./hello.cs -- world
+b r ./hello.R -- world
+b build c ./native
+b build java ./java-src
+b build python ./scripts
+b build rust ./crate
+b build csharp ./csharp-src
+b build r ./r-scripts
+b upload arduino ./Blink/Blink.ino --fqbn arduino:avr:uno --port /dev/cu.YOUR_BOARD
+```
+
+Java exec assumes a default-package main class matching the filename. Rust
+modules are loaded by `mod` from the crate root, not passed as separate compiler
+inputs. Cargo and `.csproj` discovery are not implemented. C# builds a managed
+`program.dll` requiring `dotnet`, not a self-contained native executable.
+.NET may restore dependencies declared in a file and honors surrounding SDK,
+NuGet and MSBuild configuration; builds are not sandboxed.
+
+Python `build` uses `py_compile` with `PYTHONPYCACHEPREFIX` outside the source tree.
+R `build` parses without evaluating scripts and returns the checked source
+directory; it does not create an artifact or install R packages. R runs use
+`--vanilla`, so user profiles and saved workspaces are not loaded.
+
+### Arduino sketches
+
+`upload` compiles first and flashes only after compilation succeeds. Supply both
+the fully qualified board name (FQBN) and the actual port explicitly; b never
+guesses a connected board. Find them using `arduino-cli board list` and
+`arduino-cli board listall`. For an Uno, the FQBN is `arduino:avr:uno`.
+Uploading replaces the program on the board.
+
+For compile-only work, set `ARDUINO_FQBN` and use `b build arduino ./Blink`:
+
+```sh
+ARDUINO_FQBN=arduino:avr:uno b build arduino ./Blink
+```
+
+A standard sketch folder has a primary `.ino` matching its folder name; b builds
+the whole folder, including its tabs. A standalone `.ino` elsewhere is staged
+as a correctly named sketch outside your source tree for upload. Only that file
+is staged; sibling headers/tabs are not copied. Use a standard sketch folder
+for multi-file work. `run exec`/`run instance` cannot run firmware on the host;
+use `upload` for hardware.
+
+Set `ARDUINO_CLI` to the CLI executable path if it is not on PATH. On macOS, b
+also discovers the CLI bundled at `/Applications/Arduino IDE.app`. Cores and
+libraries installed through Arduino IDE's managers remain owned by Arduino;
+b does not install or upgrade them. Close Serial Monitor before uploading.
+An FTDI-connected board may need a manual RESET as uploading starts. Hardware
+upload has been exercised on an Uno; other boards/platforms remain unproved.
+
+## Clone and use
 
 ```sh
 git clone https://github.com/vex-graph/b.git
@@ -16,161 +110,65 @@ cd b
 ./b --help
 ```
 
-The `b` launcher bootstraps the C CLI with your system compiler. Put this checkout
-on `PATH` to use `b` from any directory. It preserves your working directory:
-relative filenames refer to your project, not this repository. No global install
-or toolchain download is performed automatically.
+The launcher compiles the CLI using your installed C23 compiler with
+`-Wall -Wextra -Werror`. On macOS it targets Apple Silicon M1/macOS 14+.
+Current runtime evidence is macOS only; the process/filesystem implementation
+uses POSIX APIs and a native Windows adapter is still needed.
 
-## Command contract
-
-```text
-b run <exec|instance> <filename> [-- program arguments...]
-b build <language> [directory]
-b export <manifestmainfile> <destination> <exe|app|msi|iso|zip>
-```
-
-An omitted build directory means the current directory. Paths with spaces are
-ordinary arguments; quote them in your shell. External tools are invoked with
-argument arrays, not shell command strings.
-
-### Available now
+To use b elsewhere, either call `/absolute/path/to/b/b`, or add the checkout to
+your shell's `PATH` (replace the example path):
 
 ```sh
-b run exec ./hello.c -- one two  # compile C23, then execute; return its exit code
-b run exec ./hello.rs           # compile Rust (rustc), then execute (needs rustc)
-b run instance ./Hello.java -- world # normal JDK source run, no packaged app
-b java ./Hello.java -- world    # shorthand for b run instance ./Hello.java
-b run exec ./Hello.java -- world # compile classes first, then launch the main class
-b run exec ./program -- arg     # execute an existing native executable
-b build c                      # compile this directory's top-level .c files
-b build c ./native             # produce one executable, requiring a main()
-b build java ./java-src         # javac this directory's top-level .java files
-b build rust ./crate            # compile this directory's top-level .rs files
-b run instance ./app.py          # run Python as-is through the interpreter
-b python ./app.py                # shorthand for b run instance ./app.py
-b build python ./scripts         # bytecode syntax check, cache kept out of source
+export PATH="/absolute/path/to/b:$PATH"
+cd /path/to/your/project
+b run exec ./hello.c
 ```
 
-Adapters live in `languages/`: `b.c` is the suite (argv + dispatch + the
-existing-executable fallback); each `languages/<lang>.{c,h}` owns one `Language`
-record with a `build` and a `run`. Adding a language is one file pair plus one
-row in `languages/language.c` — the suite does not change.
+The launcher preserves your working directory. `CC` can select one compiler
+executable, not a shell command with flags. Outputs and bootstrap binaries stay
+under `~/Library/Application Support/b` on macOS, or `$XDG_CACHE_HOME/b`
+(`~/.cache/b` by default) elsewhere. `B_HOME` overrides this location. Toolchain
+own caches may be separate; .NET file-based intermediates use its temporary cache.
 
-Rust support requires a `rustc` on `PATH` (install via `rustup`); b does not
-download it. Rust is compiled, so it has no `run instance` source runtime and
-rejects instance mode like C. Python support requires `python3` on `PATH`; it is
-interpreted, so `run instance` and `run exec` both execute the interpreter, and
-`build` performs a bytecode syntax check with `PYTHONPYCACHEPREFIX` redirected
-out of the source tree. C# and other languages remain planned.
+For optional tools, follow the official [Rust](https://www.rust-lang.org/tools/install),
+[.NET SDK](https://dotnet.microsoft.com/download), or [R](https://cran.r-project.org/)
+installation instructions. Check `rustc --version`, `dotnet --list-sdks`, or
+`Rscript --version` in the environment where b will run.
 
-`run instance` runs a file as-is through its runtime, or runs an existing native
-executable. It does not build an app, package, supervise or manage instances.
-`run exec` builds a runnable source artifact first, then launches it. For C this
-is a native executable; for Java it is compiled classes plus the JDK runtime.
-Existing executables are already built and launch directly in either mode.
-Creating a macOS `.app` bundle for the generic CLI remains an export-adapter gap.
+### JetBrains IDEs
 
-Java instance execution uses the JDK's source launcher (`java File.java`);
-Java exec/project builds use `javac`. Single-file Java exec currently assumes
-a default-package main class matching the filename. Package/dependency discovery, recursive source
-discovery and build-graph configuration are not implemented yet. C compilation
-uses `-std=gnu23 -Wall -Wextra -Werror`; macOS uses the arm64 M1/macOS 14 floor.
-`CC` may name one compiler executable, not an embedded shell command.
-C source has no direct runtime in this version: `run instance file.c` rejects
-without compiling and directs the caller to `run exec`. More runtime adapters
-will extend instance execution without introducing app packaging.
+See [JETBRAINS.md](JETBRAINS.md) for a plain-English guide to adding b as an
+external tool in CLion, IntelliJ IDEA, Rider, PyCharm, and other JetBrains IDEs.
+It uses the current editor file, not a hardcoded project or language list.
 
-Builds print the output path. Outputs and bootstrap binaries live outside the
-source tree under `~/Library/Application Support/b` on macOS, or
-`$XDG_CACHE_HOME/b` (`~/.cache/b` by default) elsewhere. `B_HOME` overrides that
-location. Project outputs are separated by canonical project-path hashes.
-Builds currently recompile every time; caching and dependency tracking remain
-with the workspace engine below, not the new language front end.
+### Layout and limits
 
-### Workspace compatibility
+`b.c` is the suite: argument validation, registry dispatch and existing-executable
+fallback. Shared helpers live in `b.h`/`util.c`. Adding a language is one file pair
+under `languages/` and a registry entry in `languages/language.c`; adapter
+selection comes from the filename extension. Language shorthand should match
+that extension. Builds currently recompile rather than providing a shared cache.
 
-`workspace.c` preserves the existing workspace build graph, cache, shaders,
-tests and app launcher during migration. The worktree's `tools/b` is a
-compatibility launcher:
+`workspace.c` is a compatibility adapter, not b's general project model. It
+preserves an existing workspace graph, shaders, tests and target launcher:
+`b workspace /path/to/workspace build`. It is separate from `b build c`.
 
-```sh
-./tools/b test [filter]
-./tools/b run <target>
-./b/b workspace /path/to/workspace build
-```
+No export format or manifest schema is implemented yet. `export` rejects
+nonzero without creating a destination. Packaging, cross-compilation, shared
+dependency graphs, C++, JavaScript/TypeScript and HTML/web adapters are future
+work, not advertised runtime support. b does not replace Maven, Gradle or Cargo.
 
-This legacy graph is a compatibility adapter, not b's general project model.
-Moving its target declarations into the shared project manifest is the next
-migration step. Generic `b build c` does not build that entire workspace;
-project sources belong to their own checkouts, not to the build system.
-
-## Planned, explicitly rejected for now
-
-`export` will read one main manifest and package its declared entry point,
-resources and dependencies. Export formats are adapters, not renamed binaries:
-
-| Format | Intended output | Required implementation |
-| --- | --- | --- |
-| `exe` | Native executable | Target toolchain, dependency policy; Windows PE on Windows |
-| `app` | macOS application bundle | Info.plist, executable, resources, signing policy |
-| `msi` | Windows installer | Installer identity, upgrade/uninstall contract and MSI toolchain |
-| `iso` | ISO image | Image toolchain; bootability is an additional explicit contract |
-| `zip` | Portable archive | Declared file layout and archive toolchain |
-
-No export format or manifest schema is implemented yet. A recognized export
-request returns a clear nonzero error and creates no destination. Cross-compiling
-and signing require explicitly available toolchains/credentials; C itself does
-not make them automatic. Unknown languages/formats also reject nonzero.
-
-## Architecture and next steps
-
-The core is independent of any one language. Language adapters resolve a
-project's toolchain and translate its targets into build actions; execution
-adapters launch native programs, managed runtimes or browsers; export adapters
-package the declared outputs. Existing package/dependency metadata belongs to
-its toolchain and is consumed rather than replaced by a new package registry.
-
-| Adapter (planned unless noted) | Native tools |
-| --- | --- |
-| C (initial file/directory support) / C++ | Clang, GCC, MSVC |
-| Rust (initial exec/build via `rustc`) | rustc; Cargo for full projects |
-| Python (initial run/bytecode check) | python3 |
-| C# (reserved; rejects until wired) | dotnet |
-| Java (initial file/directory support) | JDK source launcher/compiler and project build tooling |
-| JavaScript / TypeScript | Node, Bun, npm/package scripts and project bundlers |
-| HTML / web | Browser launch, loopback development server when needed |
-
-For HTML, the intended `b run exec index.html` launches a browser, while a web
-project uses its declared development-server command. `b build web <directory>`
-would produce the project's static/deployable output. Browser launch, HTTP
-serving and web builds are **not implemented yet**. A local-file browser launch
-is not equivalent to testing a web app with a server, modules, routing and assets.
-Servers must have explicit port/bind/lifetime policies and stop with their owner.
-Mixed-language projects will declare separate targets and dependencies, not a
-single guessed language for the entire directory.
-
-1. CLI parser: validate the command before launching tools or creating outputs.
-2. Language adapters: C and Java first; add other languages without forking the CLI.
-3. Project manifest/build graph: own targets, inputs, flags and dependencies.
-4. Execution adapters: direct file/runtime runs and built-artifact runs, preserving
-   arguments and exit codes; neither mode implies background supervision.
-5. Export adapters: validate the manifest, stage outputs, publish only on success.
-6. Move the compatibility workspace graph behind the same project contract; retain incremental
-   caching rather than replacing it with a shell-script chain.
-
-Current runtime evidence is macOS only. Windows support needs a native process
-and filesystem adapter; the initial implementation uses POSIX APIs. Source
-arguments and manifests are executable build instructions, not a sandbox.
-
-## Verification
+Tests live in the independent shared `tests/b/` checkout, not in production
+source. In the workspace, run:
 
 ```sh
 python3 ../tests/b/cli_test.py
+python3 ../tests/b/readme_test.py
 ```
 
-The suite uses temporary projects and an isolated `B_HOME`, exercising bootstrap,
-C builds/runs, argument forwarding, exit codes, rejection without export side
-effects, direct instance runs versus compiled exec runs, and the optional Java
-toolchain. Missing Java is an explicit test skip.
-Tests live in the independent workspace `tests/b/` checkout, not this repository.
-Workspace compatibility checks are separate from language-adapter checks.
+They use temporary projects and an isolated `B_HOME`. Missing optional runtimes
+are explicit skips; a pass on macOS is not proof on another platform.
+
+Architecture follows the canonical
+[preferences.md](https://github.com/vexgraph-ecosystem/vexspoke/blob/main/preferences.md)
+(workspace path `../ecosystem/vexspoke/preferences.md`).
