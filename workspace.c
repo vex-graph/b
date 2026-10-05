@@ -97,6 +97,7 @@
  * for this CLI invocation. No public class or cross-file ownership is added.
  * setup_graphvex registers five compositor shader entrypoints; color.frag also
  * watches filter/filter_type.h so its shared operation IDs invalidate SPIR-V.
+ * Compositor GLSL resolves canonical includes from Graphvex's src root.
  * setup_graphvex_tests gives explicit Vulkan tests, including color_pass_test,
  * the Homebrew header directory and loader link/rpath flags.
  */
@@ -1078,6 +1079,7 @@ static void setup_graphvex(TargetList *tl) {
         Cmd g = {0};
         strl_push(&g, "glslangValidator");
         strl_push(&g, "-V");
+        strl_pushf(&g, "-I%s/src", base);
         strl_push(&g, src);
         strl_push(&g, "-o");
         strl_push(&g, out);
