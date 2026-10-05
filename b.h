@@ -24,6 +24,8 @@ char *Util_outputDirectory(const char *project);
 char *Util_parentDirectory(const char *file);
 
 int Util_execute(char **arguments);
+// Build diagnostics go to stderr; stdout remains the build result path.
+int Util_executeBuild(char **arguments);
 int Util_executeWithEnvironment(char **arguments, char **environment);
 
 char **Util_collectSources(const char *project, const char *extension, size_t *count, bool *ok);
