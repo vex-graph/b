@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/vex-graph/vex-graph/main/resources/b.png" alt="build, breeze, box!" width="800">
+</p>
+
 # b
 
 b is a general-purpose, language-agnostic build system written in C23: a small
