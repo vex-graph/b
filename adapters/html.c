@@ -1,4 +1,4 @@
-#include "languages/html.h"
+#include "adapters/html.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -9,9 +9,11 @@
  * No HTTP server, bundling, asset copy or browser lifetime supervision is implied.
  */
 ;;OVERVIEW
-/* MODULE: local HTML launcher; PUBLIC RECORDS (html.h): HTML_LANGUAGE
- * {name="html", extension=".html"}, HTM_LANGUAGE {name="web", extension=".htm"};
+/* MODULE: local HTML launcher; PUBLIC RECORDS (html.h): HTML_ADAPTER
+ * {name="html", extension=".html"}, HTM_ADAPTER {name="web", extension=".htm"};
  * both build=buildHtml, run=runHtml.
+ * METADATA (both): tools=B_BROWSER override (open on macOS, xdg-open otherwise);
+ * capabilities="local browser launch; no standalone build/rendering proof".
  * PRIVATE STATIC: buildHtml — reject guessed builds; runHtml — canonical-path
  * browser launch, rejecting unused program arguments.
  * Allocated canonical path is freed after opener status; browser remains OS-owned.
@@ -52,5 +54,12 @@ static int runHtml(const char *file, int argc, char **argv, bool buildArtifact) 
     return status;
 }
 
-const Language HTML_LANGUAGE = { "html", ".html", buildHtml, runHtml };
-const Language HTM_LANGUAGE = { "web", ".htm", buildHtml, runHtml };
+#ifdef __APPLE__
+#define HTML_TOOLS "B_BROWSER=open"
+#else
+#define HTML_TOOLS "B_BROWSER=xdg-open"
+#endif
+const Adapter HTML_ADAPTER = { "html", ".html", buildHtml, runHtml,
+    HTML_TOOLS, "local browser launch; no standalone build/rendering proof" };
+const Adapter HTM_ADAPTER = { "web", ".htm", buildHtml, runHtml,
+    HTML_TOOLS, "local browser launch; no standalone build/rendering proof" };
