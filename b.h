@@ -3,6 +3,8 @@
 // joining, or the out-of-tree output directory. This header declares that one
 // shared surface; util.c owns the implementation. THROW is the cold rejection
 // reporter used across the suite and every adapter.
+// Constitution: ecosystem/vexspoke/preferences.md in the owning workspace;
+// Semantic Consistency Law (Reference form) requires explicit dereferences.
 // OVERVIEW: allocation/path helpers (Util_allocate, Util_combine, Util_endsWith,
 // Util_makeDirectory, Util_outputDirectory, Util_parentDirectory); process launch
 // (Util_execute, Util_executeWithEnvironment); source discovery
