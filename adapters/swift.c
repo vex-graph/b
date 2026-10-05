@@ -1,4 +1,4 @@
-#include "languages/swift.h"
+#include "adapters/swift.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -8,7 +8,8 @@
  * Apple builds target arm64/macOS 14. SwiftPM/package discovery is not guessed.
  */
 ;;OVERVIEW
-/* MODULE: Swift adapter; PUBLIC RECORD: SWIFT_LANGUAGE (swift.h).
+/* MODULE: Swift adapter; PUBLIC RECORD: SWIFT_ADAPTER (swift.h).
+ * METADATA: tools="swift,swiftc"; capabilities="native build/exec; script instance".
  * PRIVATE STATIC: compileSwift — compile explicit sources into external program;
  * buildSwift — discover directory sources; runSwift — interpreter or native exec.
  * RECORD FIELDS: name="swift", extension=".swift", build=buildSwift, run=runSwift.
@@ -74,4 +75,5 @@ static int runSwift(const char *file, int argc, char **argv, bool buildArtifact)
     return status;
 }
 
-const Language SWIFT_LANGUAGE = { "swift", ".swift", buildSwift, runSwift };
+const Adapter SWIFT_ADAPTER = { "swift", ".swift", buildSwift, runSwift,
+    "swift,swiftc", "native build/exec; script instance" };
