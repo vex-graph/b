@@ -3,8 +3,8 @@
 // Exec launches that artifact with dotnet only after a successful build.
 // Instance delegates to dotnet's file runner (which internally compiles); it
 // does not publish an application. Multi-file/project discovery is not guessed.
-// OVERVIEW: compileCsharp; buildCsharp (one entry); runCsharp; CSHARP_LANGUAGE.
-#include "languages/csharp.h"
+// OVERVIEW: compileCsharp; buildCsharp (one entry); runCsharp; CSHARP_ADAPTER.
+#include "adapters/csharp.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -15,7 +15,9 @@
  * Project discovery and self-contained publishing are deliberately not guessed.
  */
 ;;OVERVIEW
-/* MODULE: C# adapter; exported record: CSHARP_LANGUAGE (languages/csharp.h).
+/* MODULE: C# adapter; exported record: CSHARP_ADAPTER (adapters/csharp.h).
+ * METADATA: tools="dotnet";
+ * capabilities="SDK 10+ file build/exec; native file-run instance".
  * PRIVATE STATIC: compileCsharp — build one file-based managed program;
  * buildCsharp — require exactly one top-level .cs entry;
  * runCsharp — file runner or compile-before-launch, forwarding args/status.
@@ -83,4 +85,5 @@ static int runCsharp(const char *file, int argc, char **argv, bool buildArtifact
     return status;
 }
 
-const Language CSHARP_LANGUAGE = { "csharp", ".cs", buildCsharp, runCsharp };
+const Adapter CSHARP_ADAPTER = { "csharp", ".cs", buildCsharp, runCsharp,
+    "dotnet", "SDK 10+ file build/exec; native file-run instance" };
