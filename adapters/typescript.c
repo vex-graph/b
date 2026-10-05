@@ -1,4 +1,4 @@
-#include "languages/typescript.h"
+#include "adapters/typescript.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -11,9 +11,11 @@
  */
 ;;OVERVIEW
 /* MODULE: TypeScript/Node adapter; PUBLIC RECORDS (typescript.h):
- * TYPESCRIPT_LANGUAGE {name="typescript", extension=".ts"};
- * TS_LANGUAGE {name="ts", extension=".mts"}; CTS_LANGUAGE {name="node-ts", extension=".cts"};
+ * TYPESCRIPT_ADAPTER {name="typescript", extension=".ts"};
+ * TS_ADAPTER {name="ts", extension=".mts"}; CTS_ADAPTER {name="node-ts", extension=".cts"};
  * all build=buildTypescript, run=runTypescript.
+ * METADATA (all): tools="node";
+ * capabilities="native type-strip check/runtime; NOT type-checking".
  * PRIVATE STATIC: buildTypescript — Node native type-stripping parse, not type checks;
  * runTypescript — native Node type-stripping run with literal arguments.
  */
@@ -30,6 +32,9 @@ static int runTypescript(const char *file, int argc, char **argv, bool buildArti
     return Util_runCommand(prefix, 2, argc, argv);
 }
 
-const Language TYPESCRIPT_LANGUAGE = { "typescript", ".ts", buildTypescript, runTypescript };
-const Language TS_LANGUAGE = { "ts", ".mts", buildTypescript, runTypescript };
-const Language CTS_LANGUAGE = { "node-ts", ".cts", buildTypescript, runTypescript };
+const Adapter TYPESCRIPT_ADAPTER = { "typescript", ".ts", buildTypescript, runTypescript,
+    "node", "native type-strip check/runtime; NOT type-checking" };
+const Adapter TS_ADAPTER = { "ts", ".mts", buildTypescript, runTypescript,
+    "node", "native type-strip check/runtime; NOT type-checking" };
+const Adapter CTS_ADAPTER = { "node-ts", ".cts", buildTypescript, runTypescript,
+    "node", "native type-strip check/runtime; NOT type-checking" };
