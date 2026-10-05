@@ -12,6 +12,26 @@
 //   int (*run)(file, argc, argv, buildArtifact)  run one file
 #pragma once
 
+#include "annotation.h"
+
+;;DEFINITION
+/* Language is the immutable adapter contract. The suite borrows static records
+ * and invokes their build/run callbacks. A successful build supplies a
+ * caller-owned result path (artifact or checked directory); run returns child
+ * status. Interpreted adapters document their exec exception explicitly.
+ */
+;;OVERVIEW
+/* CLASS: Language. STRUCT FIELDS (declaration order):
+ * const char *name — CLI adapter name.
+ * const char *extension — source suffix, or nullptr for build-only backends.
+ * int (*build)(const char *project, char **output) — build/check a directory;
+ *     output is allocated on success and released by the caller.
+ * int (*run)(const char *file, int argc, char **argv, bool buildArtifact) —
+ *     direct runtime or compile-then-run operation, with borrowed arguments.
+ * PUBLIC: Language_forName; Language_forFile (implemented in language.c).
+ * No ownership transfer of records; no allocation during registry lookup.
+ */
+
 #include <stdbool.h>
 #include <stddef.h>
 
