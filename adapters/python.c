@@ -4,7 +4,7 @@
 // `build` is a bytecode syntax check: py_compile runs with PYTHONPYCACHEPREFIX
 // redirected to the out-of-tree output directory, so no __pycache__ is written
 // into the source tree.
-#include "languages/python.h"
+#include "adapters/python.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -15,7 +15,8 @@
  * every temporary allocation is freed after the child completes.
  */
 ;;OVERVIEW
-/* MODULE: Python adapter; exported record: PYTHON_LANGUAGE (languages/python.h).
+/* MODULE: Python adapter; exported record: PYTHON_ADAPTER (adapters/python.h).
+ * METADATA: tools="python3"; capabilities="bytecode check; instance/exec runtime".
  * PRIVATE STATIC: buildPython — collect .py inputs and invoke py_compile with
  * PYTHONPYCACHEPREFIX; runPython — interpreter invocation with program args.
  * RECORD FIELDS: name="python"; extension=".py";
@@ -72,4 +73,5 @@ static int runPython(const char *file, int argc, char **argv, bool buildArtifact
     return status;
 }
 
-const Language PYTHON_LANGUAGE = { "python", ".py", buildPython, runPython };
+const Adapter PYTHON_ADAPTER = { "python", ".py", buildPython, runPython,
+    "python3", "bytecode check; instance/exec runtime" };
