@@ -1,4 +1,4 @@
-#include "languages/shell.h"
+#include "adapters/shell.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -8,7 +8,8 @@
  * is intentionally executable and trusted. Bash/zsh dialects are not inferred.
  */
 ;;OVERVIEW
-/* MODULE: POSIX shell adapter; PUBLIC RECORD: SHELL_LANGUAGE (shell.h).
+/* MODULE: POSIX shell adapter; PUBLIC RECORD: SHELL_ADAPTER (shell.h).
+ * METADATA: tools="/bin/sh"; capabilities="POSIX syntax-check; instance/exec runtime".
  * PRIVATE STATIC: buildShell — sh -n syntax checks; runShell — sh file execution.
  * RECORD FIELDS: name="shell", extension=".sh", build=buildShell, run=runShell.
  * No persistent state; program arguments and script paths are borrowed.
@@ -25,4 +26,5 @@ static int runShell(const char *file, int argc, char **argv, bool buildArtifact)
     return Util_runCommand(prefix, 2, argc, argv);
 }
 
-const Language SHELL_LANGUAGE = { "shell", ".sh", buildShell, runShell };
+const Adapter SHELL_ADAPTER = { "shell", ".sh", buildShell, runShell,
+    "/bin/sh", "POSIX syntax-check; instance/exec runtime" };
