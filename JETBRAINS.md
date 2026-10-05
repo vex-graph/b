@@ -15,7 +15,9 @@ Use the **launcher named `b` inside the checkout**, not `b.c` and not an old
 cached CLI binary. An absolute path is easiest: it avoids depending on the IDE's
 `PATH`. Keep the checkout somewhere stable if you move projects often.
 
-## Add “Run current file”
+## Method 1: manual UI setup
+
+### Add “Run current file”
 
 1. Open **Settings** (macOS: **Preferences/Settings**), then **Tools → External Tools**.
 2. Click **+** to add a tool. Name it **Run current file**, and optionally put it
@@ -45,7 +47,7 @@ and Python/R run their interpreters. The selected file must be an entry point,
 not an arbitrary helper file. For multi-source programs, use a directory build
 tool instead. Nothing here automatically attaches the IDE debugger.
 
-## Optional tools and shortcuts
+### Optional tools and shortcuts
 
 To run a source file through its runtime, create **Run current instance** with
 Arguments `run instance "$FilePath$"` and the same Program/Working directory.
@@ -60,6 +62,12 @@ Choose the adapter explicitly and make sure the directory matches its contract
 in README.md. `$ProjectFileDir$` is a JetBrains external-tool macro for the
 project's directory; do not paste an unrelated user's home path.
 
+For an existing CMake project, use Arguments `build cmake "$ProjectFileDir$"`.
+b delegates configuration and building to CMake and prints its external build
+directory. CMake's own targets, dependencies and flags remain authoritative;
+this tool does not guess an executable to launch afterward. This is a separate
+workflow from running one source file or uploading Arduino firmware.
+
 Under **Settings → Keymap**, search for your external tool's name and assign a
 keyboard shortcut. To include it in an existing run configuration, open
 **Run → Edit Configurations**, find **Before launch**, and add **Run External Tool**
@@ -67,7 +75,7 @@ if that configuration type supports it. This runs b *before* the configuration's
 own command; it does not replace that command or turn b into a debugger. Use
 the Tools menu/shortcut for a simple one-command run without a duplicate launch.
 
-## Upload the selected Arduino sketch
+### Upload the selected Arduino sketch
 
 You can edit `.ino` files in JetBrains and upload without opening Arduino IDE.
 Syntax highlighting or language-specific completion may need an Arduino plugin
@@ -76,17 +84,27 @@ or a C++ file-type association; the external tool itself does not depend on one.
 1. Connect the board and find its port and FQBN using Arduino CLI's `board list`
    and `board listall`. An Uno uses `arduino:avr:uno`; clones may report an unknown
    model, so check the actual board rather than guessing from the USB adapter.
-2. Add a new external tool named **Upload Arduino sketch**:
+2. Put the board in the very first line of your primary `.ino`:
+
+   ```cpp
+   // b_build("arduino:avr:uno")
+   ```
+
+   Replace the quoted FQBN for another board. No blank line or comment should
+   precede this header. This makes the board choice travel with the sketch.
+3. Add a new external tool named **Upload Arduino sketch**:
 
    | Field | Value |
    | --- | --- |
    | Program | `/absolute/path/to/b/b` |
-   | Arguments | `upload arduino "$FilePath$" --fqbn arduino:avr:uno --port /dev/cu.YOUR_BOARD` |
+   | Arguments | `upload arduino "$FilePath$" --port /dev/cu.YOUR_BOARD` |
    | Working directory | `$FileDir$` |
 
-   Replace the example board/port with yours. Windows serial ports use names
+   Replace the example port with yours; the board comes from the header.
+   You can append `--fqbn arduino:avr:uno` as an explicit cross-check, but it
+   must match the header. Windows serial ports use names
    such as COM3, but b's native Windows process adapter is not implemented yet.
-3. Save and select the `.ino` file. Close any Serial Monitor using that port,
+4. Save and select the `.ino` file. Close any Serial Monitor using that port,
    then invoke the tool from Tools or your assigned shortcut.
 
 b compiles before uploading, so a failed build won't flash an old result.
@@ -99,6 +117,96 @@ If Arduino CLI is only inside the macOS IDE app, b finds the default bundle
 location automatically. For another installation, expose `arduino-cli` on PATH
 or set `ARDUINO_CLI` to its full executable path in the IDE's environment.
 Installed board cores and libraries are still managed through Arduino IDE/CLI.
+
+## Method 2: inspectable XML and `.idea` run configuration
+
+Use this path when you want to review, compare or share the setup as files.
+It represents the same upload tool as Method 1. **Close the IDE before editing
+its settings files**, back up existing files, and merge instead of replacing
+another tool or project configuration.
+
+There are two separate pieces:
+
+- External Tools are normally **IDE-level settings**, stored in the IDE's
+  configuration directory under `tools/`. They are not automatically portable
+  just because you put a copy in `.idea/tools/`.
+- A shared project run configuration can live under **`.idea/runConfigurations/`**
+  (or `.run/` in newer IDEs). It can reference the global external tool.
+  Each developer/IDE still needs that tool installed under the same group/name.
+
+### A. Define the external tool
+
+Locate the active IDE's configuration directory using
+[JetBrains' directory guide](https://www.jetbrains.com/help/idea/tuning-the-ide.html#config-directory).
+On macOS it is typically `~/Library/Application Support/JetBrains/<product-version>/`;
+use your actual product/version, not a hardcoded CLion directory for every IDE.
+Save this as `tools/b.xml`, or merge it with an existing b group:
+
+```xml
+<toolSet name="b">
+  <tool name="Upload Arduino sketch" description="Compile then upload the selected sketch"
+        showInMainMenu="true" showInEditor="true" showInProject="true"
+        showInSearchPopup="true" disabled="false" useConsole="true"
+        showConsoleOnStdOut="true" showConsoleOnStdErr="true" synchronizeAfterRun="true">
+    <exec>
+      <option name="COMMAND" value="/absolute/path/to/b/b" />
+      <option name="PARAMETERS" value="upload arduino &quot;$FilePath$&quot; --port /dev/cu.YOUR_BOARD" />
+      <option name="WORKING_DIRECTORY" value="$FileDir$" />
+    </exec>
+  </tool>
+</toolSet>
+```
+
+Replace the launcher path and port. The board stays in the `.ino`'s first-line
+`// b_build("arduino:avr:uno")` header. XML uses `&quot;` for argument quotes.
+For a generic run tool, use a different tool name and PARAMETERS value
+`run exec &quot;$FilePath$&quot;`. Do not create duplicate group/tool names.
+
+### B. Add a project Run button
+
+With the **Shell Script** plugin enabled, save this as
+`.idea/runConfigurations/b_upload_arduino.xml` in the project:
+
+```xml
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="b Upload Arduino" type="ShConfigurationType">
+    <option name="SCRIPT_TEXT" value=":" />
+    <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+    <option name="SCRIPT_PATH" value="" />
+    <option name="SCRIPT_OPTIONS" value="" />
+    <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
+    <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+    <option name="INTERPRETER_PATH" value="/bin/sh" />
+    <option name="INTERPRETER_OPTIONS" value="" />
+    <option name="EXECUTE_IN_TERMINAL" value="false" />
+    <option name="EXECUTE_SCRIPT_FILE" value="false" />
+    <envs />
+    <method v="2">
+      <option name="ToolBeforeRunTask" enabled="true" actionId="Tool_b_Upload Arduino sketch" />
+    </method>
+  </configuration>
+</component>
+```
+
+The before-launch task runs the external tool; the inline `:` command is only
+a shell no-op afterward. This avoids launching b twice. The action ID contains
+the exact group (`b`) and tool name (`Upload Arduino sketch`); renaming either
+requires updating the reference. This is a Run wrapper, not an Arduino debugger.
+
+Reopen the IDE, inspect **Tools → External Tools** and **Run → Edit Configurations**,
+then select **b Upload Arduino**. Save/select the `.ino` before pressing Run.
+If your IDE version writes a different schema, create/save one configuration
+through its UI and use that generated XML as the template. These examples have
+XML/contract checks, not a guarantee of every IDE version's GUI behavior.
+
+For sharing, commit only the intended run-configuration file if your repository
+allows it; do not share the entire `.idea/workspace.xml` or private IDE settings.
+Keep machine-specific serial ports and paths local. If `.idea` is ignored, the
+run configuration stays local too unless you deliberately adjust that policy.
+
+See also JetBrains' [External Tools guide](https://www.jetbrains.com/help/idea/configuring-third-party-tools.html)
+and [shared run configurations](https://www.jetbrains.com/help/idea/run-debug-configuration.html#share-configurations).
 
 ## If it fails
 
