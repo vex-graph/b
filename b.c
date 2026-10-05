@@ -10,6 +10,23 @@
 #include "languages/language.h"
 #include "languages/arduino.h"
 
+;;DEFINITION
+/* The suite validates command grammar and passes work to registered adapters.
+ * It owns no toolchain logic or persistent class state. Build result paths are
+ * freed after printing; program arguments are borrowed and exit status is
+ * preserved. Arduino upload is an explicit hardware operation; export remains
+ * rejected until its manifest/packaging contract exists.
+ */
+;;OVERVIEW
+/* MODULE: command suite.
+ * PUBLIC ENTRY: main — help, build, run, upload, shorthand, export rejection.
+ * PRIVATE STATIC: usage — print grammar and limits;
+ * regularFile — validate a regular source/executable input;
+ * runFile — source adapter dispatch or native executable fallback.
+ * CAPABILITIES: compile/check directories; execute files; compile-before-upload;
+ * forward literal arguments; propagate tool/program failures without a shell.
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -18,7 +35,7 @@
 static void usage(void) {
     puts("b run <exec|instance> <filename> [-- arguments...]\n"
          "b build <language> [directory]\n"
-         "b upload arduino <sketch> --fqbn <board> --port <port>\n"
+         "b upload arduino <sketch> --port <port> [--fqbn <matching-board>]\n"
          "b export <manifestmainfile> <destination> <exe|app|msi|iso|zip>\n"
          "b <language> <filename> [-- arguments...]   (e.g. b java Hello.java)\n"
          "instance: run as-is; exec: build a source artifact then launch\n"
