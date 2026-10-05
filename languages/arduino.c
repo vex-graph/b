@@ -1,0 +1,199 @@
+// MODULE: Arduino adapter; no owned class.
+// DEFINITION: Builds a complete sketch using Arduino CLI and installed cores.
+// Upload always recompiles successfully before flashing the explicitly supplied
+// FQBN and port. Never auto-selects hardware or downloads cores/libraries.
+// CLI lookup: ARDUINO_CLI override, installed PATH tool, macOS IDE bundle fallback.
+// Standalone .ino files are copied to a correctly named out-of-tree sketch;
+// standard sketch directories retain all their tabs and libraries. No renaming
+// or edits are made to the user's source.
+// OVERVIEW: cli; stageFile; sketchDirectory; compileSketch; buildArduino; runArduino rejects
+// host execution; Arduino_upload validates flags; ARDUINO_LANGUAGE.
+#include "languages/arduino.h"
+#include "b.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+static const char *cli(void) {
+    const char *override = getenv("ARDUINO_CLI");
+    if (override != nullptr && *override != '\0')
+        return override;
+#ifdef __APPLE__
+    // Bundle location is an OS application convention, not a required install.
+    const char *bundle = "/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/arduino-cli";
+    const char *path = getenv("PATH");
+    if (path != nullptr) {
+        char *copy = Util_combine(path, "");
+        char *save = nullptr;
+        for (char *part = strtok_r(copy, ":", &save); part != nullptr; part = strtok_r(nullptr, ":", &save)) {
+            char *candidate = Util_combine(part, "/arduino-cli");
+            bool exists = access(candidate, X_OK) == 0;
+            free(candidate);
+            if (exists) {
+                free(copy);
+                return "arduino-cli";
+            }
+        }
+        free(copy);
+    }
+    if (access(bundle, X_OK) == 0)
+        return bundle;
+#endif
+    return "arduino-cli";
+}
+
+static char *stageFile(const char *file, const char *parent) {
+    const char *name = strrchr(file, '/');
+    name = name == nullptr ? file : name + 1;
+    char *stem = Util_combine(name, "");
+    stem[strlen(stem) - strlen(".ino")] = '\0';
+    char *directory = Util_outputDirectory(parent);
+    if (directory == nullptr) {
+        free(stem);
+        return nullptr;
+    }
+    char *base = Util_combine(directory, "/arduino-sketch/");
+    char *sketch = Util_combine(base, stem);
+    free(base);
+    free(directory);
+    free(stem);
+    if (!Util_makeDirectory(sketch)) {
+        free(sketch);
+        return nullptr;
+    }
+    char *prefix = Util_combine(sketch, "/");
+    char *dest = Util_combine(prefix, name);
+    free(prefix);
+    FILE *input = fopen(file, "rb");
+    FILE *output = input == nullptr ? nullptr : fopen(dest, "wb");
+    bool ok = input != nullptr && output != nullptr;
+    // Fixed chunk size bounds temporary copy memory; it is not a file-size limit.
+    char bytes[8192];
+    while (ok) {
+        size_t count = fread(bytes, 1, sizeof bytes, input);
+        if (count == 0) {
+            ok = !ferror(input);
+            break;
+        }
+        ok = fwrite(bytes, 1, count, output) == count;
+    }
+    if (input != nullptr && fclose(input) != 0)
+        ok = false;
+    if (output != nullptr && fclose(output) != 0)
+        ok = false;
+    free(dest);
+    if (!ok) {
+        THROW("cannot stage Arduino source");
+        free(sketch);
+        return nullptr;
+    }
+    return sketch;
+}
+
+static char *sketchDirectory(const char *input) {
+    char *path = realpath(input, nullptr);
+    struct stat info;
+    if (path == nullptr || stat(path, &info) != 0) {
+        THROW("Arduino sketch does not exist: %s", input);
+        free(path);
+        return nullptr;
+    }
+    if (S_ISDIR(info.st_mode))
+        return path;
+    if (!S_ISREG(info.st_mode) || !Util_endsWith(path, ".ino")) {
+        THROW("Arduino input must be a sketch directory or .ino file");
+        free(path);
+        return nullptr;
+    }
+    char *directory = Util_parentDirectory(path);
+    size_t length = strlen(directory);
+    if (length > 1 && directory[length - 1] == '/')
+        directory[length - 1] = '\0';
+    const char *folder = strrchr(directory, '/');
+    folder = folder == nullptr ? directory : folder + 1;
+    char *mainName = Util_combine(folder, ".ino");
+    const char *name = strrchr(path, '/');
+    if (strcmp(name == nullptr ? path : name + 1, mainName) != 0) {
+        char *staged = stageFile(path, directory);
+        free(directory);
+        directory = staged;
+    }
+    free(mainName);
+    free(path);
+    return directory;
+}
+
+static int compileSketch(const char *sketch, const char *fqbn, char **output) {
+    if (fqbn == nullptr || *fqbn == '\0') {
+        THROW("Arduino build needs ARDUINO_FQBN; upload needs --fqbn and --port");
+        return EXIT_FAILURE;
+    }
+    char *directory = Util_outputDirectory(sketch);
+    if (directory == nullptr)
+        return EXIT_FAILURE;
+    *output = Util_combine(directory, "/arduino");
+    char *build = Util_combine(directory, "/arduino-build");
+    char *arguments[] = { (char*) cli(), "compile", "--fqbn", (char*) fqbn,
+        "--build-path", build, "--output-dir", *output, (char*) sketch, nullptr };
+    int status = Util_executeBuild(arguments);
+    free(build);
+    free(directory);
+    return status;
+}
+
+static int buildArduino(const char *project, char **output) {
+    return compileSketch(project, getenv("ARDUINO_FQBN"), output);
+}
+
+static int runArduino(const char *file, int argc, char **argv, bool buildArtifact) {
+    (void) file;
+    (void) argc;
+    (void) argv;
+    (void) buildArtifact;
+    THROW("Arduino sketches run on hardware; use b upload arduino <sketch> --fqbn <board> --port <port>");
+    return EXIT_FAILURE;
+}
+
+int Arduino_upload(int argc, char **argv) {
+    const char *fqbn = nullptr;
+    const char *port = nullptr;
+    if (argc < 1) {
+        THROW("upload needs a sketch, --fqbn and --port");
+        return EXIT_FAILURE;
+    }
+    for (int i = 1; i < argc; i += 2) {
+        if (i + 1 >= argc || *argv[i + 1] == '\0') {
+            THROW("upload flag requires a nonempty value");
+            return EXIT_FAILURE;
+        }
+        if (strcmp(argv[i], "--fqbn") == 0 && fqbn == nullptr)
+            fqbn = argv[i + 1];
+        else if (strcmp(argv[i], "--port") == 0 && port == nullptr)
+            port = argv[i + 1];
+        else {
+            THROW("unknown or duplicate upload flag: %s", argv[i]);
+            return EXIT_FAILURE;
+        }
+    }
+    if (fqbn == nullptr || port == nullptr) {
+        THROW("upload requires explicit --fqbn and --port; no board is auto-selected");
+        return EXIT_FAILURE;
+    }
+    char *sketch = sketchDirectory(argv[0]);
+    if (sketch == nullptr)
+        return EXIT_FAILURE;
+    char *output = nullptr;
+    int status = compileSketch(sketch, fqbn, &output);
+    if (status == 0) {
+        char *arguments[] = { (char*) cli(), "upload", "--fqbn", (char*) fqbn,
+            "--port", (char*) port, "--input-dir", output, sketch, nullptr };
+        status = Util_execute(arguments);
+    }
+    free(output);
+    free(sketch);
+    return status;
+}
+
+const Language ARDUINO_LANGUAGE = { "arduino", ".ino", buildArduino, runArduino };
