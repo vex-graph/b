@@ -3,7 +3,7 @@
 // executable with the C23 dialect and the project's build flags; a single
 // source is compiled on demand for `run exec`. C has no source runtime, so
 // `run instance` rejects and points at `run exec`. The compiler is $CC or cc.
-#include "languages/c.h"
+#include "adapters/c.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -14,7 +14,8 @@
  * Child failures propagate and prevent launching previous output.
  */
 ;;OVERVIEW
-/* MODULE: C adapter; exported record: C_LANGUAGE (languages/c.h).
+/* MODULE: C adapter; exported record: C_ADAPTER (adapters/c.h).
+ * METADATA: tools="CC=cc"; capabilities="native build/exec; source instance rejects".
  * PRIVATE STATIC: compileC — compile explicit sources into out-of-tree program;
  * buildC — collect directory sources and compile;
  * runC — reject instance or compile and execute with borrowed program args.
@@ -93,4 +94,5 @@ static int runC(const char *file, int argc, char **argv, bool buildArtifact) {
     return status;
 }
 
-const Language C_LANGUAGE = { "c", ".c", buildC, runC };
+const Adapter C_ADAPTER = { "c", ".c", buildC, runC,
+    "CC=cc", "native build/exec; source instance rejects" };
