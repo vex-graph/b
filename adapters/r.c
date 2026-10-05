@@ -3,8 +3,8 @@
 // Both run modes execute source; R has no standalone executable compilation here.
 // Build parses each top-level .R/.r file without evaluating it and returns the
 // checked directory, not a fabricated binary. Package installation is not owned.
-// OVERVIEW: buildR; runR; R_LANGUAGE and R_LOWER_LANGUAGE (.R/.r aliases).
-#include "languages/r.h"
+// OVERVIEW: buildR; runR; R_ADAPTER and R_LOWER_ADAPTER (.R/.r aliases).
+#include "adapters/r.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -15,10 +15,11 @@
  * outside this adapter. Both extension aliases share the same callbacks.
  */
 ;;OVERVIEW
-/* MODULE: R adapter; exported records: R_LANGUAGE/R_LOWER_LANGUAGE (r.h).
+/* MODULE: R adapter; exported records: R_ADAPTER/R_LOWER_ADAPTER (r.h).
  * PRIVATE STATIC: buildR — parse-only directory validation; runR — Rscript run.
- * RECORD FIELDS: R_LANGUAGE {name="r", extension=".R", build=buildR, run=runR};
- * R_LOWER_LANGUAGE {name="R", extension=".r", build=buildR, run=runR}.
+ * RECORD FIELDS: R_ADAPTER {name="r", extension=".R", build=buildR, run=runR};
+ * R_LOWER_ADAPTER {name="R", extension=".r", build=buildR, run=runR}.
+ * METADATA (both): tools="Rscript"; capabilities="parse-check; instance/exec runtime".
  * OWNERSHIP: temporary argv/source lists are freed; records remain static.
  */
 
@@ -59,5 +60,7 @@ static int runR(const char *file, int argc, char **argv, bool buildArtifact) {
     return status;
 }
 
-const Language R_LANGUAGE = { "r", ".R", buildR, runR };
-const Language R_LOWER_LANGUAGE = { "R", ".r", buildR, runR };
+const Adapter R_ADAPTER = { "r", ".R", buildR, runR,
+    "Rscript", "parse-check; instance/exec runtime" };
+const Adapter R_LOWER_ADAPTER = { "R", ".r", buildR, runR,
+    "Rscript", "parse-check; instance/exec runtime" };
