@@ -6,6 +6,22 @@
 #include "languages/c.h"
 #include "b.h"
 
+;;DEFINITION
+/* C compilation produces one native executable from supplied sources, using
+ * the selected CC executable, strict C23 warnings and platform baseline flags.
+ * Directory builds discover top-level .c inputs; exec builds one entry source
+ * before launching it. Instance rejects because there is no C source runtime.
+ * Child failures propagate and prevent launching previous output.
+ */
+;;OVERVIEW
+/* MODULE: C adapter; exported record: C_LANGUAGE (languages/c.h).
+ * PRIVATE STATIC: compileC — compile explicit sources into out-of-tree program;
+ * buildC — collect directory sources and compile;
+ * runC — reject instance or compile and execute with borrowed program args.
+ * RECORD FIELDS: name="c"; extension=".c"; build=buildC; run=runC.
+ * No owned class state; temporary argv/path/source lists are freed per call.
+ */
+
 #include <stdlib.h>
 
 static int compileC(const char *project, char **sources, size_t count, char **output) {
