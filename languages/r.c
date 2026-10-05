@@ -7,6 +7,21 @@
 #include "languages/r.h"
 #include "b.h"
 
+;;DEFINITION
+/* Rscript --vanilla supplies a clean startup without saved workspaces/profiles.
+ * Both modes execute source; build parses each top-level .R/.r without evaluating
+ * it. The build result is the checked directory, not a pretend executable.
+ * Programs retain their arguments and exit status; package installation stays
+ * outside this adapter. Both extension aliases share the same callbacks.
+ */
+;;OVERVIEW
+/* MODULE: R adapter; exported records: R_LANGUAGE/R_LOWER_LANGUAGE (r.h).
+ * PRIVATE STATIC: buildR — parse-only directory validation; runR — Rscript run.
+ * RECORD FIELDS: R_LANGUAGE {name="r", extension=".R", build=buildR, run=runR};
+ * R_LOWER_LANGUAGE {name="R", extension=".r", build=buildR, run=runR}.
+ * OWNERSHIP: temporary argv/source lists are freed; records remain static.
+ */
+
 #include <stdlib.h>
 
 static int buildR(const char *project, char **output) {
