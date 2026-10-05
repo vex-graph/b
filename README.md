@@ -11,6 +11,11 @@ systems, giving you another entry point rather than replacing their projects.
 The aim is simpler: use the same small command vocabulary while
 letting each language's existing tools do the work.
 
+**Build, breeze, box.** Build through the native tools, run without switching
+editors, and eventually package the result. b is deliberately experimental:
+working capabilities and production gaps are listed separately. The "box"
+part is a goal, not a claim that export already works.
+
 ## What it can do
 
 ```text
@@ -23,10 +28,13 @@ b export <manifestmainfile> <destination> <exe|app|msi|iso|zip>
 
 `run instance` runs a file as-is through its runtime, or launches an existing
 native executable. It does not package an app. `run exec` builds a runnable
-source artifact first, then launches it for compiled languages. Python and R
-use their interpreters in both modes; there is no standalone binary build here.
+source artifact first, then launches it for compiled languages. Python, R,
+JavaScript, native-Node TypeScript, PHP and POSIX shell use their runtimes in both
+modes; there is no standalone binary build for those adapters here. HTML opens
+the original document in a browser in both modes.
 C# instance uses .NET's file runner, which itself compiles internally.
-C and Rust have no source runtime here and reject instance mode.
+C, C++ and Objective-C have no source runtime here and reject instance mode.
+Swift can use its script runner for instance or swiftc for exec.
 
 Arguments and program exit codes are preserved. Paths with spaces work when
 quoted. An omitted build directory means the current directory. Source discovery
@@ -47,6 +55,19 @@ downloads a toolchain automatically.
 | C# / `csharp` | .NET SDK 10+ (`dotnet`) | File-based `.cs` instance/exec; directory build with exactly one `.cs` entry |
 | R / `r` (also `R`) | `Rscript` | `.R`/`.r` interpreter runs; parse-only directory check |
 | Arduino / `arduino` | Arduino CLI and installed board core | Sketch compilation and explicit compile-before-upload |
+| Swift / `swift` | `swift`, `swiftc` | Script instance; native exec; top-level directory build |
+| Objective-C / `objc` | Clang + Foundation (macOS) | `.m` exec/directory build with ARC; no source instance |
+| C++ / `cpp` (`cxx`, `c++`) | `c++` or `CXX` | C++23 exec and directory builds for `.cpp`/`.cc`/`.cxx` |
+| JavaScript / `javascript` (`node`, `js`) | `node` | `.js`/`.mjs`/`.cjs` runs and directory syntax checks |
+| TypeScript / `typescript` (`ts`, `node-ts`) | Recent Node with native type stripping | `.ts`/`.mts`/`.cts` runs and directory parse/strip checks, **not type-checking** |
+| HTML / `html` (`web`) | Default host browser opener or `B_BROWSER` | `.html`/`.htm` file launch; no guessed HTML build |
+| PHP / `php` | PHP CLI | Script runs; top-level `php -l` checks; no automatic web service |
+| POSIX shell / `shell` | `/bin/sh` | `.sh` runs; top-level `sh -n` syntax checks |
+| SQL / `sql` | PostgreSQL `psql` | Explicit-database `.sql` execution; no fake standalone compilation |
+
+Project backends are adapters too: `b build cmake` delegates to CMake, and
+`b build npm` delegates to the project's npm `build` script. They do not replace
+the native project metadata or package managers.
 
 ```sh
 b run exec ./hello.c -- one two
@@ -62,6 +83,17 @@ b build rust ./crate
 b build csharp ./csharp-src
 b build r ./r-scripts
 b upload arduino ./Blink/Blink.ino --port /dev/cu.YOUR_BOARD
+b swift ./hello.swift -- world
+b run exec ./hello.swift
+b run exec ./hello.m
+b run exec ./hello.cpp
+b node ./hello.js -- world
+b typescript ./hello.ts
+b html ./index.html
+b php ./hello.php
+b shell ./script.sh
+b build npm ./web-project
+b run exec ./web-project/package.json -- program-arguments
 ```
 
 Java exec assumes a default-package main class matching the filename. Rust
@@ -75,6 +107,60 @@ Python `build` uses `py_compile` with `PYTHONPYCACHEPREFIX` outside the source t
 R `build` parses without evaluating scripts and returns the checked source
 directory; it does not create an artifact or install R packages. R runs use
 `--vanilla`, so user profiles and saved workspaces are not loaded.
+
+### Native, scripting and web adapters
+
+Swift directory builds follow the compiler's `main.swift` entry conventions;
+SwiftPM discovery is not implemented. Objective-C targets Foundation/ARC on
+macOS 14+ and does not invent Xcode projects or additional framework links.
+Use CMake for projects with their own compiler/linker configuration.
+
+JavaScript runs through Node, respecting modules/imports and package metadata.
+Its `build` is syntax-checking, not bundling. Native TypeScript execution needs
+recent Node (22.18+ or a current supported release). It supports erasable types,
+not arbitrary TypeScript transforms, JSX/TSX, tsconfig aliases, or type-checking.
+The experimental Node `stripTypeScriptTypes` API parses build inputs without
+evaluating them. Non-erasable syntax may reject. Use your npm script for `tsc`,
+a bundler or a framework-specific pipeline.
+
+For npm projects, `b npm ./package.json` or `run instance` runs `npm run start`.
+`run exec` runs `npm run build` first, then starts only if building succeeded.
+`b build npm <directory>` runs only `build`. Script outputs remain wherever the
+project defines them; b returns the project directory rather than guessing a
+`dist` layout. Arguments after `--` go to the start script. No `npm install`,
+dependency download, or missing-script fallback is performed automatically.
+npm scripts themselves can invoke shells, run servers or perform network/I/O.
+
+`b html index.html` opens a local file. `B_BROWSER` may name one browser/opener
+executable (not an embedded shell command). Success means launch accepted, not
+page rendering, script execution or browser shutdown. There is no implicit HTTP
+server. File-URL security restrictions still apply; use a declared npm start
+script for pages requiring HTTP, modules, API proxies or a dev server.
+
+PHP uses CLI configuration/extensions and does not start PHP-FPM/Apache. PHP,
+JavaScript and shell directory checks do not evaluate the checked programs.
+Shell execution means POSIX sh, not automatic Bash/zsh dialect detection.
+
+### PostgreSQL scripts: choose the database explicitly
+
+```sh
+PGHOST=/path/to/socket PGPORT=5432 PGUSER=your_user \
+  B_SQL_DATABASE=your_disposable_database b sql ./example.sql
+```
+
+There is **no default database**. `B_SQL_DATABASE` accepts a database name, not a
+connection URI or credentials. Use libpq environment settings such as `PGHOST`,
+`PGPORT`, `PGUSER`, `PGPASSFILE` and `PGCONNECT_TIMEOUT` for connection policy.
+Both run modes execute the script through psql with startup files disabled,
+interactive password prompts disabled, `ON_ERROR_STOP`, and a single transaction
+for ordinary statements. Execution can mutate data. Scripts with transaction
+control or psql meta-commands retain native semantics: this is not a sandbox or
+a promise of atomicity for arbitrary scripts. Use disposable databases to learn
+or test; b never creates one or guesses an existing production database.
+
+SQL `build` rejects because database-backed semantics are not a standalone
+compiler check. Current SQL proof uses PostgreSQL; other dialects are not
+advertised as interchangeable.
 
 ### Arduino sketches
 
@@ -139,10 +225,12 @@ b run exec ./hello.c
 ```
 
 The launcher preserves your working directory. `CC` can select one compiler
-executable, not a shell command with flags. Outputs and bootstrap binaries stay
+executable, not a shell command with flags; C++ uses `CXX` similarly. b-owned
+compiled outputs and bootstrap binaries stay
 under `~/Library/Application Support/b` on macOS, or `$XDG_CACHE_HOME/b`
 (`~/.cache/b` by default) elsewhere. `B_HOME` overrides this location. Toolchain
 own caches may be separate; .NET file-based intermediates use its temporary cache.
+npm scripts keep their own project output layout.
 
 For optional tools, follow the official [Rust](https://www.rust-lang.org/tools/install),
 [.NET SDK](https://dotnet.microsoft.com/download), or [R](https://cran.r-project.org/)
@@ -154,6 +242,9 @@ installation instructions. Check `rustc --version`, `dotnet --list-sdks`, or
 See [JETBRAINS.md](JETBRAINS.md) for a plain-English guide to adding b as an
 external tool in CLion, IntelliJ IDEA, Rider, PyCharm, and other JetBrains IDEs.
 It uses the current editor file, not a hardcoded project or language list.
+An IDE may have poor completion, refactoring or debugging for another language.
+b supplies tool orchestration, not language intelligence: **build, breeze, box**
+does not imply that every JetBrains language plugin suddenly works.
 
 ### Layout and limits
 
@@ -181,8 +272,8 @@ preserves an existing workspace graph, shaders, tests and target launcher:
 
 No export format or manifest schema is implemented yet. `export` rejects
 nonzero without creating a destination. Packaging, cross-compilation, shared
-dependency graphs, C++, JavaScript/TypeScript and HTML/web adapters are future
-work, not advertised runtime support. b does not replace Maven, Gradle or Cargo.
+dependency graphs, additional database dialects and supervised web-serving remain
+future work. b does not replace Maven, Gradle, Cargo, npm or CMake.
 
 Tests live in the independent shared `tests/b/` checkout, not in production
 source. In the workspace, run:
@@ -190,10 +281,14 @@ source. In the workspace, run:
 ```sh
 python3 ../tests/b/cli_test.py
 python3 ../tests/b/readme_test.py
+python3 -m unittest discover -s ../tests/b -p '*_test.py' -v
 ```
 
 They use temporary projects and an isolated `B_HOME`. Missing optional runtimes
 are explicit skips; a pass on macOS is not proof on another platform.
+New language tests use real installed tools; browser launching is tested with a
+headless opener fixture, not GUI acceptance. SQL uses a temporary socket-only
+PostgreSQL cluster, with bounded cleanup, never an existing database.
 
 Architecture follows the canonical
 [preferences.md](https://github.com/vexgraph-ecosystem/vexspoke/blob/main/preferences.md)
