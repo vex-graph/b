@@ -8,6 +8,7 @@
 // main (build | run | language shorthand | export-reject).
 #include "b.h"
 #include "languages/language.h"
+#include "languages/arduino.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -16,7 +17,8 @@
 
 static void usage(void) {
     puts("b run <exec|instance> <filename> [-- arguments...]\n"
-         "b build <c|java|python|rust> [directory]\n"
+         "b build <language> [directory]\n"
+         "b upload arduino <sketch> --fqbn <board> --port <port>\n"
          "b export <manifestmainfile> <destination> <exe|app|msi|iso|zip>\n"
          "b <language> <filename> [-- arguments...]   (e.g. b java Hello.java)\n"
          "instance: run as-is; exec: build a source artifact then launch\n"
@@ -78,6 +80,12 @@ int main(int argc, char **argv) {
         free(output);
         free(project);
         return status;
+    }
+    if (strcmp(argv[1], "upload") == 0 && argc >= 3) {
+        if (strcmp(argv[2], "arduino") == 0)
+            return Arduino_upload(argc - 3, argv + 3);
+        THROW("unsupported upload adapter: %s", argv[2]);
+        return EXIT_FAILURE;
     }
     if (strcmp(argv[1], "run") == 0 && argc >= 4) {
         bool buildArtifact = strcmp(argv[2], "exec") == 0;
