@@ -5,6 +5,19 @@ need an IDE plugin or a generated CMake project for this workflow. The same
 setup works in CLion, IntelliJ IDEA, Rider, PyCharm, and similar JetBrains IDEs
 that provide External Tools. Menu wording may vary slightly by version.
 
+## Build, breeze, box — not a language plugin
+
+Coding a different language in a JetBrains IDE can be awkward: syntax awareness,
+completion, refactoring, project indexing and debugger support may be missing or
+incomplete. b does not add those IDE features. It gives you a way to invoke the
+real build/run tools from the editor you chose. That distinction is the point.
+
+**Build, breeze, box** is the workflow direction: build through native tools,
+run without switching editors, and package when a real export adapter exists.
+Current builds/runs and Arduino upload are implemented; export is still planned.
+A Run button calling b is not proof of language completion, debugging, browser
+rendering or production packaging. Assess those capabilities independently.
+
 ## Before opening settings
 
 Clone b as explained in [README.md](README.md). In a terminal, run
@@ -42,8 +55,11 @@ cached CLI binary. An absolute path is easiest: it avoids depending on the IDE's
 calling b. Quotes around `"$FilePath$"` keep a filename with spaces together.
 You can insert macros using the IDE's macro selector rather than typing them.
 
-This command uses `run exec`: C/Rust/C# compile first, Java compiles classes,
-and Python/R run their interpreters. The selected file must be an entry point,
+This command uses `run exec`: C/C++/Rust/Swift/Objective-C/C# compile first,
+Java compiles classes, and script adapters use their runtimes. HTML opens a local
+browser file; `package.json` delegates npm build then start. SQL additionally
+requires an explicitly selected database in the tool's environment.
+The selected file must be an entry point,
 not an arbitrary helper file. For multi-source programs, use a directory build
 tool instead. Nothing here automatically attaches the IDE debugger.
 
@@ -51,7 +67,8 @@ tool instead. Nothing here automatically attaches the IDE debugger.
 
 To run a source file through its runtime, create **Run current instance** with
 Arguments `run instance "$FilePath$"` and the same Program/Working directory.
-C and Rust reject this mode; Java, Python, C# and R use their runtime adapters.
+C, C++ and Objective-C reject this mode; Swift and scripting/managed adapters
+use their runtime paths. Arduino uses the separate upload tool below.
 
 To pass program arguments, append them after `--`, for example:
 `run exec "$FilePath$" -- "hello world"`. They go to your program, not to b.
@@ -67,6 +84,12 @@ b delegates configuration and building to CMake and prints its external build
 directory. CMake's own targets, dependencies and flags remain authoritative;
 this tool does not guess an executable to launch afterward. This is a separate
 workflow from running one source file or uploading Arduino firmware.
+
+For npm projects, use `build npm "$ProjectFileDir$"` to run the declared build
+script, or select `package.json` and use the run tool to build then start it.
+For PostgreSQL scripts, configure `B_SQL_DATABASE` and libpq connection settings
+in the IDE/tool environment before invoking b. Use a disposable database for
+testing; do not rely on a default connection or put database passwords in XML.
 
 Under **Settings → Keymap**, search for your external tool's name and assign a
 keyboard shortcut. To include it in an existing run configuration, open
