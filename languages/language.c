@@ -11,6 +11,16 @@
 #include "languages/r.h"
 #include "languages/arduino.h"
 #include "languages/cmake.h"
+#include "languages/swift.h"
+#include "languages/objc.h"
+#include "languages/javascript.h"
+#include "languages/typescript.h"
+#include "languages/npm.h"
+#include "languages/html.h"
+#include "languages/php.h"
+#include "languages/sql.h"
+#include "languages/cpp.h"
+#include "languages/shell.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -26,6 +36,10 @@
  * PRIVATE DATA: LANGUAGES — borrowed const Language pointers, in dispatch order.
  * RECORDS: C_LANGUAGE; JAVA_LANGUAGE; PYTHON_LANGUAGE; RUST_LANGUAGE;
  * CSHARP_LANGUAGE; R_LANGUAGE; R_LOWER_LANGUAGE; ARDUINO_LANGUAGE; CMAKE_LANGUAGE.
+ * SWIFT_LANGUAGE; OBJC_LANGUAGE; JAVASCRIPT_LANGUAGE; NODE_LANGUAGE; JS_LANGUAGE;
+ * TYPESCRIPT_LANGUAGE; TS_LANGUAGE; CTS_LANGUAGE; NPM_LANGUAGE; HTML_LANGUAGE;
+ * HTM_LANGUAGE; PHP_LANGUAGE; SQL_LANGUAGE; CPP_LANGUAGE; CXX_LANGUAGE;
+ * CPP_LONG_LANGUAGE; SHELL_LANGUAGE.
  * Records carry name, extension, build and run fields documented in language.h.
  */
 
@@ -41,6 +55,23 @@ static const Language *const LANGUAGES[] = {
     &R_LOWER_LANGUAGE,
     &ARDUINO_LANGUAGE,
     &CMAKE_LANGUAGE,
+    &SWIFT_LANGUAGE,
+    &OBJC_LANGUAGE,
+    &JAVASCRIPT_LANGUAGE,
+    &NODE_LANGUAGE,
+    &JS_LANGUAGE,
+    &TYPESCRIPT_LANGUAGE,
+    &TS_LANGUAGE,
+    &CTS_LANGUAGE,
+    &NPM_LANGUAGE,
+    &HTML_LANGUAGE,
+    &HTM_LANGUAGE,
+    &PHP_LANGUAGE,
+    &SQL_LANGUAGE,
+    &CPP_LANGUAGE,
+    &CXX_LANGUAGE,
+    &CPP_LONG_LANGUAGE,
+    &SHELL_LANGUAGE,
 };
 
 const Language *Language_forName(const char *name) {
