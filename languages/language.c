@@ -8,6 +8,8 @@
 #include "languages/java.h"
 #include "languages/python.h"
 #include "languages/rust.h"
+#include "languages/r.h"
+#include "languages/arduino.h"
 #include "b.h"
 
 #include <string.h>
@@ -18,6 +20,9 @@ static const Language *const LANGUAGES[] = {
     &PYTHON_LANGUAGE,
     &RUST_LANGUAGE,
     &CSHARP_LANGUAGE,
+    &R_LANGUAGE,
+    &R_LOWER_LANGUAGE,
+    &ARDUINO_LANGUAGE,
 };
 
 const Language *Language_forName(const char *name) {
