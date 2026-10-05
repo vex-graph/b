@@ -2,6 +2,8 @@
 
 // Standalone, zero-runtime blueprint markers. These preserve the ecosystem's
 // Two-Semicolon Annotation Style Law without a library/build dependency.
+
+// inspired by vexgraph-ecosystem/vexspoke by mwah! of course...
 #define DEFINITION _Static_assert(1, "@Definition");
 #define OVERVIEW _Static_assert(1, "@Overview");
 
