@@ -1,4 +1,4 @@
-#include "languages/sql.h"
+#include "adapters/sql.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -11,7 +11,8 @@
  * semantics. Build cannot promise a parse-only check without database context.
  */
 ;;OVERVIEW
-/* MODULE: PostgreSQL SQL adapter; PUBLIC RECORD: SQL_LANGUAGE (sql.h).
+/* MODULE: PostgreSQL SQL adapter; PUBLIC RECORD: SQL_ADAPTER (sql.h).
+ * METADATA: tools="psql"; capabilities="explicit PostgreSQL run; no standalone build".
  * PRIVATE STATIC: buildSql — reject fake compilation; runSql — validate explicit
  * database name and invoke psql -X/ON_ERROR_STOP/--single-transaction.
  * RECORD FIELDS: name="sql", extension=".sql", build=buildSql, run=runSql.
@@ -54,4 +55,5 @@ static int runSql(const char *file, int argc, char **argv, bool buildArtifact) {
     return Util_execute(arguments);
 }
 
-const Language SQL_LANGUAGE = { "sql", ".sql", buildSql, runSql };
+const Adapter SQL_ADAPTER = { "sql", ".sql", buildSql, runSql,
+    "psql", "explicit PostgreSQL run; no standalone build" };

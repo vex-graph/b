@@ -1,10 +1,10 @@
 #pragma once
 #include "annotation.h"
-#include "languages/language.h"
+#include "adapters/adapter.h"
 ;;DEFINITION
 /* Explicit PostgreSQL script execution; no default database is guessed. */
 ;;OVERVIEW
-/* PUBLIC RECORD: SQL_LANGUAGE {name="sql", extension=".sql",
+/* PUBLIC RECORD: SQL_ADAPTER {name="sql", extension=".sql",
  * build=buildSql, run=runSql}; implementation: sql.c. No owned state.
  */
-extern const Language SQL_LANGUAGE;
+extern const Adapter SQL_ADAPTER;
