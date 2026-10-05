@@ -1,4 +1,4 @@
-#include "languages/javascript.h"
+#include "adapters/javascript.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -9,9 +9,10 @@
  */
 ;;OVERVIEW
 /* MODULE: JavaScript/Node adapter; PUBLIC RECORDS (javascript.h):
- * JAVASCRIPT_LANGUAGE {name="javascript", extension=".js"};
- * NODE_LANGUAGE {name="node", extension=".mjs"}; JS_LANGUAGE {name="js", extension=".cjs"};
+ * JAVASCRIPT_ADAPTER {name="javascript", extension=".js"};
+ * NODE_ADAPTER {name="node", extension=".mjs"}; JS_ADAPTER {name="js", extension=".cjs"};
  * all build=buildJavascript, run=runJavascript.
+ * METADATA (all): tools="node"; capabilities="syntax-check; instance/exec runtime".
  * PRIVATE STATIC: buildJavascript — node --check each top-level JS module;
  * runJavascript — node file, forwarding literal arguments and status.
  */
@@ -27,6 +28,9 @@ static int runJavascript(const char *file, int argc, char **argv, bool buildArti
     return Util_runCommand(prefix, 2, argc, argv);
 }
 
-const Language JAVASCRIPT_LANGUAGE = { "javascript", ".js", buildJavascript, runJavascript };
-const Language NODE_LANGUAGE = { "node", ".mjs", buildJavascript, runJavascript };
-const Language JS_LANGUAGE = { "js", ".cjs", buildJavascript, runJavascript };
+const Adapter JAVASCRIPT_ADAPTER = { "javascript", ".js", buildJavascript, runJavascript,
+    "node", "syntax-check; instance/exec runtime" };
+const Adapter NODE_ADAPTER = { "node", ".mjs", buildJavascript, runJavascript,
+    "node", "syntax-check; instance/exec runtime" };
+const Adapter JS_ADAPTER = { "js", ".cjs", buildJavascript, runJavascript,
+    "node", "syntax-check; instance/exec runtime" };
