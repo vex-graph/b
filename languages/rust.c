@@ -1,5 +1,5 @@
 // CLASS: Rust language adapter.
-// DEFINITION: Compiles a directory's top-level .rs files with rustc (edition
+// DEFINITION: Compiles a directory's single crate root with rustc (edition
 // 2021) into one native executable; `run exec` compiles a single file on demand.
 // Rust has no source runtime, so `run instance` rejects. Requires rustc on PATH;
 // b does not download it. Cargo projects are future work.
@@ -7,6 +7,9 @@
 #include "b.h"
 
 #include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+#include <unistd.h>
 
 static int compileRust(const char *project, char **sources, size_t count, char **output) {
     if (count > SIZE_MAX / sizeof(char*) - 8) {
@@ -37,7 +40,15 @@ static int buildRust(const char *project, char **output) {
     char **sources = Util_collectSources(project, "/*.rs", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
-    int status = compileRust(project, sources, count, output);
+    // rustc accepts one crate root; sibling modules are discovered by `mod`.
+    char *mainFile = Util_combine(project, "/main.rs");
+    char *root = access(mainFile, R_OK) == 0 ? mainFile : count == 1 ? sources[0] : nullptr;
+    int status = EXIT_FAILURE;
+    if (root == nullptr)
+        THROW("multiple Rust files need a main.rs crate root; Cargo projects are not supported yet");
+    else
+        status = compileRust(project, &root, 1, output);
+    free(mainFile);
     Util_freeSources(sources, count);
     return status;
 }
