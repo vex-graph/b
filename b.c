@@ -1,14 +1,15 @@
-// MODULE: b suite — argv validation and language dispatch. No owned class.
-// DEFINITION: b accepts one command and hands the work to a language adapter in
-// languages/. The suite owns argv, the output-path contract, and the fallback
+// MODULE: b suite — argv validation and adapter dispatch. No owned class.
+// DEFINITION: b accepts one command and hands the work to an adapter in
+// adapters/. The suite owns argv, the output-path contract, and the fallback
 // for an already-built executable; it never contains per-language logic. export
 // stays rejected until a manifest contract exists. `b <language> <file>` is the
 // instance-run shorthand (b java Hello.java, b python app.py).
 // OVERVIEW: usage; regularFile; runFile (adapter, else existing executable);
 // main (build | run | language shorthand | export-reject).
 #include "b.h"
-#include "languages/language.h"
-#include "languages/arduino.h"
+#include "adapters/adapter.h"
+#include "adapters/arduino.h"
+#include "inspect.h"
 
 ;;DEFINITION
 /* The suite validates command grammar and passes work to registered adapters.
@@ -19,7 +20,8 @@
  */
 ;;OVERVIEW
 /* MODULE: command suite.
- * PUBLIC ENTRY: main — help, build, run, upload, shorthand, export rejection.
+ * PUBLIC ENTRY: main — help, adapters (languages alias), doctor, build, run, upload, shorthand,
+ * export rejection. Discovery delegates to inspect.c, not the workspace engine.
  * PRIVATE STATIC: usage — print grammar and limits;
  * regularFile — validate a regular source/executable input;
  * runFile — source adapter dispatch or native executable fallback.
@@ -34,10 +36,12 @@
 
 static void usage(void) {
     puts("b run <exec|instance> <filename> [-- arguments...]\n"
-         "b build <language> [directory]\n"
+         "b adapters   (alias: b languages)\n"
+         "b doctor [adapter]\n"
+         "b build <adapter> [directory]\n"
          "b upload arduino <sketch> --port <port> [--fqbn <matching-board>]\n"
          "b export <manifestmainfile> <destination> <exe|app|msi|iso|zip>\n"
-         "b <language> <filename> [-- arguments...]   (e.g. b java Hello.java)\n"
+         "b <adapter> <filename> [-- arguments...]   (e.g. b java Hello.java)\n"
          "instance: run as-is; exec: build a source artifact then launch\n"
          "export: planned, not implemented");
 }
@@ -52,9 +56,9 @@ static int runFile(const char *input, bool buildArtifact, int argc, char **argv)
         THROW("run file does not exist or is not regular: %s", input);
         return EXIT_FAILURE;
     }
-    const Language *language = Language_forFile(input);
-    if (language != nullptr)
-        return (*language).run(input, argc, argv, buildArtifact);
+    const Adapter *adapter = Adapter_forFile(input);
+    if (adapter != nullptr)
+        return (*adapter).run(input, argc, argv, buildArtifact);
     char *file = realpath(input, nullptr);
     if (file == nullptr || access(file, X_OK) != 0) {
         THROW("file is not an executable or a supported source: %s", input);
@@ -76,10 +80,14 @@ int main(int argc, char **argv) {
         usage();
         return EXIT_SUCCESS;
     }
+    if ((strcmp(argv[1], "adapters") == 0 || strcmp(argv[1], "languages") == 0) && argc == 2)
+        return Inspect_adapters();
+    if (strcmp(argv[1], "doctor") == 0 && (argc == 2 || argc == 3))
+        return Inspect_doctor(argc == 3 ? argv[2] : nullptr);
     if (strcmp(argv[1], "build") == 0 && (argc == 3 || argc == 4)) {
-        const Language *language = Language_forName(argv[2]);
-        if (language == nullptr) {
-            THROW("unsupported language: %s", argv[2]);
+        const Adapter *adapter = Adapter_forName(argv[2]);
+        if (adapter == nullptr) {
+            THROW("unsupported adapter: %s", argv[2]);
             return EXIT_FAILURE;
         }
         const char *path = argc == 4 ? argv[3] : ".";
@@ -91,7 +99,7 @@ int main(int argc, char **argv) {
             return EXIT_FAILURE;
         }
         char *output = nullptr;
-        int status = (*language).build(project, &output);
+        int status = (*adapter).build(project, &output);
         if (status == 0)
             puts(output);
         free(output);
@@ -113,7 +121,7 @@ int main(int argc, char **argv) {
         int start = argc > 4 && strcmp(argv[4], "--") == 0 ? 5 : 4;
         return runFile(argv[3], buildArtifact, argc - start, argv + start);
     }
-    const Language *shorthand = Language_forName(argv[1]);
+    const Adapter *shorthand = Adapter_forName(argv[1]);
     if (shorthand != nullptr && argc >= 3) {
         int start = argc > 3 && strcmp(argv[3], "--") == 0 ? 4 : 3;
         return runFile(argv[2], false, argc - start, argv + start);
