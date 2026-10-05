@@ -17,7 +17,9 @@
 /* MODULE: shared utility implementation; public declarations: b.h.
  * PUBLIC MEMORY/PATH: Util_allocate; Util_combine; Util_endsWith;
  * Util_makeDirectory; Util_outputDirectory; Util_parentDirectory.
- * PUBLIC PROCESS: Util_executeWithEnvironment; Util_execute; Util_executeBuild.
+ * PUBLIC PROCESS: Util_executeWithEnvironment; Util_execute; Util_executeBuild;
+ * Util_runCommand — append borrowed program arguments without shell parsing.
+ * PUBLIC CHECKS: Util_checkSources — run a checker on each discovered source.
  * PUBLIC DISCOVERY: Util_collectSources; Util_freeSources.
  * PUBLIC ENVIRONMENT: Util_environmentWith; Util_freeEnvironment — allocate one
  * replacement entry, borrow inherited entries, free only owned storage.
@@ -113,6 +115,50 @@ int Util_executeBuild(char **arguments) {
     return reap(child);
 }
 
+int Util_runCommand(char **prefix, size_t prefixCount, int argc, char **argv) {
+    size_t limit = SIZE_MAX / sizeof(char*);
+    if (prefix == nullptr || prefixCount == 0 || argc < 0 ||
+        (size_t) argc >= limit || prefixCount > limit - (size_t) argc - 1 ||
+        prefix[0] == nullptr || (argc > 0 && argv == nullptr)) {
+        THROW("invalid command prefix or argument count");
+        return EXIT_FAILURE;
+    }
+    char **arguments = Util_allocate((prefixCount + (size_t) argc + 1) * sizeof(char*));
+    for (size_t i = 0; i < prefixCount; ++i)
+        arguments[i] = prefix[i];
+    for (int i = 0; i < argc; ++i)
+        arguments[prefixCount + (size_t) i] = argv[i];
+    int status = Util_execute(arguments);
+    free(arguments);
+    return status;
+}
+
+int Util_checkSources(const char *project, const char *pattern, char **prefix, size_t prefixCount, char **output) {
+    if (project == nullptr || pattern == nullptr || output == nullptr || prefix == nullptr ||
+        prefixCount == 0 || prefixCount > SIZE_MAX / sizeof(char*) - 2 || prefix[0] == nullptr) {
+        THROW("invalid source checker input or argument count");
+        return EXIT_FAILURE;
+    }
+    size_t count = 0;
+    bool ok = false;
+    char **sources = Util_collectSources(project, pattern, &count, &ok);
+    if (!ok)
+        return EXIT_FAILURE;
+    char **arguments = Util_allocate((prefixCount + 2) * sizeof(char*));
+    for (size_t i = 0; i < prefixCount; ++i)
+        arguments[i] = prefix[i];
+    int status = 0;
+    for (size_t i = 0; i < count && status == 0; ++i) {
+        arguments[prefixCount] = sources[i];
+        status = Util_executeBuild(arguments);
+    }
+    if (status == 0)
+        *output = Util_combine(project, "");
+    free(arguments);
+    Util_freeSources(sources, count);
+    return status;
+}
+
 bool Util_makeDirectory(char *path) {
     for (char *part = path + 1; ; ++part) {
         if (*part != '/' && *part != '\0')
@@ -185,14 +231,20 @@ char **Util_collectSources(const char *project, const char *extension, size_t *c
     char *escaped = Util_allocate(length * 2 + 1);
     size_t position = 0;
     for (size_t i = 0; i < length; ++i) {
-        if (strchr("*?[\\", project[i]) != nullptr)
+        if (strchr("*?[\\{}", project[i]) != nullptr)
             escaped[position++] = '\\';
         escaped[position++] = project[i];
     }
     char *pattern = Util_combine(escaped, extension);
     free(escaped);
     glob_t files = {0};
-    int found = glob(pattern, 0, nullptr, &files);
+    int flags = 0;
+#ifdef GLOB_BRACE
+    // BSD/GNU glob supports native adapter extension sets; directory braces
+    // were escaped above and never participate in expansion.
+    flags = GLOB_BRACE;
+#endif
+    int found = glob(pattern, flags, nullptr, &files);
     free(pattern);
     if (found != 0) {
         THROW("cannot enumerate sources in %s", project);
