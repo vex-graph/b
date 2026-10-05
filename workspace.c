@@ -95,6 +95,8 @@
  * const char *label — display text.
  * Private global configuration/target/unit/generator/coverage tables persist
  * for this CLI invocation. No public class or cross-file ownership is added.
+ * setup_graphvex registers five compositor shader entrypoints; color.frag also
+ * watches filter/filter_type.h so its shared operation IDs invalidate SPIR-V.
  */
 
 #include <stdarg.h>
@@ -1062,9 +1064,9 @@ static void setup_graphvex(TargetList *tl) {
     }
     // Modular compositor entrypoints are compile-checked now; these blobs are
     // not embedded/bound by the flat renderer and do not confer GPU runtime
-    // support. Sources are self-contained (no hidden include dependencies).
+    // support. color.frag includes shared filter IDs; watch that header as well.
     const char *compositorShaders[] = {
-        "scatter.vert", "scatter.frag", "resolve.vert", "resolve.frag"
+        "scatter.vert", "scatter.frag", "resolve.vert", "resolve.frag", "color.frag"
     };
     for (size_t i = 0; i < sizeof compositorShaders / sizeof compositorShaders[0]; i++) {
         char *src = strf("%s/src/shaders/compositor/%s", base, compositorShaders[i]);
@@ -1076,6 +1078,8 @@ static void setup_graphvex(TargetList *tl) {
         strl_push(&g, "-o");
         strl_push(&g, out);
         add_gen(src, out, g);
+        if (!strcmp(compositorShaders[i], "color.frag"))
+            add_gen(strf("%s/src/filter/filter_type.h", base), out, g);
     }
     // embed the SPIR-V into a header the renderer #includes (regen on EITHER
     // shader change — one step keyed on the vert, one on the frag)
