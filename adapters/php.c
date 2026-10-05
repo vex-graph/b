@@ -1,4 +1,4 @@
-#include "languages/php.h"
+#include "adapters/php.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -8,7 +8,8 @@
  * PHP-FPM, Composer install or development server is started automatically.
  */
 ;;OVERVIEW
-/* MODULE: PHP adapter; PUBLIC RECORD: PHP_LANGUAGE (php.h).
+/* MODULE: PHP adapter; PUBLIC RECORD: PHP_ADAPTER (php.h).
+ * METADATA: tools="php"; capabilities="parse-check; instance/exec CLI runtime".
  * PRIVATE STATIC: buildPhp — independent parse checks; runPhp — CLI execution.
  * RECORD FIELDS: name="php", extension=".php", build=buildPhp, run=runPhp.
  * Arguments are borrowed, checker argv temporary, child status preserved.
@@ -25,4 +26,5 @@ static int runPhp(const char *file, int argc, char **argv, bool buildArtifact) {
     return Util_runCommand(prefix, 2, argc, argv);
 }
 
-const Language PHP_LANGUAGE = { "php", ".php", buildPhp, runPhp };
+const Adapter PHP_ADAPTER = { "php", ".php", buildPhp, runPhp,
+    "php", "parse-check; instance/exec CLI runtime" };
