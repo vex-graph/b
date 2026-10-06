@@ -227,12 +227,12 @@ claim that packaging or IDE language intelligence already exists.
 
 ## Ecosystem workspace command tree
 
-This is a separate target-based engine, not the standalone language grammar.
-It needs the configured ecosystem workspace; a standalone clone does not supply
-that workspace. Global options precede the command:
+Vexgraph owns this separate target-based graph in `tools/workspace.c`, not the
+standalone b checkout. Its project launcher uses generic `b run exec`; a
+standalone clone contains no ecosystem graph. Global options precede the command:
 
 ```text
-b workspace <workspace-directory> [--release] [-j N] [-v] <command>
+./tools/b [--release] [-j N] [-v] <command>
 ├── build [targets...]       all targets, or named targets and dependencies
 ├── run [target] [args...]   run a target; omitted target lists runnable choices
 ├── test [substring]        all registered tests, or matching names
@@ -257,7 +257,7 @@ Within vexgraph, `./tools/b` forwards to this engine:
 ./tools/b doctor
 
 # Equivalent explicit entry point:
-b workspace /path/to/vexgraph targets
+personal/b/b run exec tools/workspace.c -- targets
 ```
 
 Angle-bracket values are placeholders, not literal shell arguments. See the
