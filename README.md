@@ -300,9 +300,10 @@ The markers compile to zero-runtime assertions in standalone `annotation.h`.
 Adapter shorthand should match that file selector. Builds currently delegate
 incremental decisions to project backends rather than providing a shared cache.
 
-`workspace.c` is a compatibility adapter, not b's general project model. It
-preserves an existing workspace graph, shaders, tests and target launcher:
-`b workspace /path/to/workspace build`. It is separate from `b build c`.
+Project-specific graphs belong to their project, not this checkout. Vexgraph's
+`tools/workspace.c` holds its targets, shaders and tests; its `tools/b` launcher
+uses generic `b run exec` to compile and execute that graph. There is no special
+`b workspace` command or ecosystem dependency in this standalone launcher.
 
 No export format or manifest schema is implemented yet. `export` rejects
 nonzero without creating a destination. Packaging, cross-compilation, shared
@@ -313,9 +314,9 @@ Tests live in the independent shared `tests/b/` checkout, not in production
 source. In the workspace, run:
 
 ```sh
-python3 ../tests/b/cli_test.py
-python3 ../tests/b/readme_test.py
-python3 -m unittest discover -s ../tests/b -p '*_test.py' -v
+python3 ../../tests/b/cli_test.py
+python3 ../../tests/b/readme_test.py
+python3 -m unittest discover -s ../../tests/b -p '*_test.py' -v
 ```
 
 They use temporary projects and an isolated `B_HOME`. Missing optional runtimes
