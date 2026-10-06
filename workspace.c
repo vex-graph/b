@@ -42,6 +42,8 @@
  * Its process-global records are private to this one-shot CLI. This overview
  * documents the legacy engine; explicit pointer dereferences preserve its
  * behavior while following the Semantic Consistency Law (Reference form).
+ * The reorganized workspace resolves libraries from ecosystem/repos, R5
+ * projects from ecosystem/projects, and this coordinator from personal/b.
  */
 ;;OVERVIEW
 /* MODULE: workspace compatibility graph. PUBLIC ENTRY: main.
@@ -595,7 +597,7 @@ static const char *g_only = NULL;        // restrict the target graph to one sub
 static const char *g_profraw = NULL;     // LLVM_PROFILE_FILE for the next test run
 static char *g_cc_version = NULL;
 
-static const char *VEXSPOKE = "ecosystem/vexspoke";
+static const char *VEXSPOKE = "ecosystem/repos/vexspoke";
 
 static void setup_paths(void) {
     const char *cfg = g_coverage ? "coverage" : (g_release ? "release" : "debug");
@@ -724,7 +726,7 @@ static void add_exe_libs(Target *t) {
 #endif
 }
 
-// ── ecosystem/vexspoke ──────────────────────────────────────────────────────
+// ── ecosystem/repos/vexspoke ────────────────────────────────────────────────
 static void setup_vexspoke(TargetList *tl) {
     Target *v = target_new(tl, "vexspoke", T_LIB);
     StrList c = {0};
@@ -743,9 +745,9 @@ static void setup_vexspoke(TargetList *tl) {
     if (!g_release) strl_push(&(*v).pub_defs, "DEBUG_BORROW_CHECK=1");
 }
 
-// ── ecosystem/interface/darling-framework (R4: the UI framework — Frame, Panel) ───────
+// ── ecosystem/repos/darling-framework (R4: Frame, Panel) ──────────────────────
 static void setup_darling(TargetList *tl) {
-    char *base = abspath("ecosystem/interface/darling-framework");
+    char *base = abspath("ecosystem/repos/darling-framework");
     Target *lib = target_new(tl, "darling", T_LIB);
     StrList c = {0};
     // R4 is split by concern: src/ (Frame, Panel), src/input (accessibility),
@@ -772,7 +774,7 @@ static void setup_graphvex_tests(TargetList *tl) {
         Target *t = target_new(tl, name, T_EXE);
         (*t).is_test = true;
         strl_push(&(*t).srcs, ts.items[i]);
-        strl_push(&(*t).includes, abspath("ecosystem/drivers/graphvex/src"));
+        strl_push(&(*t).includes, abspath("ecosystem/repos/graphvex/src"));
         strl_push(&(*t).includes, abspath("tests"));   // test_support.h
         strl_push(&(*t).defs, "UNDEBUG");
         strl_push(&(*t).deps, "graphvex");
@@ -834,9 +836,9 @@ static void setup_vexspoke_tests(TargetList *tl) {
     }
 }
 
-// ── ecosystem/interface/sesh (header-only until sources land) ─────────────────────────
+// ── ecosystem/repos/sesh (header-only until sources land) ────────────────────
 static void setup_sesh(TargetList *tl) {
-    char *src = abspath("ecosystem/interface/sesh/src");
+    char *src = abspath("ecosystem/repos/sesh/src");
     StrList c = {0};
     glob_rec(src, ".c", &c);
     if (c.count == 0) return;
@@ -844,13 +846,13 @@ static void setup_sesh(TargetList *tl) {
     Target *t = target_new(tl, "sesh", T_LIB);
     (*t).srcs = c;
     strl_push(&(*t).includes, src);
-    strl_push(&(*t).includes, abspath("ecosystem/interface/sesh"));
+    strl_push(&(*t).includes, abspath("ecosystem/repos/sesh"));
     strl_push(&(*t).deps, "vexspoke");
 }
 
-// ── projects/impedance ──────────────────────────────────────────────────────
+// ── ecosystem/projects/impedance ────────────────────────────────────────────
 static void setup_impedance(TargetList *tl) {
-    char *base = abspath("projects/impedance");
+    char *base = abspath("ecosystem/projects/impedance");
     Target *lib = target_new(tl, "impedance", T_LIB);
     strl_push(&(*lib).srcs, strf("%s/src/impedance.c", base));
     strl_push(&(*lib).includes, strf("%s/src", base));
@@ -869,9 +871,9 @@ static void setup_impedance(TargetList *tl) {
     }
 }
 
-// ── ecosystem/drivers/api-haven ─────────────────────────────────────────────────────
+// ── ecosystem/repos/api-haven ────────────────────────────────────────────────
 static void setup_apihaven(TargetList *tl) {
-    char *base = abspath("ecosystem/drivers/api-haven");
+    char *base = abspath("ecosystem/repos/api-haven");
     const char *libs[] = {
         "src/api/client.c", "src/api/auth.c", "src/api/rest.c",
         "src/api/haven_ws_fanout.c", "src/com/discord/discord.c",
@@ -918,9 +920,9 @@ static void setup_apihaven(TargetList *tl) {
     }
 }
 
-// ── ecosystem/hotcwap (R1: kernel host + hotload machinery) ─────────────────
+// ── ecosystem/repos/hotcwap (R1: kernel host + hotload machinery) ─────────────
 static void setup_hotcwap(TargetList *tl) {
-    char *base = abspath("ecosystem/hotcwap");
+    char *base = abspath("ecosystem/repos/hotcwap");
     Target *lib = target_new(tl, "hotcwap", T_LIB);
     const char *csrc[] = {
         "kernel/application.c", "kernel/process.c", "kernel/console.c",
@@ -1039,11 +1041,11 @@ static void setup_apps(TargetList *tl) {
     }
 }
 
-// ── ecosystem/drivers/graphvex (R3: GPU driver + graphics core) ─────────────────────
+// ── ecosystem/repos/graphvex (R3: GPU driver + graphics core) ──────────────────
 static void add_gen(const char *src, const char *out, Cmd cmd);   // defined below
 
 static void setup_graphvex(TargetList *tl) {
-    char *base = abspath("ecosystem/drivers/graphvex");
+    char *base = abspath("ecosystem/repos/graphvex");
     Target *lib = target_new(tl, "graphvex", T_LIB);
     StrList c = {0};
     glob_rec(strf("%s/src", base), ".c", &c);
@@ -1119,7 +1121,7 @@ static void setup_darling_tests(TargetList *tl) {
         Target *t = target_new(tl, name, T_EXE);
         (*t).is_test = true;
         strl_push(&(*t).srcs, ts.items[i]);
-        strl_push(&(*t).includes, abspath("ecosystem/interface/darling-framework/src"));
+        strl_push(&(*t).includes, abspath("ecosystem/repos/darling-framework/src"));
         strl_push(&(*t).includes, abspath("tests"));
         strl_push(&(*t).defs, "UNDEBUG");
         strl_push(&(*t).deps, "darling");
@@ -1666,7 +1668,7 @@ static void build_all(void) {
 //   b coverage   dynamic: instrument, run, lcov, function-execution gate
 // ─────────────────────────────────────────────────────────────────────────────
 
-#define VEX_SRC_REL   "ecosystem/vexspoke"
+#define VEX_SRC_REL   "ecosystem/repos/vexspoke"
 #define VEX_TESTS_REL "tests/vexspoke"
 
 static bool ident_char(char c) {
@@ -2355,7 +2357,7 @@ static void export_ide_graph(void) {
 }
 
 static void rebuild_self(char **argv) {
-    const char *src = "b/workspace.c";
+    const char *src = "personal/b/workspace.c";
     if (!path_exists(src)) return;
 
     char *bin = strf("%s/b", g_state);
