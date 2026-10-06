@@ -8,31 +8,6 @@ case "$(uname -s)" in
 esac
 mkdir -p "$state"
 
-# Workspace compatibility mode: the ecosystem graph engine, unchanged.
-if [ "${1:-}" = workspace ]; then
-    if [ "$#" -lt 3 ]; then
-        echo 'b: usage: b workspace <workspace-directory> <command> [arguments...]' >&2
-        exit 2
-    fi
-    shift
-    workspace=$1
-    shift
-    cd "$workspace"
-    bin="$state/workspace-cli"
-    if [ ! -x "$bin" ] || [ "$here/workspace.c" -nt "$bin" ] || [ "$here/annotation.h" -nt "$bin" ]; then
-        temp="$bin.$$"
-        trap 'rm -f "$temp"' EXIT
-        trap 'rm -f "$temp"; exit 130' HUP INT TERM
-        case "$(uname -s)" in
-            Darwin) "${CC:-cc}" -std=gnu23 -O2 -Wall -Wextra -Werror -arch arm64 -mcpu=apple-m1 -mmacosx-version-min=14.0 "$here/workspace.c" -o "$temp" ;;
-            *) "${CC:-cc}" -std=gnu23 -O2 -Wall -Wextra -Werror "$here/workspace.c" -o "$temp" ;;
-        esac
-        mv "$temp" "$bin"
-        trap - EXIT HUP INT TERM
-    fi
-    exec "$bin" "$@"
-fi
-
 # Suite mode: b.c dispatches to native-tool adapters in adapters/.
 bin="$state/cli"
 stale=0
