@@ -322,7 +322,7 @@ nonzero without creating a destination. Packaging, cross-compilation, shared
 dependency graphs, additional database dialects and supervised web-serving remain
 future work. b does not replace Maven, Gradle, Cargo, npm or CMake.
 
-Tests live in the independent shared `tests/b/` checkout, not in production
+Tests live in the independent shared `../../tests/b` checkout, not in production
 source. In the workspace, run:
 
 ```sh
@@ -338,5 +338,5 @@ headless opener fixture, not GUI acceptance. SQL uses a temporary socket-only
 PostgreSQL cluster, with bounded cleanup, never an existing database.
 
 Architecture follows the canonical
-[preferences.md](https://github.com/vexgraph-ecosystem/vexspoke/blob/main/preferences.md)
-(workspace path `../ecosystem/vexspoke/preferences.md`).
+[preferences.md](https://gist.github.com/vex-graph/4132a6c45cb6d3797c3e8eff2e94035a)
+(one real, Git-ignored workspace-root file at `../../preferences.md`).
