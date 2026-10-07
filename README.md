@@ -4,6 +4,18 @@
 
 # b
 
+## CLion: CMake is IDE metadata only
+
+Open this repository root as a CMake project. `CMakeLists.txt` provides C23
+source targets, include paths and flags for navigation, diagnostics and inlay
+hints. Targets are excluded from the default build; no dependency downloads,
+linking or application runner are wired into it. Missing headers stay real IDE
+errors; no fake declarations are generated. IDE appearance is user-verified.
+
+Use [b](https://github.com/vex-graph/b) (`./b` in this checkout) for real builds
+and native toolchain orchestration. The launcher bootstraps the C implementation;
+this CMake adapter does not replace it or prove every language adapter's runtime.
+
 b is a general-purpose, language-agnostic build system written in C23: a small
 command suite for running files and handing builds to their native toolchains.
 C is the implementation language, not a restriction on what b can run.
