@@ -98,14 +98,14 @@ static char *stageFile(const char *file, const char *parent) {
     FILE *output = input == nullptr ? nullptr : fopen(dest, "wb");
     bool ok = input != nullptr && output != nullptr;
     // Fixed chunk size bounds temporary copy memory; it is not a file-size limit.
-    char bytes[8192];
+    char Bytes[8192];
     while (ok) {
-        size_t count = fread(bytes, 1, sizeof bytes, input);
+        size_t count = fread(Bytes, 1, sizeof Bytes, input);
         if (count == 0) {
             ok = !ferror(input);
             break;
         }
-        ok = fwrite(bytes, 1, count, output) == count;
+        ok = fwrite(Bytes, 1, count, output) == count;
     }
     if (input != nullptr && fclose(input) != 0)
         ok = false;
