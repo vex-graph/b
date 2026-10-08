@@ -68,7 +68,7 @@ go to stderr. Failed compilation never launches an older artifact.
 `Adapter` is the integration contract, not a claim that every entry is a
 programming language: CMake/npm/Cargo are project backends, HTML launches a
 document, and Arduino targets firmware deployment. Implementations live in
-`adapters/`. `b adapters` lists file selectors, capabilities and required tools;
+`adapters`. `b adapters` lists file selectors, capabilities and required tools;
 `b languages` is its compatibility alias. `b doctor [adapter]` checks executable
 presence on PATH or adapter overrides without running tools. It does **not**
 verify versions, SDKs, board cores or successful builds. Missing optional tools
@@ -304,7 +304,7 @@ can use the same delegation pattern; they are not all implemented yet.
 
 `b.c` is the suite: argument validation, registry dispatch and existing-executable
 fallback. Shared helpers live in `b.h`/`util.c`. Adding an adapter is one file pair
-under `adapters/` and a registry entry in `adapters/adapter.c`; adapter
+under `adapters` and a registry entry in `adapters/adapter.c`; adapter
 selection uses a file suffix or exact manifest basename; build-only backends have no source
 extension. Each C source/header begins with `;;DEFINITION` and `;;OVERVIEW`
 blueprints documenting capabilities, fields and public/private function registries.

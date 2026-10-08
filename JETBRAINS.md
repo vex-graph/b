@@ -151,8 +151,8 @@ another tool or project configuration.
 There are two separate pieces:
 
 - External Tools are normally **IDE-level settings**, stored in the IDE's
-  configuration directory under `tools/`. They are not automatically portable
-  just because you put a copy in `.idea/tools/`.
+  configuration directory under `../../tools`. They are not automatically portable
+  just because you put a copy in `../../.idea/tools`.
 - A shared project run configuration can live under **`.idea/runConfigurations/`**
   (or `.run/` in newer IDEs). It can reference the global external tool.
   Each developer/IDE still needs that tool installed under the same group/name.
@@ -224,7 +224,7 @@ through its UI and use that generated XML as the template. These examples have
 XML/contract checks, not a guarantee of every IDE version's GUI behavior.
 
 For sharing, commit only the intended run-configuration file if your repository
-allows it; do not share the entire `.idea/workspace.xml` or private IDE settings.
+allows it; do not share the entire `../../.idea/workspace.xml` or private IDE settings.
 Keep machine-specific serial ports and paths local. If `.idea` is ignored, the
 run configuration stays local too unless you deliberately adjust that policy.
 

@@ -3,7 +3,7 @@
 [Back to README](README.md) · [JetBrains setup](JETBRAINS.md)
 
 b orchestrates installed tools; it does not replace their project configuration.
-Examples assume `b` is on your PATH. From the b checkout, use `./b` instead.
+Examples assume `b` is on your PATH. From the b checkout, use `b` instead.
 Install the required toolchain before using its adapter.
 
 ## Standalone command tree
