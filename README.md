@@ -32,9 +32,8 @@ CLI implements native-tool build/run delegation, adapter discovery, tool-presenc
 diagnostics, recursive workspace assessment/build, GLSL/Metal shader delegation
 and explicit Arduino upload. Vexgraph uses it as the entry point to its
 project-owned build graph. Export remains unimplemented. Workspace builds are
-proved on macOS with scoped C/Python/CMake fixtures; both glslang and shaderc
-have real SPIR-V proof, and the CLI seam has Apple `leaks` proof. Metal
-compiler availability on this host is tracked separately.
+proved on macOS with scoped C/Python/CMake fixtures; glslang, shaderc and Apple
+Metal all have real compiler proof, and the CLI seam has Apple `leaks` proof.
 
 Current automated proof is scoped to macOS; native Windows support and other
 host platforms remain unproven here. See the shared `tests/b` owner suites and
