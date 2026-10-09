@@ -276,8 +276,10 @@ The macOS 14 deployment floor is explicit. `XCRUN` selects one executable.
 There is no cross-file library-link inference or host shader execution. Fresh
 generations preserve old output on compile/link failure; AIR intermediates are
 removed. Non-Apple hosts reject. Missing Apple compiler components are not
-downloaded. This host has only two-stage fixture proof: real Metal compilation
-is skipped because the installed tool cannot run. Rendering remains unproved.
+downloaded. Real Apple Metal compilation is proved here: the owner builds a
+`kernel` to a non-empty `.metallib`, rejects malformed source while preserving
+the previous library, and enforces the two-stage compile/link ordering.
+Rendering remains unproved.
 
 ### Recursive workspace assessment and build
 
