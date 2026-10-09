@@ -25,11 +25,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+// Check that a path names a regular file executable by the current user.
 static bool executable(const char *path) {
     struct stat info;
     return stat(path, &info) == 0 && S_ISREG(info.st_mode) && access(path, X_OK) == 0;
 }
 
+// Resolve an executable by literal path or by searching PATH entries in order.
 static char *findTool(const char *tool) {
     if (*tool == '\0')
         return nullptr;
@@ -61,6 +63,7 @@ static char *findTool(const char *tool) {
     return found;
 }
 
+// Print one adapter's requirements and report whether all tools are present.
 static bool inspectAdapter(const Adapter *adapter) {
     printf("%s: %s\n", (*adapter).name, (*adapter).capabilities);
     char *requirements = Util_combine((*adapter).tools, "");
@@ -90,6 +93,7 @@ static bool inspectAdapter(const Adapter *adapter) {
     return ready;
 }
 
+// List registered adapter names, selectors, capabilities, and tool requirements.
 int Inspect_adapters(void) {
     for (size_t i = 0; i < Adapter_count(); ++i) {
         const Adapter *adapter = Adapter_at(i);
@@ -100,6 +104,7 @@ int Inspect_adapters(void) {
     return EXIT_SUCCESS;
 }
 
+// Inspect one named adapter or enumerate all tools without executing them.
 int Inspect_doctor(const char *adapter) {
     puts("b doctor: executable discovery only; no version/SDK checks or tool execution");
     if (adapter != nullptr) {
