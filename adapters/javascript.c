@@ -17,11 +17,13 @@
  * runJavascript — node file, forwarding literal arguments and status.
  */
 
+// Syntax-check supported top-level JavaScript module files with Node.
 static int buildJavascript(const char *project, char **output) {
     char *prefix[] = { "node", "--check" };
     return Util_checkSources(project, "/*.{js,mjs,cjs}", prefix, 2, output);
 }
 
+// Run the selected JavaScript source with Node and forward program arguments.
 static int runJavascript(const char *file, int argc, char **argv, bool buildArtifact) {
     (void) buildArtifact;
     char *prefix[] = { "node", (char*) file };

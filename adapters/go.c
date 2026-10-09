@@ -22,11 +22,13 @@
 
 #include <stdlib.h>
 
+// Select the configured Go executable or the standard command name.
 static const char *tool(void) {
     const char *value = getenv("GO");
     return value != nullptr && *value != '\0' ? value : "go";
 }
 
+// Build one Go file or the selected project package into b's external state.
 static int compileGo(const char *project, const char *file, char **output) {
     char *directory = Util_outputDirectory(project);
     if (directory == nullptr)
@@ -43,10 +45,12 @@ static int compileGo(const char *project, const char *file, char **output) {
     return status;
 }
 
+// Build the selected Go package without creating or modifying module metadata.
 static int buildGo(const char *project, char **output) {
     return compileGo(project, nullptr, output);
 }
 
+// Run a Go source file through go run or compile it before native execution.
 static int runGo(const char *file, int argc, char **argv, bool buildArtifact) {
     char *path = realpath(file, nullptr);
     if (path == nullptr) {

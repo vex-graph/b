@@ -23,11 +23,13 @@
 #include <string.h>
 #include <sys/stat.h>
 
+// Select the configured Cargo executable or the standard command name.
 static const char *tool(void) {
     const char *value = getenv("CARGO");
     return value != nullptr && *value != '\0' ? value : "cargo";
 }
 
+// Return the project's regular Cargo manifest, reporting its absence otherwise.
 static char *manifest(const char *project) {
     char *path = Util_combine(project, "/Cargo.toml");
     struct stat info;
@@ -38,6 +40,7 @@ static char *manifest(const char *project) {
     return nullptr;
 }
 
+// Build the existing Cargo package offline into b's external target directory.
 static int buildCargo(const char *project, char **output) {
     char *path = manifest(project);
     if (path == nullptr)
@@ -60,6 +63,7 @@ static int buildCargo(const char *project, char **output) {
     return status;
 }
 
+// Validate a Cargo.toml input and run its package offline, forwarding program args.
 static int runCargo(const char *file, int argc, char **argv, bool buildArtifact) {
     char *path = realpath(file, nullptr);
     if (path == nullptr) {

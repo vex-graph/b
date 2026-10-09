@@ -34,6 +34,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+// Print the command grammar and explain the distinction between run modes.
 static void usage(void) {
     puts("b run <exec|instance> <filename> [-- arguments...]\n"
          "b adapters   (alias: b languages)\n"
@@ -46,11 +47,13 @@ static void usage(void) {
          "export: planned, not implemented");
 }
 
+// Return whether path resolves to a regular file.
 static bool regularFile(const char *path) {
     struct stat info;
     return path != nullptr && stat(path, &info) == 0 && S_ISREG(info.st_mode);
 }
 
+// Dispatch a source file to its adapter or execute an existing native binary.
 static int runFile(const char *input, bool buildArtifact, int argc, char **argv) {
     if (!regularFile(input)) {
         THROW("run file does not exist or is not regular: %s", input);
@@ -75,6 +78,7 @@ static int runFile(const char *input, bool buildArtifact, int argc, char **argv)
     return status;
 }
 
+// Parse b commands and forward build, run, inspection, and upload work.
 int main(int argc, char **argv) {
     if (argc == 1 || (argc == 2 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "help") == 0))) {
         usage();

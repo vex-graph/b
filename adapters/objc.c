@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+// Compile Objective-C sources with ARC/Foundation on the supported Apple host.
 static int compileObjc(const char *project, char **sources, size_t count, char **output) {
 #ifndef __APPLE__
     (void) project;
@@ -67,6 +68,7 @@ static int compileObjc(const char *project, char **sources, size_t count, char *
 #endif
 }
 
+// Discover top-level Objective-C files and compile them into one program.
 static int buildObjc(const char *project, char **output) {
     size_t count = 0;
     bool ok = false;
@@ -78,6 +80,7 @@ static int buildObjc(const char *project, char **output) {
     return status;
 }
 
+// Compile one Objective-C source for exec mode and launch it with caller arguments.
 static int runObjc(const char *file, int argc, char **argv, bool buildArtifact) {
     if (!buildArtifact) {
         THROW("Objective-C has no source runtime; use b run exec");

@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Reject standalone SQL compilation because parsing requires database context.
 static int buildSql(const char *project, char **output) {
     (void) project;
     (void) output;
@@ -30,6 +31,7 @@ static int buildSql(const char *project, char **output) {
     return EXIT_FAILURE;
 }
 
+// Execute a SQL file only against the explicitly named PostgreSQL database.
 static int runSql(const char *file, int argc, char **argv, bool buildArtifact) {
     (void) argv;
     (void) buildArtifact;
