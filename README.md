@@ -4,339 +4,193 @@
 
 # b
 
-## CLion: CMake is IDE metadata only
+b is a general-purpose, language-agnostic build system written in C23: an
+orchestrator on top of existing compilers, runtimes and project build tools.
+C is its implementation language, not a restriction on what it builds.
 
-Open this repository root as a CMake project. `CMakeLists.txt` provides C23
-source targets, include paths and flags for navigation, diagnostics and inlay
-hints. Targets are excluded from the default build; no dependency downloads,
-linking or application runner are wired into it. Missing headers stay real IDE
-errors; no fake declarations are generated. IDE appearance is user-verified.
+**Build, breeze, box.** Build through native tools, run without switching editors,
+and expand packaging as its contracts are implemented. b is not a new compiler,
+package manager or language, nor a replacement for Tsoding's
+[nob](https://github.com/tsoding/nob.h).
 
-Use [b](https://github.com/vex-graph/b) (`./b` in this checkout) for real builds
-and native toolchain orchestration. The launcher bootstraps the C implementation;
-this CMake adapter does not replace it or prove every language adapter's runtime.
+## Disclaimer: CMake is just IDE metadata (not irony)
 
-b is a general-purpose, language-agnostic build system written in C23: a small
-command suite for running files and handing builds to their native toolchains.
-C is the implementation language, not a restriction on what b can run.
+This repository's `CMakeLists.txt` is **IDE metadata only**: source targets,
+include paths and C23 flags for navigation, diagnostics and inlay hints. Its
+targets are excluded from the default build. It downloads no dependencies and
+wires no linked application runner. Missing headers remain real errors.
 
-b isn't trying to be the next big build system or a replacement for Tsoding's
-[nob](https://github.com/tsoding/nob.h). It isn't a new compiler, package manager,
-or language. It is an orchestrator on top of existing toolchains and build
-systems, giving you another entry point rather than replacing their projects.
-The aim is simpler: use the same small command vocabulary while
-letting each language's existing tools do the work.
+The `./b` launcher builds b itself. Vexgraph's `./tools/b` builds the workspace.
+Neither uses this metadata adapter as its runtime build system. Separately,
+`b build cmake` can delegate to an existing project's real CMake build; that
+does not change the role of this repository's CMake file.
 
-**Build, breeze, box.** Build through the native tools, run without switching
-editors, and eventually package the result. b is deliberately experimental:
-working capabilities and production gaps are listed separately. The "box"
-part is a goal, not a claim that export already works.
+## Current State
 
-## What it can do
+b is working build infrastructure, not merely an experiment. Its standalone
+CLI implements native-tool build/run delegation, adapter discovery, tool-presence
+diagnostics and explicit Arduino upload. Vexgraph uses it as the entry point to
+its project-owned build graph. Export remains unimplemented.
 
-See the **[command tree and examples](TREE.md)** for the complete command map,
-adapter names, run/build behavior, and separate workspace commands.
+Current automated proof is scoped to macOS; native Windows support and other
+host platforms remain unproven here. See the shared `tests/b` owner suites and
+workspace `tests/test-checklist.md` for content-specific evidence. This README
+revision is documentation proof, not a fresh pass of every toolchain or GPU.
+
+## What does it do?
 
 ```text
-b run <exec|instance> <filename> [-- program arguments...]
 b adapters
-b languages   # compatibility alias for adapters
+b languages
 b doctor [adapter]
 b build <adapter> [directory]
-b upload arduino <sketch> --port <port> [--fqbn <matching-board>]
+b run <exec|instance> <filename> [-- program arguments...]
 b <adapter> <filename> [-- program arguments...]
-b export <manifestmainfile> <destination> <exe|app|msi|iso|zip>
+b upload arduino <sketch> --port <port> [--fqbn <matching-board>]
 ```
 
-`run instance` runs a file as-is through its runtime, or launches an existing
-native executable. It does not package an app. `run exec` builds a runnable
-source artifact first, then launches it for compiled languages. Python, R,
-JavaScript, native-Node TypeScript, PHP and POSIX shell use their runtimes in both
-modes; there is no standalone binary build for those adapters here. HTML opens
-the original document in a browser in both modes.
-C# instance uses .NET's file runner, which itself compiles internally.
-C, C++ and Objective-C have no source runtime here and reject instance mode.
-Swift can use its script runner for instance or swiftc for exec.
-
-Arguments and program exit codes are preserved. Paths with spaces work when
-quoted. An omitted build directory means the current directory. Source discovery
-is top-level, not recursive. Builds print their result path; compiler diagnostics
-go to stderr. Failed compilation never launches an older artifact.
-
-## Supported adapters — for now
-
-`Adapter` is the integration contract, not a claim that every entry is a
-programming language: CMake/npm/Cargo are project backends, HTML launches a
-document, and Arduino targets firmware deployment. Implementations live in
-`adapters`. `b adapters` lists file selectors, capabilities and required tools;
-`b languages` is its compatibility alias. `b doctor [adapter]` checks executable
-presence on PATH or adapter overrides without running tools. It does **not**
-verify versions, SDKs, board cores or successful builds. Missing optional tools
-do not fail the unfiltered report; a selected missing/unknown adapter does.
-
-This list is a snapshot, not a ceiling. Install only the tools you need; b never
-downloads a toolchain automatically.
-
-| Adapter / CLI name | Required tool | What works today |
-| --- | --- | --- |
-| C / `c` | `cc` or `CC` | Single-file exec; directory build into one executable with `main()` |
-| Java / `java` | JDK (`java`, `javac`) | Source instance; compiled exec; top-level directory build |
-| Python / `python` | `python3` | Interpreter runs; directory bytecode syntax check |
-| Rust / `rust` | `rustc` | Single-file exec; directory build with `main.rs` or one `.rs` crate root |
-| C# / `csharp` | .NET SDK 10+ (`dotnet`) | File-based `.cs` instance/exec; directory build with exactly one `.cs` entry |
-| R / `r` (also `R`) | `Rscript` | `.R`/`.r` interpreter runs; parse-only directory check |
-| Arduino / `arduino` | Arduino CLI and installed board core | Sketch compilation and explicit compile-before-upload |
-| Swift / `swift` | `swift`, `swiftc` | Script instance; native exec; top-level directory build |
-| Objective-C / `objc` | Clang + Foundation (macOS) | `.m` exec/directory build with ARC; no source instance |
-| C++ / `cpp` (`cxx`, `c++`) | `c++` or `CXX` | C++23 exec and directory builds for `.cpp`/`.cc`/`.cxx` |
-| JavaScript / `javascript` (`node`, `js`) | `node` | `.js`/`.mjs`/`.cjs` runs and directory syntax checks |
-| TypeScript / `typescript` (`ts`, `node-ts`) | Recent Node with native type stripping | `.ts`/`.mts`/`.cts` runs and directory parse/strip checks, **not type-checking** |
-| HTML / `html` (`web`) | Default host browser opener or `B_BROWSER` | `.html`/`.htm` file launch; no guessed HTML build |
-| PHP / `php` | PHP CLI | Script runs; top-level `php -l` checks; no automatic web service |
-| POSIX shell / `shell` | `/bin/sh` | `.sh` runs; top-level `sh -n` syntax checks |
-| SQL / `sql` | PostgreSQL `psql` | Explicit-database `.sql` execution; no fake standalone compilation |
-| Go / `go` | `go` or `GO` | Package-directory build; single-file `go run` instance or compiled exec |
-| Lua / `lua` | `lua`/`luac` or `LUA`/`LUAC` | Script runtime in both modes; parse-only directory check with `luac -p` |
-| Zig / `zig` | `zig` or `ZIG` | Both source modes compile; directory uses build.zig, main.zig or exactly one source root |
-| Cargo / `cargo` | `cargo` or `CARGO`, `rustc` | Existing Cargo.toml builds/runs offline; external target directory, no guessed executable |
-
-Project backends are adapters too: `b build cmake` delegates to CMake, and
-`b build npm` delegates to the project's npm `build` script. They do not replace
-the native project metadata or package managers.
-
-Go retains native module/toolchain policy; b does not create modules or invoke
-`go get`. Set `GOTOOLCHAIN=local GOPROXY=off` for offline work. A non-main package
-may build an archive, not an executable. Cargo uses `--offline`, may write its
-lockfile and execute native build scripts; uncached dependencies reject.
-Multiple binaries require native `default-run` configuration. Zig project
-steps/dependency fetching remain build.zig policy. Lua is CLI Lua, not Luau or
-an engine-specific embedded dialect. New adapters have macOS-only test scope.
-
-Go instance preserves `go run`'s wrapper status (typically 1 for a failed
-program); Go exec preserves the native program's exit code.
-
-```sh
-b run exec ./hello.c -- one two
-b java ./Hello.java -- world
-b python ./app.py
-b run exec ./hello.rs
-b run exec ./hello.cs -- world
-b r ./hello.R -- world
-b build c ./native
-b build java ./java-src
-b build python ./scripts
-b build rust ./crate
-b build csharp ./csharp-src
-b build r ./r-scripts
-b upload arduino ./Blink/Blink.ino --port /dev/cu.YOUR_BOARD
-b swift ./hello.swift -- world
-b run exec ./hello.swift
-b run exec ./hello.m
-b run exec ./hello.cpp
-b node ./hello.js -- world
-b typescript ./hello.ts
-b html ./index.html
-b php ./hello.php
-b shell ./script.sh
-b build npm ./web-project
-b run exec ./web-project/package.json -- program-arguments
-```
-
-Java exec assumes a default-package main class matching the filename. Rust
-modules are loaded by `mod` from the crate root, not passed as separate compiler
-inputs. Cargo and `.csproj` discovery are not implemented. C# builds a managed
-`program.dll` requiring `dotnet`, not a self-contained native executable.
-.NET may restore dependencies declared in a file and honors surrounding SDK,
-NuGet and MSBuild configuration; builds are not sandboxed.
-
-Python `build` uses `py_compile` with `PYTHONPYCACHEPREFIX` outside the source tree.
-R `build` parses without evaluating scripts and returns the checked source
-directory; it does not create an artifact or install R packages. R runs use
-`--vanilla`, so user profiles and saved workspaces are not loaded.
-
-### Native, scripting and web adapters
-
-Swift directory builds follow the compiler's `main.swift` entry conventions;
-SwiftPM discovery is not implemented. Objective-C targets Foundation/ARC on
-macOS 14+ and does not invent Xcode projects or additional framework links.
-Use CMake for projects with their own compiler/linker configuration.
-
-JavaScript runs through Node, respecting modules/imports and package metadata.
-Its `build` is syntax-checking, not bundling. Native TypeScript execution needs
-recent Node (22.18+ or a current supported release). It supports erasable types,
-not arbitrary TypeScript transforms, JSX/TSX, tsconfig aliases, or type-checking.
-The experimental Node `stripTypeScriptTypes` API parses build inputs without
-evaluating them. Non-erasable syntax may reject. Use your npm script for `tsc`,
-a bundler or a framework-specific pipeline.
-
-For npm projects, `b npm ./package.json` or `run instance` runs `npm run start`.
-`run exec` runs `npm run build` first, then starts only if building succeeded.
-`b build npm <directory>` runs only `build`. Script outputs remain wherever the
-project defines them; b returns the project directory rather than guessing a
-`dist` layout. Arguments after `--` go to the start script. No `npm install`,
-dependency download, or missing-script fallback is performed automatically.
-npm scripts themselves can invoke shells, run servers or perform network/I/O.
-
-`b html index.html` opens a local file. `B_BROWSER` may name one browser/opener
-executable (not an embedded shell command). Success means launch accepted, not
-page rendering, script execution or browser shutdown. There is no implicit HTTP
-server. File-URL security restrictions still apply; use a declared npm start
-script for pages requiring HTTP, modules, API proxies or a dev server.
-
-PHP uses CLI configuration/extensions and does not start PHP-FPM/Apache. PHP,
-JavaScript and shell directory checks do not evaluate the checked programs.
-Shell execution means POSIX sh, not automatic Bash/zsh dialect detection.
-
-### PostgreSQL scripts: choose the database explicitly
-
-```sh
-PGHOST=/path/to/socket PGPORT=5432 PGUSER=your_user \
-  B_SQL_DATABASE=your_disposable_database b sql ./example.sql
-```
-
-There is **no default database**. `B_SQL_DATABASE` accepts a database name, not a
-connection URI or credentials. Use libpq environment settings such as `PGHOST`,
-`PGPORT`, `PGUSER`, `PGPASSFILE` and `PGCONNECT_TIMEOUT` for connection policy.
-Both run modes execute the script through psql with startup files disabled,
-interactive password prompts disabled, `ON_ERROR_STOP`, and a single transaction
-for ordinary statements. Execution can mutate data. Scripts with transaction
-control or psql meta-commands retain native semantics: this is not a sandbox or
-a promise of atomicity for arbitrary scripts. Use disposable databases to learn
-or test; b never creates one or guesses an existing production database.
-
-SQL `build` rejects because database-backed semantics are not a standalone
-compiler check. Current SQL proof uses PostgreSQL; other dialects are not
-advertised as interchangeable.
-
-### Arduino sketches
-
-Every primary sketch must begin with this first-line header (Uno example):
-
-```cpp
-// b_build("arduino:avr:uno")
-```
-
-The quoted value is the fully qualified board name (FQBN), not its display name.
-Use the board's real FQBN, including any required options; for example a Nano
-with the old bootloader uses `arduino:avr:nano:cpu=atmega328old`. Find board names
-with `arduino-cli board listall` and the current port with `arduino-cli board list`.
-Do not put a blank line or another comment before the header.
-
-`upload` reads the board from that header, compiles first, and flashes only after
-compilation succeeds. Supply the actual port explicitly; b never guesses the
-connected device. An optional `--fqbn` must match the header exactly or b rejects
-before compiling/uploading. Missing, malformed and oversized headers reject
-without launching Arduino CLI. Uploading replaces the program on the board.
-
-For compile-only work, the same header supplies the board:
-
-```sh
-b build arduino ./Blink
-```
-
-A standard sketch folder has a primary `.ino` matching its folder name; b builds
-the whole folder, including its tabs. A standalone `.ino` elsewhere is staged
-as a correctly named sketch outside your source tree for upload. Only that file
-is staged; sibling headers/tabs are not copied. Use a standard sketch folder
-for multi-file work. `run exec`/`run instance` cannot run firmware on the host;
-use `upload` for hardware.
-
-Set `ARDUINO_CLI` to the CLI executable path if it is not on PATH. On macOS, b
-also discovers the CLI bundled at `/Applications/Arduino IDE.app`. Cores and
-libraries installed through Arduino IDE's managers remain owned by Arduino;
-b does not install or upgrade them. Close Serial Monitor before uploading.
-An FTDI-connected board may need a manual RESET as uploading starts. Hardware
-upload has been exercised on an Uno; other boards/platforms remain unproved.
-
-## Clone and use
+`exec` builds a runnable source artifact first for compiled-language adapters;
+`instance` uses a source runtime where available. Script adapters use their
+runtimes in both modes. C, C++ and Objective-C reject source instance mode;
+Zig compiles in both modes. HTML opens the original document, not a built app.
+Build failures do not launch stale artifacts. Arguments are forwarded literally;
+native tool wrappers can affect the final exit status (notably `go run`).
 
 ```sh
 git clone https://github.com/vex-graph/b.git
 cd b
 ./b --help
+./b run exec ./hello.c -- one two
+./b python ./app.py
 ```
 
-The launcher compiles the CLI using your installed C23 compiler with
-`-Wall -Wextra -Werror`. On macOS it targets Apple Silicon M1/macOS 14+.
-Current runtime evidence is macOS only; the process/filesystem implementation
-uses POSIX APIs and a native Windows adapter is still needed.
+Use an absolute launcher path or add this checkout to `PATH` to use b from other
+projects. It preserves the caller's working directory. `B_HOME` selects external
+build state; the macOS default is `~/Library/Application Support/b`.
 
-To use b elsewhere, either call `/absolute/path/to/b/b`, or add the checkout to
-your shell's `PATH` (replace the example path):
+## List of languages
+
+Alphabetical by displayed name. Arduino is a firmware workflow and HTML a
+document launcher; GLSL / SPIR-V is currently a workspace integration. These
+distinctions matter more than calling every entry a compiler.
+
+| Language / workflow | Selector | Current implementation |
+| --- | --- | --- |
+| Arduino | `arduino` | Sketch build and explicit compile-before-upload |
+| C | `c` | C23 native exec and top-level directory build |
+| C# | `csharp` | .NET SDK 10+ file-based run/build; managed output |
+| C++ | `cpp`, `cxx`, `c++` | C++23 native exec and directory build |
+| GLSL / SPIR-V shaders | Workspace integration | Registered `.vert`/`.frag` to `.spv`; `.comp`/`.glsl` discovery and standalone adapter are future work |
+| Go | `go` | Package build, source runtime or native exec |
+| HTML | `html`, `web` | Local browser launch, not rendering proof |
+| Java | `java` | Source runtime, compiled exec and directory build |
+| JavaScript | `javascript`, `node`, `js` | Node runtime and syntax checks |
+| Lua | `lua` | CLI runtime and parse-only checks |
+| Objective-C | `objc` | macOS Foundation/ARC native builds |
+| PHP | `php` | CLI runtime and syntax checks |
+| POSIX shell | `shell` | `/bin/sh` runtime and syntax checks |
+| Python | `python` | Interpreter run and bytecode syntax checks |
+| R | `r`, `R` | Rscript runtime and parse-only checks |
+| Rust | `rust` | Native exec; `main.rs` or exactly one crate root |
+| SQL | `sql` | Explicit PostgreSQL database execution |
+| Swift | `swift` | Script runtime or native build |
+| TypeScript | `typescript`, `ts`, `node-ts` | Native Node type stripping, not type-checking |
+| Zig | `zig` | Native source build or existing build.zig delegation |
+
+Project backends, also alphabetical: **Cargo** (`cargo`), **CMake** (`cmake`),
+**npm** (`npm`). They retain their native project metadata and toolchain policy.
+
+## Tree
+
+See the [command tree and examples](TREE.md) for the full CLI and the separate
+Vexgraph workspace commands.
+
+```text
+b/
+├── b                 bootstrap launcher; builds outside the checkout
+├── b.c               command validation and dispatch
+├── b.h               shared contracts
+├── inspect.c/.h      adapter listing and tool-presence diagnostics
+├── util.c/.h         paths, child processes and build helpers
+├── adapters/         native-tool adapter file pairs and registry
+├── annotation.h      zero-runtime ;;DEFINITION / ;;OVERVIEW markers
+├── CMakeLists.txt    IDE metadata only
+├── ADAPTERS.md       adapter behavior and limits
+├── JETBRAINS.md      external-tool setup
+└── TREE.md           commands and examples
+```
+
+## JetBrains IDEs
+
+[JETBRAINS.md](JETBRAINS.md) explains External Tools in CLion, IntelliJ IDEA,
+Rider, PyCharm and similar IDEs. Build/run the current file without switching
+editors. b does not supply completion, refactoring, language plugins or a
+debugger; IDE appearance remains user-verified.
+
+## Adapters
+
+[ADAPTERS.md](ADAPTERS.md) documents tools, selectors, build/run behavior and
+limitations, including Arduino board headers and upload, explicit SQL targets,
+project backends and **GLSL / SPIR-V shader generation**.
+
+`b adapters` lists the registered standalone adapters. `b languages` is an alias;
+`b doctor [adapter]` checks executable presence, not versions or successful builds.
+The shader entry is documented in the inventory but is not yet registered in
+the standalone CLI. Install only the tools you need; b does not install them.
+
+## Actual dogfooding across Vexgraph
+
+b is essential to Vexgraph's current build entry, not a hypothetical integration.
+`tools/b` invokes `personal/b/b run exec tools/workspace.c`, compiling and running
+the project's C23 build graph. That graph owns repository targets, incremental
+compile/link work, tests, coverage commands, IDE metadata and shader generators.
+The standalone suite remains independent of ecosystem paths and dependencies.
 
 ```sh
-export PATH="/absolute/path/to/b:$PATH"
-cd /path/to/your/project
-b run exec ./hello.c
+# From the Vexgraph workspace root:
+./tools/b targets
+./tools/b build graphvex
 ```
 
-The launcher preserves your working directory. `CC` can select one compiler
-executable, not a shell command with flags; C++ uses `CXX` similarly. b-owned
-compiled outputs and bootstrap binaries stay
-under `~/Library/Application Support/b` on macOS, or `$XDG_CACHE_HOME/b`
-(`~/.cache/b` by default) elsewhere. `B_HOME` overrides this location. Toolchain
-own caches may be separate; .NET file-based intermediates use its temporary cache.
-npm scripts keep their own project output layout.
+The Graphvex build registers GLSL `.vert` and `.frag` sources, invokes
+`glslangValidator -V` and stages `.spv` outputs in external build state; quad
+shaders also become an embedded header. Compute `.comp` and generic `.glsl`
+support belong to broader shader integration, not a shipped standalone command.
+Build success is not proof of GPU execution or finished R5 applications.
 
-For optional tools, follow the official [Rust](https://www.rust-lang.org/tools/install),
-[.NET SDK](https://dotnet.microsoft.com/download), or [R](https://cran.r-project.org/)
-installation instructions. Check `rustc --version`, `dotnet --list-sdks`, or
-`Rscript --version` in the environment where b will run.
+## Future and b's own build
 
-### JetBrains IDEs
+`./b` bootstraps the CLI with an installed C23 compiler, strict warnings and
+external cached state; changed launcher inputs trigger recompilation. On macOS
+the build targets Apple Silicon M1 and macOS 14+. It does not need a separate
+build-system generator to build itself.
 
-See [JETBRAINS.md](JETBRAINS.md) for a plain-English guide to adding b as an
-external tool in CLion, IntelliJ IDEA, Rider, PyCharm, and other JetBrains IDEs.
-It uses the current editor file, not a hardcoded project or language list.
-An IDE may have poor completion, refactoring or debugging for another language.
-b supplies tool orchestration, not language intelligence: **build, breeze, box**
-does not imply that every JetBrains language plugin suddenly works.
+Future work includes export/packaging, a reusable shader adapter, broader
+platform support and deeper integration with future projects and R5 apps.
+Project-specific graphs should remain project-owned, borrowing b's command
+surface rather than embedding Vexgraph policy into the standalone suite.
 
-### Layout and limits
+## Scope and Limitations
 
-Existing CMake projects work through `b build cmake /path/to/project`. b invokes
-`cmake -S <source> -B <external-build-directory>`, then `cmake --build` only after
-configuration succeeds. CMake retains its targets, dependencies, flags and
-incremental decisions. The result path is a build directory; run the chosen
-artifact explicitly with `b run exec /path/to/build/program`. b does not guess
-which target to launch or run install/tests automatically. Other build backends
-can use the same delegation pattern; they are not all implemented yet.
+No export format or manifest schema is implemented yet.
+`b export <manifestmainfile> <destination> <exe|app|msi|iso|zip>` rejects without
+creating a destination. b does not replace Cargo, npm, CMake, Maven or Gradle.
+Standalone source discovery is top-level, not recursive; native project backends
+own their own dependency graphs and incremental behavior.
 
-`b.c` is the suite: argument validation, registry dispatch and existing-executable
-fallback. Shared helpers live in `b.h`/`util.c`. Adding an adapter is one file pair
-under `adapters` and a registry entry in `adapters/adapter.c`; adapter
-selection uses a file suffix or exact manifest basename; build-only backends have no source
-extension. Each C source/header begins with `;;DEFINITION` and `;;OVERVIEW`
-blueprints documenting capabilities, fields and public/private function registries.
-The markers compile to zero-runtime assertions in standalone `annotation.h`.
-Adapter shorthand should match that file selector. Builds currently delegate
-incremental decisions to project backends rather than providing a shared cache.
+Toolchain scripts retain native authority: this is not a sandbox. SQL requires
+`B_SQL_DATABASE` with no default database. Firmware upload changes the board.
+There is no implicit web server, cross-compilation framework or shared universal
+cache. The process/filesystem implementation uses POSIX APIs; Windows remains a
+gap. Shader compilation and a browser launch do not certify rendered output.
 
-Project-specific graphs belong to their project, not this checkout. Vexgraph's
-`tools/workspace.c` holds its targets, shaders and tests; its `tools/b` launcher
-uses generic `b run exec` to compile and execute that graph. There is no special
-`b workspace` command or ecosystem dependency in this standalone launcher.
-
-No export format or manifest schema is implemented yet. `export` rejects
-nonzero without creating a destination. Packaging, cross-compilation, shared
-dependency graphs, additional database dialects and supervised web-serving remain
-future work. b does not replace Maven, Gradle, Cargo, npm or CMake.
-
-Tests live in the independent shared `../../tests/b` checkout, not in production
-source. In the workspace, run:
+Tests are segregated in the workspace's independent `tests/b` repository:
 
 ```sh
 python3 ../../tests/b/cli_test.py
 python3 ../../tests/b/readme_test.py
-python3 -m unittest discover -s ../../tests/b -p '*_test.py' -v
 ```
 
-They use temporary projects and an isolated `B_HOME`. Missing optional runtimes
-are explicit skips; a pass on macOS is not proof on another platform.
-New language tests use real installed tools; browser launching is tested with a
-headless opener fixture, not GUI acceptance. SQL uses a temporary socket-only
-PostgreSQL cluster, with bounded cleanup, never an existing database.
-
-Architecture follows the canonical
-[preferences.md](https://gist.github.com/vex-graph/4132a6c45cb6d3797c3e8eff2e94035a)
-(one real, Git-ignored workspace-root file at `../../preferences.md`).
+Missing optional tools are explicit skips. Architecture follows the canonical
+[preferences.md](https://gist.github.com/vex-graph/4132a6c45cb6d3797c3e8eff2e94035a),
+the real workspace-root `../../preferences.md`.
