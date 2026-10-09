@@ -261,10 +261,10 @@ Both run modes reject. Each build uses a fresh external output generation;
 failure cleans that generation without replacing older successful outputs.
 No shared shader cache or automatic pruning of successful generations exists.
 
-Real glslang tests verify vertex/fragment/compute SPIR-V magic and rejection.
-Real shaderc is unproved on this host because glslc is missing; an offline tool
-fixture proves argv/failure handling, not compilation. No GPU execution is proved.
-Vexgraph's existing `tools/workspace.c::setup_graphvex` still invokes
+Real glslang and shaderc tests verify vertex/fragment/compute/geometry/tessellation
+SPIR-V magic and rejection; each backend's real test skips only when its compiler
+is absent. No GPU execution is proved. Vexgraph's existing
+`tools/workspace.c::setup_graphvex` still invokes
 `glslangValidator -V` for registered quad/compositor sources, hashes generators
 and filter IDs, and embeds quad output; it has not migrated to this adapter.
 
