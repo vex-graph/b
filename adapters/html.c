@@ -21,6 +21,7 @@
 
 #include <stdlib.h>
 
+// Reject a guessed HTML build because no bundling pipeline is declared.
 static int buildHtml(const char *project, char **output) {
     (void) project;
     (void) output;
@@ -28,6 +29,7 @@ static int buildHtml(const char *project, char **output) {
     return EXIT_FAILURE;
 }
 
+// Open a resolved local HTML document with the configured host browser.
 static int runHtml(const char *file, int argc, char **argv, bool buildArtifact) {
     (void) argv;
     (void) buildArtifact;

@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Compile Java sources into the project's external classes directory.
 static int compileJava(const char *project, char **sources, size_t count, char **output) {
     char *directory = Util_outputDirectory(project);
     if (directory == nullptr)
@@ -49,6 +50,7 @@ static int compileJava(const char *project, char **sources, size_t count, char *
     return status;
 }
 
+// Return the filename stem used as the default-package Java main class name.
 static char *mainClass(const char *file) {
     const char *base = strrchr(file, '/');
     char *name = Util_combine(base != nullptr ? base + 1 : file, "");
@@ -58,6 +60,7 @@ static char *mainClass(const char *file) {
     return name;
 }
 
+// Discover top-level Java sources and compile them into the shared classes output.
 static int buildJava(const char *project, char **output) {
     size_t count = 0;
     bool ok = false;
@@ -69,6 +72,7 @@ static int buildJava(const char *project, char **output) {
     return status;
 }
 
+// Launch via the JDK source runner or compile then execute the filename class.
 static int runJava(const char *file, int argc, char **argv, bool buildArtifact) {
     if (!buildArtifact) {
         char **arguments = Util_allocate(((size_t) argc + 3) * sizeof(char*));

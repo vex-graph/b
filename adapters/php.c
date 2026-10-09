@@ -15,11 +15,13 @@
  * Arguments are borrowed, checker argv temporary, child status preserved.
  */
 
+// Lint each top-level PHP source without executing application code.
 static int buildPhp(const char *project, char **output) {
     char *prefix[] = { "php", "-l" };
     return Util_checkSources(project, "/*.php", prefix, 2, output);
 }
 
+// Execute a PHP source file through the CLI and forward its arguments.
 static int runPhp(const char *file, int argc, char **argv, bool buildArtifact) {
     (void) buildArtifact;
     char *prefix[] = { "php", (char*) file };

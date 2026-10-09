@@ -28,6 +28,7 @@
 #include <string.h>
 #include <unistd.h>
 
+// Compile the chosen Rust crate root with rustc edition 2021.
 static int compileRust(const char *project, char **sources, size_t count, char **output) {
     if (count > SIZE_MAX / sizeof(char*) - 8) {
         THROW("source argument count overflow");
@@ -51,6 +52,7 @@ static int compileRust(const char *project, char **sources, size_t count, char *
     return status;
 }
 
+// Choose main.rs or the sole Rust source as crate root and compile it.
 static int buildRust(const char *project, char **output) {
     size_t count = 0;
     bool ok = false;
@@ -70,6 +72,7 @@ static int buildRust(const char *project, char **output) {
     return status;
 }
 
+// Compile one Rust entry source for exec mode and run it with forwarded arguments.
 static int runRust(const char *file, int argc, char **argv, bool buildArtifact) {
     if (!buildArtifact) {
         THROW("Rust has no source runtime; use b run exec to compile then launch");

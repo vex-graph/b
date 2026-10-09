@@ -19,16 +19,19 @@
 
 #include <stdlib.h>
 
+// Return a nonempty environment override or the supplied executable default.
 static const char *tool(const char *variable, const char *fallback) {
     const char *value = getenv(variable);
     return value != nullptr && *value != '\0' ? value : fallback;
 }
 
+// Parse-check each top-level Lua file without evaluating it.
 static int buildLua(const char *project, char **output) {
     char *prefix[] = { (char*) tool("LUAC", "luac"), "-p" };
     return Util_checkSources(project, "/*.lua", prefix, 2, output);
 }
 
+// Run a canonicalized Lua script and forward its arguments to the interpreter.
 static int runLua(const char *file, int argc, char **argv, bool buildArtifact) {
     (void) buildArtifact;
     char *path = realpath(file, nullptr);

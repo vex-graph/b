@@ -21,6 +21,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
+// Require a regular package.json before delegating npm script operations.
 static bool hasManifest(const char *project) {
     char *path = Util_combine(project, "/package.json");
     struct stat info;
@@ -31,6 +32,7 @@ static bool hasManifest(const char *project) {
     return ok;
 }
 
+// Run the project's declared npm build script without installing dependencies.
 static int buildNpm(const char *project, char **output) {
     if (!hasManifest(project))
         return EXIT_FAILURE;
@@ -41,6 +43,7 @@ static int buildNpm(const char *project, char **output) {
     return status;
 }
 
+// Run the declared start script, building first only for exec mode.
 static int runNpm(const char *file, int argc, char **argv, bool buildArtifact) {
     char *path = realpath(file, nullptr);
     if (path == nullptr) {
