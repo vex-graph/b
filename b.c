@@ -9,6 +9,7 @@
 #include "b.h"
 #include "adapters/adapter.h"
 #include "adapters/arduino.h"
+#include "adapters/workspace.h"
 #include "inspect.h"
 
 ;;DEFINITION
@@ -27,6 +28,7 @@
  * runFile — source adapter dispatch or native executable fallback.
  * CAPABILITIES: compile/check directories; execute files; compile-before-upload;
  * forward literal arguments; propagate tool/program failures without a shell.
+ * Workspace assessment/build delegates to adapters/workspace.c, never runs sources.
  */
 
 #include <stdlib.h>
@@ -40,6 +42,7 @@ static void usage(void) {
          "b adapters   (alias: b languages)\n"
          "b doctor [adapter]\n"
          "b build <adapter> [directory]\n"
+         "b build workspace <directory> [--plan|--confirm]\n"
          "b upload arduino <sketch> --port <port> [--fqbn <matching-board>]\n"
          "b export <manifestmainfile> <destination> <exe|app|msi|iso|zip>\n"
          "b <adapter> <filename> [-- arguments...]   (e.g. b java Hello.java)\n"
@@ -88,6 +91,8 @@ int main(int argc, char **argv) {
         return Inspect_adapters();
     if (strcmp(argv[1], "doctor") == 0 && (argc == 2 || argc == 3))
         return Inspect_doctor(argc == 3 ? argv[2] : nullptr);
+    if (argc >= 3 && strcmp(argv[1], "build") == 0 && strcmp(argv[2], "workspace") == 0)
+        return Workspace_command(argc - 3, argv + 3);
     if (strcmp(argv[1], "build") == 0 && (argc == 3 || argc == 4)) {
         const Adapter *adapter = Adapter_forName(argv[2]);
         if (adapter == nullptr) {
