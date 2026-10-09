@@ -2,6 +2,12 @@
 
 [Back to README](README.md) · [JetBrains setup](JETBRAINS.md)
 
+See [ADAPTERS.md](ADAPTERS.md) for build-only `glsl`/`metal` shader contracts
+and recursive workspace safety. GLSL file selectors also have `glsl-vert`,
+`glsl-frag`, `glsl-comp`, `glsl-geom`, `glsl-tesc` and `glsl-tese` aliases.
+`b build workspace <directory> --plan` assesses before any tools run;
+`--confirm` admits reviewed broad scopes. No sudo or automatic tool downloads.
+
 b orchestrates installed tools; it does not replace their project configuration.
 Examples assume `b` is on your PATH. From the b checkout, use `b` instead.
 Install the required toolchain before using its adapter.
@@ -17,7 +23,9 @@ b
 │   ├── native: c · cpp · objc · swift · java · rust · csharp · go · zig
 │   ├── syntax/parse checks: python · r · javascript · typescript · php · shell · lua
 │   ├── existing projects: cmake · npm · cargo · zig (build.zig)
-│   └── firmware compilation: arduino
+│   ├── firmware compilation: arduino
+│   ├── shader compilation: glsl · metal (build-only)
+│   └── workspace <directory> [--plan|--confirm] (recursive assessment/build)
 ├── run
 │   ├── exec <file> [-- arguments...]
 │   └── instance <file> [-- arguments...]
@@ -26,9 +34,10 @@ b
 │   └── arduino <sketch> --port <port> [--fqbn <matching-board>]
 ├── export <manifestmainfile> <destination> <exe|app|msi|iso|zip>
 │   └── PLANNED — not implemented; rejects without creating a destination
-└── workspace <workspace-directory> <command> [arguments...]
-    └── separate ecosystem target engine (see below)
 ```
+
+The separate `./tools/b` ecosystem target engine is described below; it is not
+a standalone `b workspace` command. `b build workspace` is the recursive builder.
 
 HTML and SQL have run adapters but **no standalone build pipeline**; their build
 commands reject. Arduino uses build/upload, not either source run mode. CMake
