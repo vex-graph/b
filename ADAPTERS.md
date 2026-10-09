@@ -8,8 +8,8 @@
 
 This reference describes native-tool delegation, file selectors and adapter
 limits. The README's language list is alphabetical; the detailed walkthroughs
-below group related workflows. Shader generation is a working project-owned
-integration, not a registered standalone adapter.
+below group related workflows. GLSL and Metal now have standalone build-only
+adapters; the existing Vexgraph shader generator remains project-owned.
 
 ## Shared command behavior
 
@@ -22,6 +22,7 @@ b adapters
 b languages   # compatibility alias for adapters
 b doctor [adapter]
 b build <adapter> [directory]
+b build workspace <directory> [--plan|--confirm]
 b upload arduino <sketch> --port <port> [--fqbn <matching-board>]
 b <adapter> <filename> [-- program arguments...]
 b export <manifestmainfile> <destination> <exe|app|msi|iso|zip>
@@ -65,12 +66,13 @@ downloads a toolchain automatically.
 | C++ / `cpp` (`cxx`, `c++`) | `c++` or `CXX` | C++23 exec and directory builds for `.cpp`/`.cc`/`.cxx` |
 | Cargo / `cargo` | `cargo` or `CARGO`, `rustc` | Existing Cargo.toml builds/runs offline; external target directory, no guessed executable |
 | CMake / `cmake` | `cmake` | Existing project configure/build; run the chosen artifact explicitly |
-| GLSL / SPIR-V shaders (workspace integration) | `glslangValidator` | Vexgraph builds registered `.vert`/`.frag` into `.spv`; `.comp`/`.glsl` discovery and standalone shader dispatch are not implemented |
+| GLSL / SPIR-V shaders / `glsl` | shaderc `glslc` (default), explicit glslang | Stage files and staged `.glsl` compile to `.spv`; no host execution |
 | Go / `go` | `go` or `GO` | Package-directory build; single-file `go run` instance or compiled exec |
 | HTML / `html` (`web`) | Default host browser opener or `B_BROWSER` | `.html`/`.htm` file launch; no guessed HTML build |
 | Java / `java` | JDK (`java`, `javac`) | Source instance; compiled exec; top-level directory build |
 | JavaScript / `javascript` (`node`, `js`) | `node` | `.js`/`.mjs`/`.cjs` runs and directory syntax checks |
 | Lua / `lua` | `lua`/`luac` or `LUA`/`LUAC` | Script runtime in both modes; parse-only directory check with `luac -p` |
+| Metal shaders / `metal` | Apple `xcrun metal`, `metallib` | Separate library per `.metal`; build-only, macOS |
 | npm / `npm` | `npm`, `node` | Declared build/start scripts; no automatic install |
 | Objective-C / `objc` | Clang + Foundation (macOS) | `.m` exec/directory build with ARC; no source instance |
 | PHP / `php` | PHP CLI | Script runs; top-level `php -l` checks; no automatic web service |
@@ -234,27 +236,76 @@ upload has been exercised on an Uno; other boards/platforms remain unproved.
 
 ### GLSL / SPIR-V shaders
 
-Shaders belong in the adapter inventory even though the current implementation
-lives in Vexgraph's project-owned graph, not `adapters/adapter.c`.
-`tools/workspace.c::setup_graphvex` registers quad and compositor `.vert`/`.frag`
-sources and invokes `glslangValidator -V` to produce `.spv` in the external
-build-state `shader/` directory. The quad binaries also become an embedded C
-header. The generator hashes its source and command; compositor commands include
-the shared filter-ID header hash. Failed generation exits nonzero.
-
-From the Vexgraph workspace root:
+`b build glsl <directory>` compiles top-level `.vert`, `.frag`, `.comp`, `.geom`,
+`.tesc`, `.tese` and `.glsl` inputs. shaderc's `glslc` is the default;
+`GLSLC` selects one executable. Set `GLSL_BACKEND=glslang` to explicitly use
+`glslangValidator` (`GLSLANG_VALIDATOR` override). Unknown backend values reject.
+There is no silent compiler fallback or install. Vulkan is the target API,
+not the compiler. Both backends target Vulkan 1.0 SPIR-V.
 
 ```sh
-./tools/b build graphvex
+b build glsl ./shaders
+GLSL_BACKEND=glslang b build glsl ./shaders
 ```
 
 GLSL is the source language; `.vert` (vertex), `.frag` (fragment) and `.comp`
 (compute) identify stages, while `.glsl` can be a generic source/include suffix.
-SPIR-V (`.spv`) is compiled shader bytecode, not a host executable. Current
-registration covers `.vert` and `.frag`: arbitrary `.comp`/`.glsl` inputs are
-not discovered by this graph. There is no `b build glsl`, `b shader`, or automatic
-`.spv` execution in the standalone CLI. Broader shader adaptation remains future
-work. Shader compilation alone does not prove a GPU pipeline executes correctly.
+SPIR-V (`.spv`) is bytecode, not a host executable. Generic `.glsl` must declare
+its stage under the native compiler's contract (shaderc accepts
+`#pragma shader_stage(compute)`). Unsupported/unstaged inputs reject through the
+compiler. Include-only files should use a different suffix or stay outside the
+build directory: b cannot infer that a selected `.glsl` is only a header.
+Aliases `glsl-vert`, `glsl-frag`, `glsl-comp`, `glsl-geom`, `glsl-tesc`, `glsl-tese`
+provide file selectors; their directory builds use the same complete stage set.
+Both run modes reject. Each build uses a fresh external output generation;
+failure cleans that generation without replacing older successful outputs.
+No shared shader cache or automatic pruning of successful generations exists.
+
+Real glslang tests verify vertex/fragment/compute SPIR-V magic and rejection.
+Real shaderc is unproved on this host because glslc is missing; an offline tool
+fixture proves argv/failure handling, not compilation. No GPU execution is proved.
+Vexgraph's existing `tools/workspace.c::setup_graphvex` still invokes
+`glslangValidator -V` for registered quad/compositor sources, hashes generators
+and filter IDs, and embeds quad output; it has not migrated to this adapter.
+
+### Metal shaders
+
+`b build metal <directory>` compiles each top-level `.metal` using
+`xcrun -sdk macosx metal`, then links its AIR into one `.metallib` per source.
+The macOS 14 deployment floor is explicit. `XCRUN` selects one executable.
+There is no cross-file library-link inference or host shader execution. Fresh
+generations preserve old output on compile/link failure; AIR intermediates are
+removed. Non-Apple hosts reject. Missing Apple compiler components are not
+downloaded. This host has only two-stage fixture proof: real Metal compilation
+is skipped because the installed tool cannot run. Rendering remains unproved.
+
+### Recursive workspace assessment and build
+
+`b build workspace <directory> [--plan|--confirm]` inventories first, then builds.
+It references Vexgraph's `tools/workspace.c` approach, not its specific target
+graph. The iterative alphabetical directory walk grows without a fixed total
+ceiling. Cargo.toml, package.json, CMakeLists.txt and build.zig own their subtrees;
+competing manifests reject. Loose sources group by directory/build callback.
+Mixed C-family sources need a manifest to specify linkage. Other language and
+shader units coexist independently in the same directory.
+There is no guessed single-file run, no firmware upload and no SQL execution.
+HTML/SQL/headers/unknown loose files are counted as unassigned.
+
+Assessment lists unit paths, adapters and executable requirements; it does not
+validate installed tools or native project configuration. `--plan` executes no
+tool or output creation. Home/ancestor roots, Downloads/Documents/Desktop and
+inventories of at least 1,000 files or 100 units require `--confirm` for building.
+These are review thresholds, not size ceilings. Never sudo or automatic installs.
+Each completed unit prints percent; failures continue and aggregate nonzero.
+An empty inventory reports no buildable units, not a fabricated compilation.
+
+Excluded names: `.git`, `.hg`, `.svn`, `node_modules`, `target`, `build`, `dist`,
+`out`, `.cache`, `__pycache__`, `.venv`, `venv`, and the configured B_HOME directory.
+Directory symlinks are not followed. Known source/manifest symlinks reject; control
+characters in names reject. Keep the filesystem stable during the operation.
+Native scripts/includes may escape the tree: this is not a sandbox, a TOCTOU
+defence or proof against hostile downloaded projects. Generic dependency/schema
+inference, native Windows support and live project-graph migration remain gaps.
 
 ## Clone and use
 
