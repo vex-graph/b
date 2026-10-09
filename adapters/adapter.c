@@ -26,6 +26,8 @@
 #include "adapters/cargo.h"
 #include "adapters/lua.h"
 #include "adapters/zig.h"
+#include "adapters/glsl.h"
+#include "adapters/metal.h"
 #include "b.h"
 
 ;;DEFINITION
@@ -47,6 +49,7 @@
  * HTM_ADAPTER; PHP_ADAPTER; SQL_ADAPTER; CPP_ADAPTER; CXX_ADAPTER;
  * CPP_LONG_ADAPTER; SHELL_ADAPTER.
  * GO_ADAPTER; CARGO_ADAPTER; LUA_ADAPTER; ZIG_ADAPTER.
+ * GLSL_ADAPTER and stage selectors; METAL_ADAPTER (build-only shaders).
  * Records carry name, extension, build, run, tools and capabilities fields
  * documented in language.h. No per-language behavior is implemented here.
  */
@@ -84,6 +87,14 @@ static const Adapter *const ADAPTERS[] = {
     &CARGO_ADAPTER,
     &LUA_ADAPTER,
     &ZIG_ADAPTER,
+    &GLSL_ADAPTER,
+    &GLSL_VERT_ADAPTER,
+    &GLSL_FRAG_ADAPTER,
+    &GLSL_COMP_ADAPTER,
+    &GLSL_GEOM_ADAPTER,
+    &GLSL_TESC_ADAPTER,
+    &GLSL_TESE_ADAPTER,
+    &METAL_ADAPTER,
 };
 
 const Adapter *Adapter_forName(const char *name) {
