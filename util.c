@@ -41,6 +41,7 @@
 
 extern char **environ;
 
+// Allocate zero-initialized storage; report and terminate the CLI if allocation fails.
 void *Util_allocate(size_t size) {
     void *memory = calloc(1, size);
     if (memory == nullptr) {
@@ -50,6 +51,7 @@ void *Util_allocate(size_t size) {
     return memory;
 }
 
+// Allocate and return the concatenation of two strings, rejecting size overflow.
 char *Util_combine(const char *left, const char *right) {
     size_t a = strlen(left), b = strlen(right);
     if (a > SIZE_MAX - b - 1) {
@@ -62,11 +64,13 @@ char *Util_combine(const char *left, const char *right) {
     return text;
 }
 
+// Test whether text ends with the complete suffix string.
 bool Util_endsWith(const char *text, const char *suffix) {
     size_t a = strlen(text), b = strlen(suffix);
     return a >= b && strcmp(text + a - b, suffix) == 0;
 }
 
+// Wait for a child and translate its exit or signal into a process status.
 static int reap(pid_t child) {
     int status;
     while (waitpid(child, &status, 0) < 0) {
@@ -82,6 +86,7 @@ static int reap(pid_t child) {
     return EXIT_FAILURE;
 }
 
+// Spawn an argv command with the supplied environment and return its status.
 int Util_executeWithEnvironment(char **arguments, char **environment) {
     pid_t child;
     int error = posix_spawnp(&child, arguments[0], nullptr, nullptr, arguments, environment);
@@ -92,10 +97,12 @@ int Util_executeWithEnvironment(char **arguments, char **environment) {
     return reap(child);
 }
 
+// Spawn an argv command with the process's inherited environment.
 int Util_execute(char **arguments) {
     return Util_executeWithEnvironment(arguments, environ);
 }
 
+// Spawn a build command while routing its stdout to stderr for clean path output.
 int Util_executeBuild(char **arguments) {
     posix_spawn_file_actions_t actions;
     int error = posix_spawn_file_actions_init(&actions);
@@ -115,6 +122,7 @@ int Util_executeBuild(char **arguments) {
     return reap(child);
 }
 
+// Append caller arguments to a fixed argv prefix and execute without a shell.
 int Util_runCommand(char **prefix, size_t prefixCount, int argc, char **argv) {
     size_t limit = SIZE_MAX / sizeof(char*);
     if (prefix == nullptr || prefixCount == 0 || argc < 0 ||
@@ -133,6 +141,7 @@ int Util_runCommand(char **prefix, size_t prefixCount, int argc, char **argv) {
     return status;
 }
 
+// Run a checker once per matched source and return the project path on success.
 int Util_checkSources(const char *project, const char *pattern, char **prefix, size_t prefixCount, char **output) {
     if (project == nullptr || pattern == nullptr || output == nullptr || prefix == nullptr ||
         prefixCount == 0 || prefixCount > SIZE_MAX / sizeof(char*) - 2 || prefix[0] == nullptr) {
@@ -159,6 +168,7 @@ int Util_checkSources(const char *project, const char *pattern, char **prefix, s
     return status;
 }
 
+// Create a directory path recursively, accepting existing directory components.
 bool Util_makeDirectory(char *path) {
     for (char *part = path + 1; ; ++part) {
         if (*part != '/' && *part != '\0')
@@ -178,6 +188,7 @@ bool Util_makeDirectory(char *path) {
     }
 }
 
+// Create and return the project's hashed output directory under B_HOME or the user cache.
 char *Util_outputDirectory(const char *project) {
     const char *state = getenv("B_HOME");
     char *defaultState = nullptr;
@@ -211,6 +222,7 @@ char *Util_outputDirectory(const char *project) {
     return directory;
 }
 
+// Return an allocated path through the final slash, or the original filename if none exists.
 char *Util_parentDirectory(const char *file) {
     char *directory = Util_combine(file, "");
     char *slash = strrchr(directory, '/');
@@ -219,6 +231,7 @@ char *Util_parentDirectory(const char *file) {
     return directory;
 }
 
+// Glob an extension under a literal project path and return owned copies of matching paths.
 char **Util_collectSources(const char *project, const char *extension, size_t *count, bool *ok) {
     *ok = false;
     *count = 0;
@@ -261,6 +274,7 @@ char **Util_collectSources(const char *project, const char *extension, size_t *c
     return sources;
 }
 
+// Release the copied source paths and their containing array.
 void Util_freeSources(char **sources, size_t count) {
     if (sources == nullptr)
         return;
@@ -269,6 +283,7 @@ void Util_freeSources(char **sources, size_t count) {
     free(sources);
 }
 
+// Build an environment vector replacing any inherited binding with the supplied name/value.
 char **Util_environmentWith(const char *name, const char *value) {
     size_t prefix = strlen(name);
     size_t count = 0;
@@ -290,6 +305,7 @@ char **Util_environmentWith(const char *name, const char *value) {
     return result;
 }
 
+// Free an environment array and owned override while preserving inherited entries.
 void Util_freeEnvironment(char **environment) {
     if (environment == nullptr)
         return;
