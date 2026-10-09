@@ -25,6 +25,7 @@
 
 #include <stdlib.h>
 
+// Parse every top-level R source without evaluating it.
 static int buildR(const char *project, char **output) {
     size_t count = 0;
     bool ok = false;
@@ -47,6 +48,7 @@ static int buildR(const char *project, char **output) {
     return status;
 }
 
+// Run an R script with a clean startup and forward its trailing arguments.
 static int runR(const char *file, int argc, char **argv, bool buildArtifact) {
     (void) buildArtifact; // Interpreter execution in both modes; no packaging.
     char **arguments = Util_allocate(((size_t) argc + 4) * sizeof(char*));

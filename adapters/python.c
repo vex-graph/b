@@ -27,6 +27,7 @@
 
 #include <stdlib.h>
 
+// Byte-compile project Python sources with the cache redirected out of source.
 static int buildPython(const char *project, char **output) {
     size_t count = 0;
     bool ok = false;
@@ -60,6 +61,7 @@ static int buildPython(const char *project, char **output) {
     return status;
 }
 
+// Execute the source file with Python and forward the remaining arguments.
 static int runPython(const char *file, int argc, char **argv, bool buildArtifact) {
     (void) buildArtifact; // interpreted: instance and exec both run the source
     char **arguments = Util_allocate(((size_t) argc + 3) * sizeof(char*));

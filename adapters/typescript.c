@@ -20,12 +20,14 @@
  * runTypescript — native Node type-stripping run with literal arguments.
  */
 
+// Validate TypeScript erasability with Node's native stripping parser, not tsc.
 static int buildTypescript(const char *project, char **output) {
     char *prefix[] = { "node", "-e",
         "require('node:module').stripTypeScriptTypes(require('node:fs').readFileSync(process.argv[1], 'utf8'), {mode:'strip', sourceUrl:process.argv[1]})", "--" };
     return Util_checkSources(project, "/*.{ts,mts,cts}", prefix, 4, output);
 }
 
+// Run a TypeScript source through Node's native type-stripping support.
 static int runTypescript(const char *file, int argc, char **argv, bool buildArtifact) {
     (void) buildArtifact;
     char *prefix[] = { "node", (char*) file };

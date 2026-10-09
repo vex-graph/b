@@ -15,11 +15,13 @@
  * No persistent state; program arguments and script paths are borrowed.
  */
 
+// Syntax-check each top-level shell script without executing it.
 static int buildShell(const char *project, char **output) {
     char *prefix[] = { "/bin/sh", "-n" };
     return Util_checkSources(project, "/*.sh", prefix, 2, output);
 }
 
+// Run a script through POSIX sh and append the supplied arguments literally.
 static int runShell(const char *file, int argc, char **argv, bool buildArtifact) {
     (void) buildArtifact;
     char *prefix[] = { "/bin/sh", (char*) file };

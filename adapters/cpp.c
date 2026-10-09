@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+// Compile the provided C++23 sources into one external native executable.
 static int compileCpp(const char *project, char **sources, size_t count, char **output) {
     if (count > SIZE_MAX / sizeof(char*) - 16) {
         THROW("C++ source count overflow");
@@ -55,6 +56,7 @@ static int compileCpp(const char *project, char **sources, size_t count, char **
     return status;
 }
 
+// Collect supported top-level C++ extensions and compile the project together.
 static int buildCpp(const char *project, char **output) {
     size_t count = 0;
     bool ok = false;
@@ -66,6 +68,7 @@ static int buildCpp(const char *project, char **output) {
     return status;
 }
 
+// Compile one source entry for exec mode, then launch with forwarded arguments.
 static int runCpp(const char *file, int argc, char **argv, bool buildArtifact) {
     if (!buildArtifact) {
         THROW("C++ has no source runtime; use b run exec");

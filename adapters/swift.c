@@ -19,6 +19,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+// Compile the supplied Swift sources into an external native executable.
 static int compileSwift(const char *project, char **sources, size_t count, char **output) {
     if (count > SIZE_MAX / sizeof(char*) - 8) {
         THROW("Swift source count overflow");
@@ -46,6 +47,7 @@ static int compileSwift(const char *project, char **sources, size_t count, char 
     return status;
 }
 
+// Discover top-level Swift sources and compile them together.
 static int buildSwift(const char *project, char **output) {
     size_t count = 0;
     bool ok = false;
@@ -57,6 +59,7 @@ static int buildSwift(const char *project, char **output) {
     return status;
 }
 
+// Interpret the Swift file or compile then launch it, forwarding program arguments.
 static int runSwift(const char *file, int argc, char **argv, bool buildArtifact) {
     if (!buildArtifact) {
         char *prefix[] = { "swift", (char*) file };

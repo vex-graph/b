@@ -44,6 +44,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+// Resolve the Arduino CLI override, PATH executable, or macOS IDE-bundled tool.
 static const char *cli(void) {
     const char *override = getenv("ARDUINO_CLI");
     if (override != nullptr && *override != '\0')
@@ -72,6 +73,7 @@ static const char *cli(void) {
     return "arduino-cli";
 }
 
+// Copy a standalone .ino into an out-of-tree, correctly named sketch directory.
 static char *stageFile(const char *file, const char *parent) {
     const char *name = strrchr(file, '/');
     name = name == nullptr ? file : name + 1;
@@ -120,6 +122,7 @@ static char *stageFile(const char *file, const char *parent) {
     return sketch;
 }
 
+// Resolve a sketch directory, staging standalone or non-primary .ino inputs.
 static char *sketchDirectory(const char *input) {
     char *path = realpath(input, nullptr);
     struct stat info;
@@ -153,6 +156,7 @@ static char *sketchDirectory(const char *input) {
     return directory;
 }
 
+// Read and validate the primary sketch's bounded first-line FQBN declaration.
 static char *boardFromHeader(const char *sketch) {
     const char *name = strrchr(sketch, '/');
     name = name == nullptr ? sketch : name + 1;
@@ -204,6 +208,7 @@ static char *boardFromHeader(const char *sketch) {
     return Util_combine(board, "");
 }
 
+// Compile for the declared board and optionally return its pinned identifier.
 static int compileSketch(const char *sketch, const char *fqbn, char **output, char **outBoard) {
     char *board = boardFromHeader(sketch);
     if (board == nullptr)
@@ -233,10 +238,12 @@ static int compileSketch(const char *sketch, const char *fqbn, char **output, ch
     return status;
 }
 
+// Build the selected sketch using its required b_build board declaration.
 static int buildArduino(const char *project, char **output) {
     return compileSketch(project, nullptr, output, nullptr);
 }
 
+// Reject host execution because Arduino sketches require an explicit hardware upload.
 static int runArduino(const char *file, int argc, char **argv, bool buildArtifact) {
     (void) file;
     (void) argc;
@@ -246,6 +253,7 @@ static int runArduino(const char *file, int argc, char **argv, bool buildArtifac
     return EXIT_FAILURE;
 }
 
+// Validate upload options, compile the sketch, then flash its explicitly chosen port.
 int Arduino_upload(int argc, char **argv) {
     const char *fqbn = nullptr;
     const char *port = nullptr;

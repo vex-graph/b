@@ -115,6 +115,7 @@ const Adapter *Adapter_forFile(const char *path) {
     return nullptr;
 }
 
+// Return the number of immutable adapter records in the registry.
 size_t Adapter_count(void) {
     return sizeof ADAPTERS / sizeof ADAPTERS[0];
 }

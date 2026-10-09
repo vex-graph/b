@@ -21,11 +21,13 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
+// Select the configured Zig executable or the standard command name.
 static const char *tool(void) {
     const char *value = getenv("ZIG");
     return value != nullptr && *value != '\0' ? value : "zig";
 }
 
+// Compile one Zig source root into an external ReleaseSafe executable.
 static int compileZig(const char *project, const char *file, char **output) {
     char *directory = Util_outputDirectory(project);
     if (directory == nullptr)
@@ -43,6 +45,7 @@ static int compileZig(const char *project, const char *file, char **output) {
     return status;
 }
 
+// Delegate to build.zig or select an unambiguous standalone source root.
 static int buildZig(const char *project, char **output) {
     char *script = Util_combine(project, "/build.zig");
     struct stat info;
@@ -85,6 +88,7 @@ static int buildZig(const char *project, char **output) {
     return status;
 }
 
+// Compile the resolved Zig source and run the resulting program with its arguments.
 static int runZig(const char *file, int argc, char **argv, bool buildArtifact) {
     (void) buildArtifact;
     char *path = realpath(file, nullptr);

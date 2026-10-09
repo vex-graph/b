@@ -28,6 +28,7 @@
 
 #include <stdlib.h>
 
+// Build one .NET file-based C# application into an external managed output path.
 static int compileCsharp(const char *project, const char *file, char **output) {
     char *directory = Util_outputDirectory(project);
     if (directory == nullptr)
@@ -43,6 +44,7 @@ static int compileCsharp(const char *project, const char *file, char **output) {
     return status;
 }
 
+// Require exactly one top-level C# source and build it as a file application.
 static int buildCsharp(const char *project, char **output) {
     size_t count = 0;
     bool ok = false;
@@ -58,6 +60,7 @@ static int buildCsharp(const char *project, char **output) {
     return status;
 }
 
+// Use dotnet's file runner in instance mode or build and launch the DLL in exec mode.
 static int runCsharp(const char *file, int argc, char **argv, bool buildArtifact) {
     char *project = Util_parentDirectory(file);
     char *output = nullptr;

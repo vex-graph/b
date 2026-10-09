@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
+// Configure and build a declared CMake project in b's external build directory.
 static int buildCmake(const char *project, char **output) {
     char *manifest = Util_combine(project, "/CMakeLists.txt");
     struct stat info;
@@ -45,6 +46,7 @@ static int buildCmake(const char *project, char **output) {
     return status;
 }
 
+// Reject source execution because CMake does not identify a unique runnable target.
 static int runCmake(const char *file, int argc, char **argv, bool buildArtifact) {
     (void) file;
     (void) argc;

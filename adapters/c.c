@@ -25,6 +25,7 @@
 
 #include <stdlib.h>
 
+// Compile the supplied C23 sources into one out-of-tree native executable.
 static int compileC(const char *project, char **sources, size_t count, char **output) {
     if (count > SIZE_MAX / sizeof(char*) - 20) {
         THROW("source argument count overflow");
@@ -61,6 +62,7 @@ static int compileC(const char *project, char **sources, size_t count, char **ou
     return status;
 }
 
+// Discover top-level C sources and compile them as one project executable.
 static int buildC(const char *project, char **output) {
     size_t count = 0;
     bool ok = false;
@@ -72,6 +74,7 @@ static int buildC(const char *project, char **output) {
     return status;
 }
 
+// Compile a source entry for exec mode and launch it with the caller's arguments.
 static int runC(const char *file, int argc, char **argv, bool buildArtifact) {
     if (!buildArtifact) {
         THROW("C has no source runtime; use b run exec to compile then launch");
