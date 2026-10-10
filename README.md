@@ -13,18 +13,6 @@ and expand packaging as its contracts are implemented. b is not a new compiler,
 package manager or language, nor a replacement for Tsoding's
 [nob](https://github.com/tsoding/nob.h).
 
-## Disclaimer: CMake is just IDE metadata (not irony)
-
-This repository's `CMakeLists.txt` is **IDE metadata only**: source targets,
-include paths and C23 flags for navigation, diagnostics and inlay hints. Its
-targets are excluded from the default build. It downloads no dependencies and
-wires no linked application runner. Missing headers remain real errors.
-
-The `./b` launcher builds b itself. Vexgraph's `./tools/b` builds the workspace.
-Neither uses this metadata adapter as its runtime build system. Separately,
-`b build cmake` can delegate to an existing project's real CMake build; that
-does not change the role of this repository's CMake file.
-
 ## Current State
 
 b is working build infrastructure, not merely an experiment. Its standalone
@@ -105,6 +93,7 @@ distinctions matter more than calling every entry a compiler.
 
 Project backends, also alphabetical: **Cargo** (`cargo`), **CMake** (`cmake`),
 **npm** (`npm`). They retain their native project metadata and toolchain policy.
+For an external CMake project, use `b build cmake <directory>`.
 
 ## Tree
 
@@ -120,7 +109,6 @@ b/
 ├── util.c            paths, child processes and build helpers (API in b.h)
 ├── adapters/         native-tool adapter file pairs and registry
 ├── annotation.h      zero-runtime ;;DEFINITION / ;;OVERVIEW markers
-├── CMakeLists.txt    IDE metadata only
 ├── ADAPTERS.md       adapter behavior and limits
 ├── JETBRAINS.md      external-tool setup
 └── TREE.md           commands and examples
