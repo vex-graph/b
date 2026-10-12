@@ -35,8 +35,8 @@ b
 ├── create
 │   └── manifest <path>                 (write starter JSON; never overwrite)
 └── box <manifest.json> <path-to-export>
-    └── PLANNED backend — not implemented; verifies manifest is a regular file, then rejects
-        without parsing JSON or creating a destination
+    └── validate schema 1, then export the declared payload
+        (only the `portable` format; every other format rejects)
 ```
 
 The separate `./tools/b` ecosystem target engine is described below; it is not
@@ -227,23 +227,34 @@ b upload arduino ./Blink/Blink.ino --port /dev/cu.YOUR_BOARD
 Upload compiles first and requires an explicit port. Optional `--fqbn` must match
 the source header; it is not a way to override it.
 
-## Box: manifest template available; exporters planned
+## Box: manifest and portable export
 
-```text
+```sh
 b create manifest ./box.json
 b box ./box.json ./release
 ```
 
-`create manifest` writes a starter JSON file without overwriting an existing path.
-The user fills in application metadata (identity, name, version, authors,
-publisher, description, license), payload entry/resources, target platforms,
-formats and state policy. The JSON is intended to be project/toolchain agnostic;
-these starter fields are not yet a validated schema. `box` currently confirms
-only that the manifest path is a regular file, then rejects because no packaging
-backend exists. It neither parses the JSON nor creates the destination. No
-executable, `.app`, `.msi`, `.dmg`, `.pkg`, `.iso`, ZIP or TAR format is produced.
-**Build, breeze, box** describes the direction, not a claim that packaging or IDE
-language intelligence already exists.
+`create manifest` writes a starter schema-1 JSON form without overwriting an
+existing path. The user fills in application metadata (identity, name, version,
+authors, publisher, description, license, homepage, icon), the payload entry and
+files, the requested formats and the state policy. `box` then parses and
+validates that form: unknown or duplicate keys, unsupported `\u` escapes,
+missing required fields, absolute paths, `.`/`..` components, a non-`clean` state
+policy, a non-empty `targets` array, duplicate export destinations and unknown
+format names all reject before anything is copied.
+
+The export root receives the entry under its own name and each declared file at
+its declared destination (the file name by default), with permission bits
+preserved; the destination is published by a single rename. Symlinks and
+non-regular payload entries are refused, an existing destination is never
+replaced, and a failure removes the private staging directory, leaving any
+previous export untouched.
+
+Only `portable` is implemented. `exe`, `app`, `msi`, `pkg`, `dmg`, `iso`, `zip`
+and `tar` are recognised names that reject until their backends exist, and
+per-target exports, signing, notarization, installer lifecycle and exported
+machine/user state are not implemented. **Build, breeze, box** describes the
+direction, not a claim that packaging or IDE language intelligence is complete.
 
 ## Ecosystem workspace command tree
 

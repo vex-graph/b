@@ -15,7 +15,8 @@ real build/run tools from the editor you chose. That distinction is the point.
 **Build, breeze, box** is the workflow direction: build through native tools,
 run without switching editors, and package when a real export adapter exists.
 Current builds/runs and Arduino upload are implemented. `b create manifest`
-creates a starter packaging JSON file; `b box` has no packaging backend yet.
+writes a starter packaging JSON form and `b box` validates it and exports a
+portable payload directory; other packaging formats are still unimplemented.
 A Run button calling b is not proof of language completion, debugging, browser
 rendering or production packaging. Assess those capabilities independently.
 

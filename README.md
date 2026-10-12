@@ -18,9 +18,10 @@ package manager or language, nor a replacement for Tsoding's
 b is working build infrastructure, not merely an experiment. Its standalone
 CLI implements native-tool build/run delegation, adapter discovery, tool-presence
 diagnostics, recursive workspace assessment/build, GLSL/Metal shader delegation,
-explicit Arduino upload, and creation of a starter packaging manifest. `b box`
-currently checks that a manifest path is a regular file, then rejects because no
-packaging backend exists; it does not yet read or interpret manifest contents.
+explicit Arduino upload, and a first packaging surface: `b create manifest`
+writes a starter form and `b box` validates schema-1 manifests and exports the
+declared payload as a portable directory. Other formats (`.app`, `.msi`, `.pkg`,
+`.dmg`, `.iso`, ZIP, TAR) and target-specific exports are not implemented yet.
 Vexgraph uses b as the entry point to its project-owned build graph. Workspace
 builds are proved on macOS with scoped C/Python/CMake fixtures; glslang, shaderc and Apple
 Metal all have real compiler proof, and the CLI seam has Apple `leaks` proof.
@@ -51,6 +52,11 @@ runtimes in both modes. C, C++ and Objective-C reject source instance mode;
 Zig compiles in both modes. HTML opens the original document, not a built app.
 Build failures do not launch stale artifacts. Arguments are forwarded literally;
 native tool wrappers can affect the final exit status (notably `go run`).
+
+```sh
+b create manifest ./box.json      # write the starter form; never overwrites
+b box ./box.json ./release        # validate, then export the declared payload
+```
 
 ```sh
 git clone https://github.com/vex-graph/b.git
@@ -109,6 +115,7 @@ b/
 ├── b                 bootstrap launcher; builds outside the checkout
 ├── b.c               command validation and dispatch
 ├── b.h               shared contracts
+├── box.c/.h          packaging manifest: parse, validate, portable export
 ├── inspect.c/.h      adapter listing and tool-presence diagnostics
 ├── util.c            paths, child processes and build helpers (API in b.h)
 ├── adapters/         native-tool adapter file pairs and registry
@@ -117,6 +124,36 @@ b/
 ├── JETBRAINS.md      external-tool setup
 └── TREE.md           commands and examples
 ```
+
+## Box: manifest and portable export
+
+`b create manifest <path>` writes a schema-1 JSON form without replacing an
+existing file. Fill in the application identity, name, version, authors,
+publisher, description, license, the payload entry and files, the requested
+formats and the state policy; then `b box <manifest.json> <path-to-export>`
+validates the manifest and exports the declared payload.
+
+```json
+{
+  "schemaVersion": 1,
+  "application": { "id": "com.example.app", "name": "Example App", "version": "2.0.0" },
+  "payload": {
+    "entry": "dist/app",
+    "files": [{ "source": "assets/logo.txt", "destination": "resources/logo.txt" }]
+  },
+  "targets": [],
+  "formats": ["portable"],
+  "statePolicy": "clean"
+}
+```
+
+`box` copies the entry under its own name plus each declared file at its
+declared destination (the file name by default), preserving permission bits,
+then publishes the destination with a single rename. It refuses symlinks and
+non-regular payload entries, refuses a destination that already exists, and
+removes its private staging directory when anything fails, so a failed export
+leaves any previous export untouched. The `statePolicy` is `clean`: only
+declared payload is copied, never machine or user state.
 
 ## JetBrains IDEs
 
@@ -186,23 +223,28 @@ external cached state; changed launcher inputs trigger recompilation. On macOS
 the build targets Apple Silicon M1 and macOS 14+. It does not need a separate
 build-system generator to build itself.
 
-Future work includes manifest parsing and validation, export/packaging backends,
-project-graph adoption of the shader adapters, richer cross-directory dependency
-inference, broader platform support and deeper integration with future projects
-and R5 apps.
+Future work includes the remaining export formats (`.app`, `.msi`, `.pkg`,
+`.dmg`, `.iso`, ZIP, TAR), signing and notarization, installer lifecycle,
+per-target exports, project-graph adoption of the shader adapters, richer
+cross-directory dependency inference, broader platform support and deeper
+integration with future projects and R5 apps.
 Project-specific graphs should remain project-owned, borrowing b's command
 surface rather than embedding Vexgraph policy into the standalone suite.
 
 ## Scope and Limitations
 
-`b create manifest <path>` creates a JSON starter template without replacing an
-existing file. It includes application identity, author/publisher, version,
-description, license, payload entry/files, targets, formats and a clean-state
-policy. This is a template, not yet a validated schema. `b box <manifest.json>
-<path-to-export>` currently rejects after confirming the manifest is a regular
-file; it creates no destination and does not parse the JSON. Executable, `.app`,
-`.msi`, `.dmg`, `.pkg`, `.iso`, ZIP and TAR export backends are not implemented.
-b does not replace Cargo, npm, CMake, Maven or Gradle.
+`b create manifest <path>` writes a starter schema-1 JSON template without
+replacing an existing file. `b box <manifest.json> <path-to-export>` parses and
+validates that manifest and exports the declared payload as a **portable
+directory**; the requested `formats` array may only name `portable` today, so
+`.exe`, `.app`, `.msi`, `.pkg`, `.dmg`, `.iso`, ZIP and TAR exports reject
+loudly. `targets` must be empty: per-target exports, signing, notarization,
+installer lifecycle, upgrades and uninstall behavior are not implemented.
+Loading rejects unknown or duplicate keys, unsupported `\u` escapes, missing
+required fields, absolute paths and `.`/`..` path components; `box` refuses a
+destination that already exists and never copies machine or user state. Export
+is not a sandbox: a stable payload tree is required while it runs. b does not
+replace Cargo, npm, CMake, Maven or Gradle.
 Individual adapter source discovery is top-level; `build workspace` traverses
 recursively and assigns directory/project units. Native project backends own
 their dependency graphs and incremental behavior. It cannot infer arbitrary

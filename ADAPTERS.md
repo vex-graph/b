@@ -379,12 +379,16 @@ Project-specific graphs belong to their project, not this checkout. Vexgraph's
 uses generic `b run exec` to compile and execute that graph. There is no special
 `b workspace` command or ecosystem dependency in this standalone launcher.
 
-`create manifest` writes a starter JSON template without overwriting an existing
-file. Its fields are a proposed, toolchain-independent packaging vocabulary, not
-a validated schema. `box` currently checks that the manifest path is a regular
-file and rejects because packaging backends are not implemented; it does not
-parse the JSON or create the destination. No `.app`, `.msi`, `.dmg`, `.pkg`,
-`.iso`, ZIP or TAR exporter is available. Packaging, cross-compilation, shared
+`create manifest` writes a starter schema-1 JSON form without overwriting an
+existing file. `box` parses and validates that form (unknown or duplicate keys,
+unsupported `\u` escapes, missing fields, absolute paths, `.`/`..` components, a
+non-`clean` state policy, a non-empty `targets` array, duplicate destinations and
+unknown format names all reject) and exports the declared payload as a portable
+directory: the entry under its own name plus each declared file at its declared
+destination, permission bits preserved, published by one rename, with an
+existing destination never replaced and staged failures cleaned up. Only
+`portable` is implemented; `exe`, `app`, `msi`, `pkg`, `dmg`, `iso`, `zip` and
+`tar` reject until their backends exist. Packaging, cross-compilation, shared
 dependency graphs, additional database dialects and supervised web-serving remain
 future work. b does not replace Maven, Gradle, Cargo, npm or CMake.
 
