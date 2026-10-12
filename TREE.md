@@ -32,8 +32,11 @@ b
 ├── <adapter> <file> [-- arguments...]      (instance shorthand)
 ├── upload
 │   └── arduino <sketch> --port <port> [--fqbn <matching-board>]
-├── export <manifestmainfile> <destination> <exe|app|msi|iso|zip>
-│   └── PLANNED — not implemented; rejects without creating a destination
+├── create
+│   └── manifest <path>                 (write starter JSON; never overwrite)
+└── box <manifest.json> <path-to-export>
+    └── PLANNED backend — not implemented; verifies manifest is a regular file, then rejects
+        without parsing JSON or creating a destination
 ```
 
 The separate `./tools/b` ecosystem target engine is described below; it is not
@@ -224,15 +227,23 @@ b upload arduino ./Blink/Blink.ino --port /dev/cu.YOUR_BOARD
 Upload compiles first and requires an explicit port. Optional `--fqbn` must match
 the source header; it is not a way to override it.
 
-## Export: box (planned)
+## Box: manifest template available; exporters planned
 
 ```text
-b export <manifestmainfile> <destination> <exe|app|msi|iso|zip>
+b create manifest ./box.json
+b box ./box.json ./release
 ```
 
-The command currently rejects. No manifest schema, packaging backend or export
-format is implemented. **Build, breeze, box** describes the direction, not a
-claim that packaging or IDE language intelligence already exists.
+`create manifest` writes a starter JSON file without overwriting an existing path.
+The user fills in application metadata (identity, name, version, authors,
+publisher, description, license), payload entry/resources, target platforms,
+formats and state policy. The JSON is intended to be project/toolchain agnostic;
+these starter fields are not yet a validated schema. `box` currently confirms
+only that the manifest path is a regular file, then rejects because no packaging
+backend exists. It neither parses the JSON nor creates the destination. No
+executable, `.app`, `.msi`, `.dmg`, `.pkg`, `.iso`, ZIP or TAR format is produced.
+**Build, breeze, box** describes the direction, not a claim that packaging or IDE
+language intelligence already exists.
 
 ## Ecosystem workspace command tree
 

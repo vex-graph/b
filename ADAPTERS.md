@@ -25,7 +25,8 @@ b build <adapter> [directory]
 b build workspace <directory> [--plan|--confirm]
 b upload arduino <sketch> --port <port> [--fqbn <matching-board>]
 b <adapter> <filename> [-- program arguments...]
-b export <manifestmainfile> <destination> <exe|app|msi|iso|zip>
+b create manifest <path>
+b box <manifest.json> <path-to-export>
 ```
 
 `run instance` runs a file as-is through its runtime, or launches an existing
@@ -378,8 +379,12 @@ Project-specific graphs belong to their project, not this checkout. Vexgraph's
 uses generic `b run exec` to compile and execute that graph. There is no special
 `b workspace` command or ecosystem dependency in this standalone launcher.
 
-No export format or manifest schema is implemented yet. `export` rejects
-nonzero without creating a destination. Packaging, cross-compilation, shared
+`create manifest` writes a starter JSON template without overwriting an existing
+file. Its fields are a proposed, toolchain-independent packaging vocabulary, not
+a validated schema. `box` currently checks that the manifest path is a regular
+file and rejects because packaging backends are not implemented; it does not
+parse the JSON or create the destination. No `.app`, `.msi`, `.dmg`, `.pkg`,
+`.iso`, ZIP or TAR exporter is available. Packaging, cross-compilation, shared
 dependency graphs, additional database dialects and supervised web-serving remain
 future work. b does not replace Maven, Gradle, Cargo, npm or CMake.
 

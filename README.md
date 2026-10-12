@@ -17,10 +17,12 @@ package manager or language, nor a replacement for Tsoding's
 
 b is working build infrastructure, not merely an experiment. Its standalone
 CLI implements native-tool build/run delegation, adapter discovery, tool-presence
-diagnostics, recursive workspace assessment/build, GLSL/Metal shader delegation
-and explicit Arduino upload. Vexgraph uses it as the entry point to its
-project-owned build graph. Export remains unimplemented. Workspace builds are
-proved on macOS with scoped C/Python/CMake fixtures; glslang, shaderc and Apple
+diagnostics, recursive workspace assessment/build, GLSL/Metal shader delegation,
+explicit Arduino upload, and creation of a starter packaging manifest. `b box`
+currently checks that a manifest path is a regular file, then rejects because no
+packaging backend exists; it does not yet read or interpret manifest contents.
+Vexgraph uses b as the entry point to its project-owned build graph. Workspace
+builds are proved on macOS with scoped C/Python/CMake fixtures; glslang, shaderc and Apple
 Metal all have real compiler proof, and the CLI seam has Apple `leaks` proof.
 
 Current automated proof is scoped to macOS; native Windows support and other
@@ -39,6 +41,8 @@ b build workspace <directory> [--plan|--confirm]
 b run <exec|instance> <filename> [-- program arguments...]
 b <adapter> <filename> [-- program arguments...]
 b upload arduino <sketch> --port <port> [--fqbn <matching-board>]
+b create manifest <path>
+b box <manifest.json> <path-to-export>
 ```
 
 `exec` builds a runnable source artifact first for compiled-language adapters;
@@ -182,17 +186,23 @@ external cached state; changed launcher inputs trigger recompilation. On macOS
 the build targets Apple Silicon M1 and macOS 14+. It does not need a separate
 build-system generator to build itself.
 
-Future work includes export/packaging, project-graph adoption of the shader
-adapters, richer cross-directory dependency inference, broader platform support
-and deeper integration with future projects and R5 apps.
+Future work includes manifest parsing and validation, export/packaging backends,
+project-graph adoption of the shader adapters, richer cross-directory dependency
+inference, broader platform support and deeper integration with future projects
+and R5 apps.
 Project-specific graphs should remain project-owned, borrowing b's command
 surface rather than embedding Vexgraph policy into the standalone suite.
 
 ## Scope and Limitations
 
-No export format or manifest schema is implemented yet.
-`b export <manifestmainfile> <destination> <exe|app|msi|iso|zip>` rejects without
-creating a destination. b does not replace Cargo, npm, CMake, Maven or Gradle.
+`b create manifest <path>` creates a JSON starter template without replacing an
+existing file. It includes application identity, author/publisher, version,
+description, license, payload entry/files, targets, formats and a clean-state
+policy. This is a template, not yet a validated schema. `b box <manifest.json>
+<path-to-export>` currently rejects after confirming the manifest is a regular
+file; it creates no destination and does not parse the JSON. Executable, `.app`,
+`.msi`, `.dmg`, `.pkg`, `.iso`, ZIP and TAR export backends are not implemented.
+b does not replace Cargo, npm, CMake, Maven or Gradle.
 Individual adapter source discovery is top-level; `build workspace` traverses
 recursively and assigns directory/project units. Native project backends own
 their dependency graphs and incremental behavior. It cannot infer arbitrary
