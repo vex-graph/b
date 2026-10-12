@@ -28,7 +28,7 @@ Metal all have real compiler proof, and the CLI seam has Apple `leaks` proof.
 
 Current automated proof is scoped to macOS; native Windows support and other
 host platforms remain unproven here. See the shared `tests/b` owner suites and
-workspace `tests/test-checklist.md` for content-specific evidence. These scoped
+workspace `gist/test-checklist.md` for content-specific evidence. These scoped
 owner runs do not establish every toolchain, platform or GPU execution claim.
 
 ## What does it do?
@@ -274,4 +274,4 @@ PYTHONPATH=../../tests/b python3 -m unittest discover -s ../../tests/b/adapters 
 
 Missing optional tools are explicit skips. Architecture follows the canonical
 [preferences.md](https://gist.github.com/vex-graph/4132a6c45cb6d3797c3e8eff2e94035a),
-the real workspace-root `../../preferences.md`.
+the real workspace `../../gist/PREFERENCES.md`.

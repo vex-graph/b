@@ -409,4 +409,4 @@ PostgreSQL cluster, with bounded cleanup, never an existing database.
 
 Architecture follows the canonical
 [preferences.md](https://gist.github.com/vex-graph/4132a6c45cb6d3797c3e8eff2e94035a)
-(one real, Git-ignored workspace-root file at `../../preferences.md`).
+(one real, Git-ignored workspace file at `../../gist/PREFERENCES.md`).
