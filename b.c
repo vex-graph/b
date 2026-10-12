@@ -11,24 +11,27 @@
 #include "adapters/adapter.h"
 #include "adapters/arduino.h"
 #include "adapters/workspace.h"
+#include "box.h"
 #include "inspect.h"
 
 ;;DEFINITION
 /* The suite validates command grammar and passes work to registered adapters.
  * It owns no toolchain logic or persistent class state. Build result paths are
  * freed after printing; program arguments are borrowed and exit status is
- * preserved. Arduino upload is an explicit hardware operation; box accepts an
- * explicit manifest/destination pair but rejects until a packaging backend exists.
+ * preserved. Arduino upload is an explicit hardware operation. Manifest
+ * creation and portable export belong to the BoxManifest class in box.c; this
+ * file only validates the command shape and reports the result path.
  */
 ;;OVERVIEW
 /* MODULE: command suite.
  * PUBLIC ENTRY: main — help, adapters (languages alias), doctor, build, run, upload, shorthand,
- * create manifest template; box packaging rejection. Discovery delegates to
+ * create-manifest template; box portable export. Discovery delegates to
  * inspect.c, not the workspace engine.
  * PRIVATE STATIC: usage — print grammar and limits;
- * createManifest — exclusively create a starter JSON form, preserving existing paths;
  * regularFile — validate a regular source/executable input;
  * runFile — source adapter dispatch or native executable fallback.
+ * BOX SEAM: BoxManifest_writeTemplate (create manifest) and
+ * BoxManifest_load/export/free (box), both documented in box.h.
  * CAPABILITIES: compile/check directories; execute files; compile-before-upload;
  * forward literal arguments; propagate tool/program failures without a shell.
  * Workspace assessment/build delegates to adapters/workspace.c, never runs sources.
@@ -36,7 +39,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -48,60 +50,11 @@ static void usage(void) {
          "b build <adapter> [directory]\n"
          "b build workspace <directory> [--plan|--confirm]\n"
          "b upload arduino <sketch> --port <port> [--fqbn <matching-board>]\n"
-          "b create manifest <path>\n"
-          "b box <manifest.json> <path-to-export>\n"
+         "b create manifest <path>\n"
+         "b box <manifest.json> <path-to-export>\n"
          "b <adapter> <filename> [-- arguments...]   (e.g. b java Hello.java)\n"
          "instance: run as-is; exec: build a source artifact then launch\n"
-          "box: manifest creation is available; packaging backends are not implemented");
-}
-
-// Create a starter manifest without overwriting a file the user already owns.
-static int createManifest(const char *path) {
-    static const char template[] =
-        "{\n"
-        "  \"schemaVersion\": 1,\n"
-        "  \"application\": {\n"
-        "    \"id\": \"com.example.myapp\",\n"
-        "    \"name\": \"My Application\",\n"
-        "    \"version\": \"1.0.0\",\n"
-        "    \"authors\": [\"Your Name\"],\n"
-        "    \"publisher\": \"Your Organization\",\n"
-        "    \"description\": \"Describe your application.\",\n"
-        "    \"license\": \"UNLICENSED\"\n"
-        "  },\n"
-        "  \"payload\": {\n"
-        "    \"entry\": \"dist/myapp\",\n"
-        "    \"files\": []\n"
-        "  },\n"
-        "  \"targets\": [],\n"
-        "  \"formats\": [\"zip\"],\n"
-        "  \"statePolicy\": \"clean\"\n"
-        "}\n";
-    if (path == nullptr || *path == '\0') {
-        THROW("manifest path must not be empty");
-        return EXIT_FAILURE;
-    }
-    int file = open(path, O_WRONLY | O_CREAT | O_EXCL, 0600);
-    if (file < 0) {
-        THROW("cannot create manifest without replacing an existing path: %s", path);
-        return EXIT_FAILURE;
-    }
-    size_t length = sizeof(template) - 1;
-    size_t offset = 0;
-    while (offset < length) {
-        ssize_t written = write(file, template + offset, length - offset);
-        if (written <= 0)
-            break;
-        offset += (size_t) written;
-    }
-    int closeStatus = close(file);
-    if (offset != length || closeStatus != 0) {
-        unlink(path);
-        THROW("could not completely write manifest: %s", path);
-        return EXIT_FAILURE;
-    }
-    puts(path);
-    return EXIT_SUCCESS;
+         "box: writes a new destination; only the portable format is implemented");
 }
 
 // Return whether path resolves to a regular file.
@@ -143,15 +96,21 @@ int main(int argc, char **argv) {
     }
     if ((strcmp(argv[1], "adapters") == 0 || strcmp(argv[1], "languages") == 0) && argc == 2)
         return Inspect_adapters();
-    if (strcmp(argv[1], "create") == 0 && argc == 4 && strcmp(argv[2], "manifest") == 0)
-        return createManifest(argv[3]);
-    if (strcmp(argv[1], "box") == 0 && argc == 4) {
-        if (!regularFile(argv[2])) {
-            THROW("box manifest does not exist or is not a regular file: %s", argv[2]);
+    if (strcmp(argv[1], "create") == 0 && argc == 4 && strcmp(argv[2], "manifest") == 0) {
+        if (BoxManifest_writeTemplate(argv[3]) != 0)
             return EXIT_FAILURE;
-        }
-        THROW("box packaging backends are not implemented; no export was created (manifest: %s, destination: %s)", argv[2], argv[3]);
-        return EXIT_FAILURE;
+        puts(argv[3]);
+        return EXIT_SUCCESS;
+    }
+    if (strcmp(argv[1], "box") == 0 && argc == 4) {
+        BoxManifest *manifest = BoxManifest_load(argv[2]);
+        if (manifest == nullptr)
+            return EXIT_FAILURE;
+        int status = BoxManifest_export(manifest, argv[3]);
+        BoxManifest_free(manifest);
+        if (status == 0)
+            puts(argv[3]);
+        return status;
     }
     if (strcmp(argv[1], "doctor") == 0 && (argc == 2 || argc == 3))
         return Inspect_doctor(argc == 3 ? argv[2] : nullptr);
