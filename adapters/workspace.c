@@ -4,7 +4,7 @@
 
 ;;DEFINITION
 /* The standalone workspace command borrows the assess/build separation from
- * Vexgraph tools/workspace.c without importing its ecosystem target graph.
+ * Vexgraph tools/workspace.c without importing its vexgraph-ecosystem-gitrepo target graph.
  * An iterative, sorted walk inventories first, then runs build-only units.
  * Manifests own their subtrees; loose sources group by directory/build callback.
  * Multiple project manifests or mixed C-family source groups reject rather than

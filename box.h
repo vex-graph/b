@@ -3,7 +3,7 @@
 // it in; `b box <manifest> <path-to-export>` reads it, validates it, and exports
 // the declared payload. This class owns that description: the declared
 // application metadata, the payload entry and files, and the requested export
-// formats. It is project/toolchain agnostic and has no ecosystem dependency.
+// formats. It is project/toolchain agnostic and has no vexgraph-ecosystem-gitrepo dependency.
 // STRUCT FIELDS:
 //   char *baseDirectory  manifest directory; payload paths resolve against it
 //   int schemaVersion    declared schema number (only 1 is accepted)

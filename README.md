@@ -28,7 +28,7 @@ Metal all have real compiler proof, and the CLI seam has Apple `leaks` proof.
 
 Current automated proof is scoped to macOS; native Windows support and other
 host platforms remain unproven here. See the shared `tests/b` owner suites and
-workspace `gist/test-checklist.md` for content-specific evidence. These scoped
+workspace `../../../metadata/gists/test-checklist.md` for content-specific evidence. These scoped
 owner runs do not establish every toolchain, platform or GPU execution claim.
 
 ## What does it do?
