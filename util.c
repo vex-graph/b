@@ -80,9 +80,17 @@ bool Util_endsWith(const char *text, const char *suffix) {
 // Wait for a child and translate its exit or signal into a process status.
 static int reap(int child) {
 #ifdef _WIN32
-    // Windows: child is a HANDLE, wait indefinitely.
-    WaitForSingleObject((HANDLE)child, INFINITE);
-    return EXIT_SUCCESS;
+    DWORD status = 0;
+    DWORD wait_result = WaitForSingleObject((HANDLE)(intptr_t) child, INFINITE);
+    if (wait_result != WAIT_OBJECT_0) {
+        THROW("cannot wait for child: %lu", GetLastError());
+        return EXIT_FAILURE;
+    }
+    if (!GetExitCodeProcess((HANDLE)(intptr_t) child, &status)) {
+        THROW("cannot get exit code: %lu", GetLastError());
+        return EXIT_FAILURE;
+    }
+    return (int) status;
 #else
     int status;
     while (waitpid(child, &status, 0) < 0) {
@@ -99,24 +107,61 @@ static int reap(int child) {
 #endif
 }
 
+#ifdef _WIN32
+// Construct a quoted Windows command line string from an argv vector.
+static char *buildCommandLine(char **arguments) {
+    if (arguments == nullptr || arguments[0] == nullptr)
+        return nullptr;
+    size_t total = 0;
+    for (size_t i = 0; arguments[i] != nullptr; ++i)
+        total += strlen(arguments[i]) * 2 + 4;
+
+    char *line = (char*) Util_allocate(total + 1);
+    char *p = line;
+    for (size_t i = 0; arguments[i] != nullptr; ++i) {
+        if (i > 0)
+            *p++ = ' ';
+        const char *arg = arguments[i];
+        bool need_quotes = (strpbrk(arg, " \t\"") != nullptr) || (*arg == '\0');
+        if (need_quotes)
+            *p++ = '"';
+        for (const char *c = arg; *c; ++c) {
+            if (*c == '"')
+                *p++ = '\\';
+            *p++ = *c;
+        }
+        if (need_quotes)
+            *p++ = '"';
+    }
+    *p = '\0';
+    return line;
+}
+#endif
+
 // Spawn an argv command with the supplied environment and return its status.
 int Util_executeWithEnvironment(char **arguments, char **environment) {
 #ifdef _WIN32
-    // Windows: create a process with inherited environment.
+    (void) environment;
+    char *cmdline = buildCommandLine(arguments);
+    if (cmdline == nullptr)
+        return EXIT_FAILURE;
+
     STARTUPINFOA si;
     PROCESS_INFORMATION pi;
     memset(&si, 0, sizeof(si));
     si.cb = sizeof(si);
     if (!CreateProcessA(
-            arguments[0], arguments, nullptr, nullptr, FALSE,
-            CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
-        THROW("cannot launch %s: %s", arguments[0], strerror(errno));
+            nullptr, cmdline, nullptr, nullptr, FALSE,
+            0, nullptr, nullptr, &si, &pi)) {
+        THROW("cannot launch %s: %lu", arguments[0], GetLastError());
+        free(cmdline);
         return EXIT_FAILURE;
     }
-    WaitForSingleObject(pi.hProcess, INFINITE);
-    CloseHandle(pi.hProcess);
+    free(cmdline);
     CloseHandle(pi.hThread);
-    return EXIT_SUCCESS;
+    int status = reap((int)(intptr_t) pi.hProcess);
+    CloseHandle(pi.hProcess);
+    return status;
 #else
     pid_t child;
     int error = posix_spawnp(&child, arguments[0], nullptr, nullptr, arguments, environment);
@@ -136,23 +181,30 @@ int Util_execute(char **arguments) {
 // Spawn a build command while routing its stdout to stderr for clean path output.
 int Util_executeBuild(char **arguments) {
 #ifdef _WIN32
+    char *cmdline = buildCommandLine(arguments);
+    if (cmdline == nullptr)
+        return EXIT_FAILURE;
+
     STARTUPINFOA si;
     PROCESS_INFORMATION pi;
     memset(&si, 0, sizeof(si));
     si.cb = sizeof(si);
     si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
     si.hStdOutput = GetStdHandle(STD_ERROR_HANDLE);
     si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
     if (!CreateProcessA(
-            arguments[0], arguments, nullptr, nullptr, FALSE,
-            CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
-        THROW("cannot launch %s: %s", arguments[0], strerror(errno));
+            nullptr, cmdline, nullptr, nullptr, TRUE,
+            0, nullptr, nullptr, &si, &pi)) {
+        THROW("cannot launch %s: %lu", arguments[0], GetLastError());
+        free(cmdline);
         return EXIT_FAILURE;
     }
-    WaitForSingleObject(pi.hProcess, INFINITE);
-    CloseHandle(pi.hProcess);
+    free(cmdline);
     CloseHandle(pi.hThread);
-    return EXIT_SUCCESS;
+    int status = reap((int)(intptr_t) pi.hProcess);
+    CloseHandle(pi.hProcess);
+    return status;
 #else
     posix_spawn_file_actions_t actions;
     int error = posix_spawn_file_actions_init(&actions);
