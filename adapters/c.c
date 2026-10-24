@@ -41,11 +41,7 @@ static int compileC(const char *project, char **sources, size_t count, char **ou
     size_t n = 0;
     const char *compiler = getenv("CC");
     arguments[n++] = (char*) (compiler != nullptr && *compiler ? compiler : "cc");
-#ifdef __APPLE__
     arguments[n++] = "-std=gnu2x";
-#else
-    arguments[n++] = "-std=gnu23";
-#endif
     arguments[n++] = "-Wall";
     arguments[n++] = "-Wextra";
     arguments[n++] = "-Werror";
