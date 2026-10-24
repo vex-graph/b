@@ -1,10 +1,13 @@
 #!/bin/sh
 # Bootstrap outside the checkout; preserve the caller's project directory.
+# Cross-platform: portable flags, no macOS-specific arch/cpu pins.
 set -eu
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 case "$(uname -s)" in
     Darwin) state="${B_HOME:-$HOME/Library/Application Support/b}" ;;
-    *) state="${B_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/b}" ;;
+    Linux)  state="${B_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/b}" ;;
+    MINGW*|MSYS*|CYGWIN*) state="${B_HOME:-${XDG_CACHE_HOME:-$HOME/AppData/Local/b}}" ;;
+    *)      state="${B_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/b}" ;;
 esac
 mkdir -p "$state"
 
@@ -20,10 +23,25 @@ if [ "$stale" = 1 ]; then
     temp="$bin.$$"
     trap 'rm -f "$temp"' EXIT
     trap 'rm -f "$temp"; exit 130' HUP INT TERM
-    case "$(uname -s)" in
-        Darwin) "${CC:-cc}" -std=gnu23 -O2 -Wall -Wextra -Werror -I"$here" -arch arm64 -mcpu=apple-m1 -mmacosx-version-min=14.0 "$here/b.c" "$here/util.c" "$here/inspect.c" "$here/box.c" "$here"/adapters/*.c -o "$temp" ;;
-        *) "${CC:-cc}" -std=gnu23 -O2 -Wall -Wextra -Werror -I"$here" "$here/b.c" "$here/util.c" "$here/inspect.c" "$here/box.c" "$here"/adapters/*.c -o "$temp" ;;
-    esac
+
+    # Probe for C23 support (nullptr keyword) once. Older Apple Clang on
+    # GitHub macOS runners rejects -std=gnu23; fall back to gnu17 + nullptr=NULL.
+    extra_flags=""
+    cc_probe() {
+        printf 'int main(void){return nullptr!=0?0:1;}\n' > "$temp.probe.c"
+        "${CC:-cc}" -std="$1" -fsyntax-only "$temp.probe.c" 2>/dev/null
+    }
+    if cc_probe "gnu23"; then
+        std_flag="gnu23"
+    elif cc_probe "gnu2x"; then
+        std_flag="gnu2x"
+    else
+        std_flag="gnu17"
+        # C17 doesn't define nullptr; define it as 0 for compatibility.
+        extra_flags="-Dnullptr=0"
+    fi
+
+    "${CC:-cc}" -std="$std_flag" -O2 -Wall -Wextra -Werror -I"$here" $extra_flags -o "$temp" "$here/b.c" "$here/util.c" "$here/inspect.c" "$here/box.c" "$here"/adapters/*.c
     mv "$temp" "$bin"
     trap - EXIT HUP INT TERM
 fi

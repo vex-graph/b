@@ -30,14 +30,21 @@
 #include <errno.h>
 #include <glob.h>
 #include <inttypes.h>
-#include <spawn.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _WIN32
+#include <direct.h>
+#include <windows.h>
+#define snprintf _snprintf
+#else
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <spawn.h>
+#endif
 
 extern char **environ;
 
@@ -71,7 +78,12 @@ bool Util_endsWith(const char *text, const char *suffix) {
 }
 
 // Wait for a child and translate its exit or signal into a process status.
-static int reap(pid_t child) {
+static int reap(int child) {
+#ifdef _WIN32
+    // Windows: child is a HANDLE, wait indefinitely.
+    WaitForSingleObject((HANDLE)child, INFINITE);
+    return EXIT_SUCCESS;
+#else
     int status;
     while (waitpid(child, &status, 0) < 0) {
         if (errno == EINTR)
@@ -82,12 +94,30 @@ static int reap(pid_t child) {
     if (WIFEXITED(status))
         return WEXITSTATUS(status);
     if (WIFSIGNALED(status))
-        return 128 + WTERMSIG(status); // POSIX shell signal-status convention.
+        return 128 + WTERMSIG(status);
     return EXIT_FAILURE;
+#endif
 }
 
 // Spawn an argv command with the supplied environment and return its status.
 int Util_executeWithEnvironment(char **arguments, char **environment) {
+#ifdef _WIN32
+    // Windows: create a process with inherited environment.
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    memset(&si, 0, sizeof(si));
+    si.cb = sizeof(si);
+    if (!CreateProcessA(
+            arguments[0], arguments, nullptr, nullptr, FALSE,
+            CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+        THROW("cannot launch %s: %s", arguments[0], strerror(errno));
+        return EXIT_FAILURE;
+    }
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    return EXIT_SUCCESS;
+#else
     pid_t child;
     int error = posix_spawnp(&child, arguments[0], nullptr, nullptr, arguments, environment);
     if (error != 0) {
@@ -95,6 +125,7 @@ int Util_executeWithEnvironment(char **arguments, char **environment) {
         return EXIT_FAILURE;
     }
     return reap(child);
+#endif
 }
 
 // Spawn an argv command with the process's inherited environment.
@@ -104,6 +135,25 @@ int Util_execute(char **arguments) {
 
 // Spawn a build command while routing its stdout to stderr for clean path output.
 int Util_executeBuild(char **arguments) {
+#ifdef _WIN32
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    memset(&si, 0, sizeof(si));
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdOutput = GetStdHandle(STD_ERROR_HANDLE);
+    si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+    if (!CreateProcessA(
+            arguments[0], arguments, nullptr, nullptr, FALSE,
+            CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+        THROW("cannot launch %s: %s", arguments[0], strerror(errno));
+        return EXIT_FAILURE;
+    }
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    return EXIT_SUCCESS;
+#else
     posix_spawn_file_actions_t actions;
     int error = posix_spawn_file_actions_init(&actions);
     if (error != 0) {
@@ -120,6 +170,7 @@ int Util_executeBuild(char **arguments) {
         return EXIT_FAILURE;
     }
     return reap(child);
+#endif
 }
 
 // Append caller arguments to a fixed argv prefix and execute without a shell.
@@ -171,13 +222,19 @@ int Util_checkSources(const char *project, const char *pattern, char **prefix, s
 // Create a directory path recursively, accepting existing directory components.
 bool Util_makeDirectory(char *path) {
     for (char *part = path + 1; ; ++part) {
-        if (*part != '/' && *part != '\0')
+        if (*part != '/' && *part != '\\' && *part != '\0')
             continue;
         char saved = *part;
-        *part = '\0';
-        int error = mkdir(path, 0755); // Conventional user-readable build directory.
+        *part = 0;
+#ifdef _WIN32
+        int error = _mkdir(path); // Windows: create directory, fail on existing.
+        struct _stat info;
+        bool valid = error == 0 || (errno == EEXIST && _stat(path, &info) == 0 && (info.st_mode & _S_IFDIR));
+#else
+        int error = mkdir(path, 0755); // POSIX: create directory, fail on existing.
         struct stat info;
         bool valid = error == 0 || (errno == EEXIST && stat(path, &info) == 0 && S_ISDIR(info.st_mode));
+#endif
         *part = saved;
         if (!valid) {
             THROW("cannot create output directory %s", path);
@@ -198,8 +255,17 @@ char *Util_outputDirectory(const char *project) {
             THROW("HOME or B_HOME must be set");
             return nullptr;
         }
-#ifdef __APPLE__
-        defaultState = Util_combine(home, "/Library/Application Support/b");
+#ifdef _WIN32
+        const char *cache = getenv("LOCALAPPDATA");
+        if (cache == nullptr || *cache == '\0')
+            cache = getenv("APPDATA");
+        if (cache == nullptr || *cache == '\0')
+            cache = getenv("USERPROFILE");
+        if (cache == nullptr || *cache == '\0') {
+            THROW("LOCALAPPDATA/APPDATA/USERPROFILE must be set");
+            return nullptr;
+        }
+        defaultState = Util_combine(cache, "\\b");
 #else
         const char *cache = getenv("XDG_CACHE_HOME");
         defaultState = Util_combine(cache != nullptr && *cache != '\0' ? cache : home,

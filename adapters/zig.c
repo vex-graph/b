@@ -22,7 +22,7 @@
 #include <sys/stat.h>
 
 // Select the configured Zig executable or the standard command name.
-static const char *tool(void) {
+static const char *tool() {
     const char *value = getenv("ZIG");
     return value != nullptr && *value != '\0' ? value : "zig";
 }

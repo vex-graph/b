@@ -23,13 +23,22 @@ writes a starter form and `b box` validates schema-1 manifests and exports the
 declared payload as a portable directory. Other formats (`.app`, `.msi`, `.pkg`,
 `.dmg`, `.iso`, ZIP, TAR) and target-specific exports are not implemented yet.
 Vexgraph uses b as the entry point to its project-owned build graph. Workspace
-builds are proved on macOS with scoped C/Python/CMake fixtures; glslang, shaderc and Apple
-Metal all have real compiler proof, and the CLI seam has Apple `leaks` proof.
+builds are proved cross-platform (macOS, Linux, Windows) after the `b` toolport
+amendment; glslang, shaderc, Apple Metal, NSIS, and Windows PE toolchains all
+have real compiler proof, and the CLI seam has Apple `leaks` proof.
 
-Current automated proof is scoped to macOS; native Windows support and other
-host platforms remain unproven here. See the shared `tests/b` owner suites and
-workspace `../../../metadata/gists/test-checklist.md` for content-specific evidence. These scoped
-owner runs do not establish every toolchain, platform or GPU execution claim.
+**Platform parity:** `b` now builds and runs on macOS, Linux, and Windows with a
+single portable source tree. The build script uses portable flags (`-std=gnu23
+-O2 -Wall -Wextra -Werror`) with no macOS-specific arch/cpu pins. Process
+spawning uses `_WIN32` guards: `CreateProcess` on Windows, `posix_spawnp` on
+POSIX. Directory creation uses `_mkdir`/`mkdir` with `_stat`/`stat` probes
+platform-aware. Windows is now in `proven` alongside macOS; Linux is the latest
+addition (see `tools/platforms.json`).
+
+Current automated proof spans macOS, Linux, and Windows; see the shared
+`tests/b` owner suites and workspace `../../../metadata/gists/test-checklist.md`
+for content-specific evidence. These scoped owner runs do not establish every
+toolchain, platform or GPU execution claim.
 
 ## What does it do?
 
