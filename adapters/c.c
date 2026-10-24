@@ -23,6 +23,7 @@
  * No owned class state; temporary argv/path/source lists are freed per call.
  */
 
+#include <stdint.h>
 #include <stdlib.h>
 
 // Compile the supplied C23 sources into one out-of-tree native executable.
