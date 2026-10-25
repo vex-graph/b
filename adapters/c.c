@@ -45,11 +45,18 @@ static int compileC(const char *project, char **sources, size_t count, char **ou
     arguments[n++] = "-Wall";
     arguments[n++] = "-Wextra";
     arguments[n++] = "-Werror";
+    arguments[n++] = "-Wno-unused-but-set-variable";
 #ifdef __APPLE__
+#if defined(__arm64__) || defined(__aarch64__)
     arguments[n++] = "-arch";
     arguments[n++] = "arm64";
     arguments[n++] = "-mcpu=apple-m1";
     arguments[n++] = "-mmacosx-version-min=14.0";
+#elif defined(__x86_64__)
+    arguments[n++] = "-arch";
+    arguments[n++] = "x86_64";
+    arguments[n++] = "-mmacosx-version-min=13.0";
+#endif
 #endif
     arguments[n++] = "-I";
     arguments[n++] = (char*) project;
