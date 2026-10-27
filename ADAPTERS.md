@@ -392,13 +392,13 @@ existing destination never replaced and staged failures cleaned up. Only
 dependency graphs, additional database dialects and supervised web-serving remain
 future work. b does not replace Maven, Gradle, Cargo, npm or CMake.
 
-Tests live in the independent shared `../../tests/b` checkout, not in production
+Tests live in the shared workspace `../../../tests/b` tree, not in production
 source. In the workspace, run:
 
 ```sh
-python3 ../../tests/b/cli_test.py
-python3 ../../tests/b/readme_test.py
-python3 -m unittest discover -s ../../tests/b -p '*_test.py' -v
+python3 ../../../tests/b/cli_test.py
+python3 ../../../tests/b/readme_test.py
+python3 -m unittest discover -s ../../../tests/b -p '*_test.py' -v
 ```
 
 They use temporary projects and an isolated `B_HOME`. Missing optional runtimes
@@ -409,4 +409,4 @@ PostgreSQL cluster, with bounded cleanup, never an existing database.
 
 Architecture follows the canonical
 [preferences.md](https://gist.github.com/vex-graph/4132a6c45cb6d3797c3e8eff2e94035a)
-(one real, Git-ignored workspace file at `../../gist/PREFERENCES.md`).
+(compressed workspace law list at `../../../metadata/gists/preferences/gist.md`).

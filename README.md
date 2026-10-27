@@ -276,11 +276,11 @@ do not repair or confer readiness on that separate Vexgraph integration suite.
 Tests are segregated in the workspace's independent `tests/b` repository:
 
 ```sh
-python3 ../../tests/b/cli_test.py
-python3 ../../tests/b/readme_test.py
-PYTHONPATH=../../tests/b python3 -m unittest discover -s ../../tests/b/adapters -p '*_test.py' -v
+python3 ../../../tests/b/cli_test.py
+python3 ../../../tests/b/readme_test.py
+PYTHONPATH=../../../tests/b python3 -m unittest discover -s ../../../tests/b/adapters -p '*_test.py' -v
 ```
 
 Missing optional tools are explicit skips. Architecture follows the canonical
 [preferences.md](https://gist.github.com/vex-graph/4132a6c45cb6d3797c3e8eff2e94035a),
-the real workspace `../../gist/PREFERENCES.md`.
+the compressed workspace law list `../../../metadata/gists/preferences/gist.md`.
