@@ -1,0 +1,134 @@
+name: B CI and release assets
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and box (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: darwin-arm64
+            runner: macos-14
+            family: unix
+          - target: darwin-x86_64
+            runner: macos-15-intel
+            family: unix
+          - target: linux-x86_64
+            runner: ubuntu-22.04
+            family: unix
+          - target: linux-arm64
+            runner: ubuntu-22.04-arm
+            family: unix
+          - target: windows-x86_64
+            runner: windows-latest
+            family: windows
+            msystem: CLANG64
+          - target: windows-arm64
+            runner: windows-11-arm
+            family: windows
+            msystem: CLANGARM64
+
+    steps:
+      - name: Check out B
+        uses: actions/checkout@v7.0.1
+
+      - name: Install Linux compiler
+        if: matrix.family == 'unix' && startsWith(matrix.target, 'linux-')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang
+
+      - name: Set up Windows compiler and Python
+        if: matrix.family == 'windows'
+        uses: msys2/setup-msys2@v2.32.0
+        with:
+          msystem: ${{ matrix.msystem }}
+          update: true
+          pacboy: clang:p python:p
+
+      - name: Build, smoke, and self-box on Unix
+        if: matrix.family == 'unix'
+        shell: bash
+        env:
+          B_TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          export B_HOME="$RUNNER_TEMP/b-ci-state"
+          export CC=clang
+          if [ "$B_TARGET" = darwin-arm64 ]; then
+            export MACOSX_DEPLOYMENT_TARGET=14.0
+          elif [ "$B_TARGET" = darwin-x86_64 ]; then
+            export MACOSX_DEPLOYMENT_TARGET=13.0
+          fi
+          ./b --help >/dev/null
+          export B_BINARY="$B_HOME/cli"
+          python3 -B tests/ci_smoke_test.py
+          version=0.0.0
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          python3 scripts/package_release.py --binary "$B_BINARY" \
+            --target "$B_TARGET" --version "$version" --output-dir dist
+
+      - name: Build, smoke, and self-box on Windows
+        if: matrix.family == 'windows'
+        shell: msys2 {0}
+        env:
+          B_TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          state="$(cygpath -u "$RUNNER_TEMP")/b-ci-state"
+          export B_HOME="$state"
+          export CC=clang
+          ./b --help >/dev/null
+          binary="$state/cli"
+          if [ ! -f "$binary" ] && [ -f "$binary.exe" ]; then
+            binary="$binary.exe"
+          fi
+          export B_HOME="$(cygpath -w "$state")"
+          export B_BINARY="$(cygpath -w "$binary")"
+          python tests/ci_smoke_test.py
+          version=0.0.0
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          python scripts/package_release.py --binary "$B_BINARY" \
+            --target "$B_TARGET" --version "$version" --output-dir dist
+
+      - name: Upload target assets
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: b-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  release-assets:
+    name: Collect all green targets
+    needs: build
+    if: ${{ needs.build.result == 'success' }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download target assets
+        uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: b-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Upload complete release bundle
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: b-release-assets
+          path: release-assets/*
+          if-no-files-found: error
