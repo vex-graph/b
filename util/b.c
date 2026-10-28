@@ -157,7 +157,7 @@ static int refreshCommand(int argc, char **argv) {
 // Set process-local execution context so children inherit the selected project.
 static bool enterProject(const char *root) {
 #ifdef _WIN32
-    if (_putenv_s("B_PROJECT_ROOT", root) != 0 || _chdir(root) != 0) {
+    if (_putenv_s("B_PROJECT_ROOT", root) != 0 || chdir(root) != 0) {
 #else
     if (setenv("B_PROJECT_ROOT", root, 1) != 0 || chdir(root) != 0) {
 #endif
