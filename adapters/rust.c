@@ -78,7 +78,7 @@ static int runRust(const char *file, int argc, char **argv, bool buildArtifact) 
         THROW("Rust has no source runtime; use b run exec to compile then launch");
         return EXIT_FAILURE;
     }
-    char *project = Util_parentDirectory(file);
+    char *project = Util_projectDirectory(file);
     char *output = nullptr;
     char *sources[1] = { (char*) file };
     int status = compileRust(project, sources, 1, &output);
