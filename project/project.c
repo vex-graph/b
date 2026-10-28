@@ -66,11 +66,7 @@ static bool validName(const char *name) {
 static char *canonicalDirectory(const char *path) {
     if (path == nullptr || *path == '\0' || strchr(path, '\n') != nullptr || strchr(path, '\r') != nullptr)
         return nullptr;
-#ifdef _WIN32
-    char *canonicalPath = _fullpath(nullptr, path, 0);
-#else
     char *canonicalPath = realpath(path, nullptr);
-#endif
     if (canonicalPath == nullptr)
         return nullptr;
     struct stat information;
@@ -424,11 +420,7 @@ char *Project_file(const char *root, const char *path) {
         candidate = Util_combine(prefix, path);
         free(prefix);
     }
-#ifdef _WIN32
-    char *canonicalPath = _fullpath(nullptr, candidate, 0);
-#else
     char *canonicalPath = realpath(candidate, nullptr);
-#endif
     free(candidate);
     if (canonicalPath == nullptr) {
         THROW("project file does not exist: %s", path);
