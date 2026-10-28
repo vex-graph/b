@@ -14,32 +14,35 @@
  * by project-path hash; source globs escape the directory portion literally.
  */
 ;;OVERVIEW
-/* MODULE: shared utility implementation; public declarations: b.h.
+/* MODULE: shared utility implementation; public declarations: util/b.h.
  * PUBLIC MEMORY/PATH: Util_allocate; Util_combine; Util_endsWith;
  * Util_makeDirectory; Util_outputDirectory; Util_parentDirectory;
- * Util_projectDirectory.
+ * Util_projectDirectory; Util_createDirectory; Util_setFileMode.
  * PUBLIC PROCESS: Util_executeWithEnvironment; Util_execute; Util_executeBuild;
  * Util_runCommand — append borrowed program arguments without shell parsing.
  * PUBLIC CHECKS: Util_checkSources — run a checker on each discovered source.
  * PUBLIC DISCOVERY: Util_collectSources; Util_freeSources.
  * PUBLIC ENVIRONMENT: Util_environmentWith; Util_freeEnvironment — allocate one
  * replacement entry, borrow inherited entries, free only owned storage.
- * PRIVATE STATIC: reap — wait for child and map exit/signal status.
+ * PRIVATE STATIC: processEnvironment — access the inherited environment;
+ * reap — wait for child and map exit/signal status.
  * BORROWED GLOBAL: char **environ — inherited process environment.
  */
 
 #include <errno.h>
-#include <glob.h>
+#include <limits.h>
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
 #ifdef _WIN32
+#include <dirent.h>
 #include <direct.h>
 #include <windows.h>
 #define snprintf _snprintf
 #else
+#include <glob.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -47,7 +50,17 @@
 #include <spawn.h>
 #endif
 
+#ifdef _WIN32
+// Use the Microsoft CRT accessor macro rather than declaring POSIX environ.
+static char **processEnvironment(void) {
+    return environ;
+}
+#else
 extern char **environ;
+static char **processEnvironment(void) {
+    return environ;
+}
+#endif
 
 // Allocate zero-initialized storage; report and terminate the CLI if allocation fails.
 void *Util_allocate(size_t size) {
@@ -70,6 +83,183 @@ char *Util_combine(const char *left, const char *right) {
     memcpy(text, left, a);
     memcpy(text + a, right, b + 1);
     return text;
+}
+
+#ifdef _WIN32
+// Resolve an existing path through the filesystem, including Windows reparse points.
+char *Util_realPath(const char *path, char *resolved) {
+    if (path == nullptr || *path == '\0') {
+        errno = ENOENT;
+        return nullptr;
+    }
+    char *absolute = _fullpath(nullptr, path, 0);
+    if (absolute == nullptr)
+        return nullptr;
+    HANDLE handle = CreateFileA(absolute, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    free(absolute);
+    if (handle == INVALID_HANDLE_VALUE) {
+        errno = ENOENT;
+        return nullptr;
+    }
+    DWORD flags = FILE_NAME_NORMALIZED | VOLUME_NAME_DOS;
+    DWORD length = GetFinalPathNameByHandleA(handle, nullptr, 0, flags);
+    if (length == 0) {
+        CloseHandle(handle);
+        errno = ENOENT;
+        return nullptr;
+    }
+    char *canonical = Util_allocate((size_t) length + 1);
+    DWORD written = GetFinalPathNameByHandleA(handle, canonical, length + 1, flags);
+    CloseHandle(handle);
+    if (written == 0 || written > length) {
+        free(canonical);
+        errno = ENOENT;
+        return nullptr;
+    }
+    if (strncmp(canonical, "\\\\?\\UNC\\", 8) == 0) {
+        memmove(canonical + 2, canonical + 8, strlen(canonical + 8) + 1);
+        canonical[0] = '\\';
+        canonical[1] = '\\';
+    } else if (strncmp(canonical, "\\\\?\\", 4) == 0)
+        memmove(canonical, canonical + 4, strlen(canonical + 4) + 1);
+    if (resolved != nullptr) {
+        strcpy(resolved, canonical);
+        free(canonical);
+        return resolved;
+    }
+    return canonical;
+}
+
+// Inspect a path without following a Windows reparse point.
+int Util_lstat(const char *path, struct stat *information) {
+    if (path == nullptr || information == nullptr) {
+        errno = EINVAL;
+        return -1;
+    }
+    DWORD attributes = GetFileAttributesA(path);
+    if (attributes == INVALID_FILE_ATTRIBUTES) {
+        errno = ENOENT;
+        return -1;
+    }
+    if ((attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
+        if (stat(path, information) != 0)
+            memset(information, 0, sizeof *information);
+        information->st_mode = S_IFLNK;
+        return 0;
+    }
+    return stat(path, information);
+}
+
+// Adapt scandir's comparator to qsort's standard callback signature.
+static int compareEntryPointers(const void *left, const void *right) {
+    const struct dirent *const *leftEntry = left;
+    const struct dirent *const *rightEntry = right;
+    return strcmp((*leftEntry)->d_name, (*rightEntry)->d_name);
+}
+
+// Enumerate directory entries into separately owned records in name order.
+int Util_scandir(const char *directory, struct dirent ***entries,
+                 int (*filter)(const struct dirent *),
+                 int (*compare)(const struct dirent **, const struct dirent **)) {
+    if (directory == nullptr || entries == nullptr) {
+        errno = EINVAL;
+        return -1;
+    }
+    *entries = nullptr;
+    DIR *stream = opendir(directory);
+    if (stream == nullptr)
+        return -1;
+    struct dirent **items = nullptr;
+    size_t count = 0, capacity = 0;
+    bool ok = true;
+    errno = 0;
+    struct dirent *entry;
+    while (ok && (entry = readdir(stream)) != nullptr) {
+        if (filter != nullptr && filter(entry) == 0)
+            continue;
+        if (count == (size_t) INT_MAX || count == SIZE_MAX / sizeof *items) {
+            errno = EOVERFLOW;
+            ok = false;
+            break;
+        }
+        if (count == capacity) {
+            size_t next = capacity == 0 ? 16 : capacity * 2;
+            if (next < capacity || next > SIZE_MAX / sizeof *items) {
+                errno = EOVERFLOW;
+                ok = false;
+                break;
+            }
+            struct dirent **replacement = realloc(items, next * sizeof *items);
+            if (replacement == nullptr) {
+                errno = ENOMEM;
+                ok = false;
+                break;
+            }
+            items = replacement;
+            capacity = next;
+        }
+        items[count] = malloc(sizeof **items);
+        if (items[count] == nullptr) {
+            errno = ENOMEM;
+            ok = false;
+            break;
+        }
+        memcpy(items[count++], entry, sizeof **items);
+    }
+    if (entry == nullptr && errno != 0)
+        ok = false;
+    if (closedir(stream) != 0)
+        ok = false;
+    if (!ok) {
+        for (size_t index = 0; index < count; ++index)
+            free(items[index]);
+        free(items);
+        return -1;
+    }
+    if (count > 1 && compare == Util_alphasort)
+        qsort(items, count, sizeof *items, compareEntryPointers);
+    else if (count > 1 && compare != nullptr) {
+        for (size_t index = 1; index < count; ++index) {
+            struct dirent *entryToInsert = items[index];
+            size_t position = index;
+            while (position > 0 && compare((const struct dirent **) &items[position - 1],
+                                           (const struct dirent **) &entryToInsert) > 0) {
+                items[position] = items[position - 1];
+                --position;
+            }
+            items[position] = entryToInsert;
+        }
+    }
+    *entries = items;
+    return (int) count;
+}
+
+// Compare directory names in byte order for deterministic inventory results.
+int Util_alphasort(const struct dirent **left, const struct dirent **right) {
+    return strcmp((*left)->d_name, (*right)->d_name);
+}
+#endif
+
+// Create exactly one directory; unlike Util_makeDirectory, an existing path fails.
+int Util_createDirectory(const char *path, int mode) {
+#ifdef _WIN32
+    (void) mode;
+    return _mkdir(path);
+#else
+    return mkdir(path, (mode_t) mode);
+#endif
+}
+
+// Set POSIX file mode bits where available; Windows has no executable mode bits.
+int Util_setFileMode(int descriptor, int mode) {
+#ifdef _WIN32
+    (void) descriptor;
+    (void) mode;
+    return 0;
+#else
+    return fchmod(descriptor, (mode_t) mode);
+#endif
 }
 
 // Test whether text ends with the complete suffix string.
@@ -274,7 +464,13 @@ int Util_checkSources(const char *project, const char *pattern, char **prefix, s
 
 // Create a directory path recursively, accepting existing directory components.
 bool Util_makeDirectory(char *path) {
-    for (char *part = path + 1; ; ++part) {
+    char *start = path + 1;
+#ifdef _WIN32
+    if (((path[0] >= 'a' && path[0] <= 'z') || (path[0] >= 'A' && path[0] <= 'Z')) &&
+        path[1] == ':' && (path[2] == '/' || path[2] == '\\'))
+        start = path + 3;
+#endif
+    for (char *part = start; ; ++part) {
         if (*part != '/' && *part != '\\' && *part != '\0')
             continue;
         char saved = *part;
@@ -345,6 +541,11 @@ char *Util_outputDirectory(const char *project) {
 char *Util_parentDirectory(const char *file) {
     char *directory = Util_combine(file, "");
     char *slash = strrchr(directory, '/');
+#ifdef _WIN32
+    char *backslash = strrchr(directory, '\\');
+    if (backslash != nullptr && (slash == nullptr || backslash > slash))
+        slash = backslash;
+#endif
     if (slash != nullptr)
         slash[1] = '\0';
     return directory;
@@ -362,6 +563,102 @@ char *Util_projectDirectory(const char *file) {
 char **Util_collectSources(const char *project, const char *extension, size_t *count, bool *ok) {
     *ok = false;
     *count = 0;
+#ifdef _WIN32
+    const char *pattern = strrchr(extension, '/');
+    pattern = pattern != nullptr ? pattern + 1 : extension;
+    if (strncmp(pattern, "*.", 2) != 0) {
+        THROW("unsupported source selector: %s", extension);
+        return nullptr;
+    }
+    struct dirent **entries = nullptr;
+    int entryCount = Util_scandir(project, &entries, nullptr, Util_alphasort);
+    if (entryCount < 0) {
+        THROW("cannot enumerate sources in %s", project);
+        return nullptr;
+    }
+    char **sources = nullptr;
+    size_t total = 0, capacity = 0;
+    bool valid = true;
+    for (int index = 0; index < entryCount; ++index) {
+        const char *name = (*entries[index]).d_name;
+        bool matches = false;
+        const char *selector = pattern + 2;
+        if (*selector == '{') {
+            const char *end = strchr(selector + 1, '}');
+            if (end != nullptr && end[1] == '\0') {
+                const char *part = selector + 1;
+                while (part < end && !matches) {
+                    const char *separator = memchr(part, ',', (size_t) (end - part));
+                    const char *stop = separator != nullptr ? separator : end;
+                    size_t length = (size_t) (stop - part);
+                    if (length > 0 && length <= SIZE_MAX - 2) {
+                        char *suffix = Util_allocate(length + 2);
+                        suffix[0] = '.';
+                        memcpy(suffix + 1, part, length);
+                        suffix[length + 1] = '\0';
+                        size_t nameLength = strlen(name), suffixLength = length + 1;
+                        matches = nameLength >= suffixLength &&
+                            strcmp(name + nameLength - suffixLength, suffix) == 0;
+                        free(suffix);
+                    }
+                    part = stop + (separator != nullptr);
+                }
+            }
+        } else if (*selector == '[') {
+            const char *end = strchr(selector + 1, ']');
+            const char *dot = strrchr(name, '.');
+            matches = end != nullptr && end[1] == '\0' && dot != nullptr &&
+                dot[1] != '\0' && dot[2] == '\0' &&
+                memchr(selector + 1, dot[1], (size_t) (end - selector - 1)) != nullptr;
+        } else {
+            const char *suffix = pattern + 1;
+            size_t nameLength = strlen(name), suffixLength = strlen(suffix);
+            matches = nameLength >= suffixLength &&
+                strcmp(name + nameLength - suffixLength, suffix) == 0;
+        }
+        if (!matches)
+            continue;
+        char *prefix = Util_combine(project, "/");
+        char *path = Util_combine(prefix, name);
+        free(prefix);
+        struct stat information;
+        if (stat(path, &information) != 0 || !S_ISREG(information.st_mode)) {
+            free(path);
+            continue;
+        }
+        if (total == capacity) {
+            size_t next = capacity == 0 ? 16 : capacity * 2;
+            if (next < capacity || next > SIZE_MAX / sizeof *sources) {
+                free(path);
+                THROW("source inventory overflow in %s", project);
+                valid = false;
+                break;
+            }
+            char **replacement = realloc(sources, next * sizeof *sources);
+            if (replacement == nullptr) {
+                free(path);
+                THROW("source inventory allocation failed");
+                valid = false;
+                break;
+            }
+            sources = replacement;
+            capacity = next;
+        }
+        sources[total++] = path;
+    }
+    for (int index = 0; index < entryCount; ++index)
+        free(entries[index]);
+    free(entries);
+    if (!valid || total == 0) {
+        if (total == 0 && valid)
+            THROW("cannot enumerate sources in %s", project);
+        Util_freeSources(sources, total);
+        return nullptr;
+    }
+    *count = total;
+    *ok = true;
+    return sources;
+#else
     // The directory is literal input, not part of the glob expression.
     size_t length = strlen(project);
     if (length > (SIZE_MAX - 1) / 2) {
@@ -399,6 +696,7 @@ char **Util_collectSources(const char *project, const char *extension, size_t *c
     *count = total;
     *ok = true;
     return sources;
+#endif
 }
 
 // Release the copied source paths and their containing array.
@@ -414,14 +712,19 @@ void Util_freeSources(char **sources, size_t count) {
 char **Util_environmentWith(const char *name, const char *value) {
     size_t prefix = strlen(name);
     size_t count = 0;
-    while (environ[count] != nullptr)
+    char **inheritedEnvironment = processEnvironment();
+    if (inheritedEnvironment == nullptr) {
+        THROW("cannot read the process environment");
+        return nullptr;
+    }
+    while (inheritedEnvironment[count] != nullptr)
         ++count;
     char **result = Util_allocate((count + 2) * sizeof(char*));
     size_t out = 0;
     for (size_t i = 0; i < count; ++i) {
-        if (strncmp(environ[i], name, prefix) == 0 && environ[i][prefix] == '=')
+        if (strncmp(inheritedEnvironment[i], name, prefix) == 0 && inheritedEnvironment[i][prefix] == '=')
             continue; // drop the previous binding so ours wins
-        result[out++] = environ[i];
+        result[out++] = inheritedEnvironment[i];
     }
     char *entry = Util_allocate(prefix + strlen(value) + 2);
     memcpy(entry, name, prefix);
@@ -436,10 +739,11 @@ char **Util_environmentWith(const char *name, const char *value) {
 void Util_freeEnvironment(char **environment) {
     if (environment == nullptr)
         return;
+    char **inheritedEnvironment = processEnvironment();
     for (size_t i = 0; environment[i] != nullptr; ++i) {
         bool inherited = false;
-        for (size_t j = 0; environ[j] != nullptr; ++j)
-            if (environment[i] == environ[j]) {
+        for (size_t j = 0; inheritedEnvironment != nullptr && inheritedEnvironment[j] != nullptr; ++j)
+            if (environment[i] == inheritedEnvironment[j]) {
                 inherited = true;
                 break;
             }

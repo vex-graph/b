@@ -6,7 +6,8 @@
 // Constitution: the real workspace metadata/PREFERENCES.md (canonical Gist);
 // Semantic Consistency Law (Reference form) requires explicit dereferences.
 // OVERVIEW: allocation/path helpers (Util_allocate, Util_combine, Util_endsWith,
-// Util_makeDirectory, Util_outputDirectory, Util_parentDirectory, Util_projectDirectory); process launch
+// Util_makeDirectory, Util_createDirectory, Util_setFileMode, Util_outputDirectory,
+// Util_parentDirectory, Util_projectDirectory); process launch
 // (Util_execute, Util_executeWithEnvironment); source discovery
 // (Util_collectSources, Util_freeSources); environment (Util_environmentWith,
 // Util_freeEnvironment).
@@ -20,8 +21,9 @@
  * Children run without a shell. Build output is separated from diagnostics.
  */
 ;;OVERVIEW
-/* MODULE: shared utility API (implementation: util.c).
+/* MODULE: shared utility API (implementation: util/util.c).
  * PUBLIC: Util_allocate; Util_combine; Util_endsWith; Util_makeDirectory;
+ * Util_createDirectory; Util_setFileMode;
  * Util_outputDirectory; Util_parentDirectory; Util_projectDirectory;
  * Util_execute; Util_executeBuild;
  * Util_executeWithEnvironment; Util_runCommand; Util_checkSources;
@@ -35,12 +37,19 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#ifdef _WIN32
+#include <dirent.h>
+#include <sys/stat.h>
+#endif
+
 #define THROW(...) do { fprintf(stderr, "[vex] %s:%d: ", __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fputc('\n', stderr); } while (0)
 
 void *Util_allocate(size_t size);
 char *Util_combine(const char *left, const char *right);
 bool Util_endsWith(const char *text, const char *suffix);
 bool Util_makeDirectory(char *path);
+int Util_createDirectory(const char *path, int mode);
+int Util_setFileMode(int descriptor, int mode);
 char *Util_outputDirectory(const char *project);
 char *Util_parentDirectory(const char *file);
 char *Util_projectDirectory(const char *file);
@@ -59,3 +68,26 @@ void Util_freeSources(char **sources, size_t count);
 
 char **Util_environmentWith(const char *name, const char *value);
 void Util_freeEnvironment(char **environment);
+
+#ifdef _WIN32
+char *Util_realPath(const char *path, char *resolved);
+int Util_lstat(const char *path, struct stat *information);
+int Util_scandir(const char *directory, struct dirent ***entries,
+                 int (*filter)(const struct dirent *),
+                 int (*compare)(const struct dirent **, const struct dirent **));
+int Util_alphasort(const struct dirent **left, const struct dirent **right);
+
+#define realpath Util_realPath
+#define lstat Util_lstat
+#define scandir Util_scandir
+#define alphasort Util_alphasort
+#ifndef S_IFMT
+#define S_IFMT 0170000
+#endif
+#ifndef S_IFLNK
+#define S_IFLNK 0120000
+#endif
+#ifndef S_ISLNK
+#define S_ISLNK(mode) (((mode) & S_IFMT) == S_IFLNK)
+#endif
+#endif
