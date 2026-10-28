@@ -86,7 +86,7 @@ static int runObjc(const char *file, int argc, char **argv, bool buildArtifact) 
         THROW("Objective-C has no source runtime; use b run exec");
         return EXIT_FAILURE;
     }
-    char *project = Util_parentDirectory(file);
+    char *project = Util_projectDirectory(file);
     char *output = nullptr;
     char *sources[] = { (char*) file };
     int status = compileObjc(project, sources, 1, &output);
