@@ -76,7 +76,7 @@ static int runCargo(const char *file, int argc, char **argv, bool buildArtifact)
         free(path);
         return EXIT_FAILURE;
     }
-    char *parent = Util_parentDirectory(path);
+    char *parent = Util_projectDirectory(path);
     char *project = realpath(parent, nullptr);
     free(parent);
     if (project == nullptr) {
