@@ -22,8 +22,10 @@ explicit Arduino upload, and a first packaging surface: `b create manifest`
 writes a starter form and `b box` validates schema-1 manifests and exports the
 declared payload as a portable directory. Other formats (`.app`, `.msi`, `.pkg`,
 `.dmg`, `.iso`, ZIP, TAR) and target-specific exports are not implemented yet.
-Vexgraph uses b as the entry point to its project-owned build graph. Workspace
-builds are proved cross-platform (macOS, Linux, Windows) after the `b` toolport
+Named projects can be registered by name, refreshed into a language-neutral
+adapter inventory, and used as context for file runs.
+Vexgraph also maintains a separate project-owned build graph. Workspace builds
+are proved cross-platform (macOS, Linux, Windows) after the `b` toolport
 amendment; glslang, shaderc, Apple Metal, NSIS, and Windows PE toolchains all
 have real compiler proof, and the CLI seam has Apple `leaks` proof.
 
@@ -33,27 +35,31 @@ single portable source tree. The build script uses portable flags (`-std=gnu23
 spawning uses `_WIN32` guards: `CreateProcess` on Windows, `posix_spawnp` on
 POSIX. Directory creation uses `_mkdir`/`mkdir` with `_stat`/`stat` probes
 platform-aware. Windows is now in `proven` alongside macOS; Linux is the latest
-addition (see `tools/platforms.json`).
+addition (see `../../tools/platforms.json`).
 
 Current automated proof spans macOS, Linux, and Windows; see the shared
-`tests/b` owner suites and workspace `../../../metadata/gists/test-checklist.md`
+`../tests/b` owner suites and workspace `../../metadata/gists/test-checklist.md`
 for content-specific evidence. These scoped owner runs do not establish every
 toolchain, platform or GPU execution claim.
 
-## What does it do?
+## Build, Breeze, Box
 
 ```text
-b adapters
-b languages
-b doctor [adapter]
+b project <name> <project-path>
+b project remove <name>
+b refresh <name>
+b breeze exec <file> [--in <name>] [-- arguments...]
+b breeze instance <file> [--in <name>] [-- arguments...]
+b run <exec|instance> <file> [--in <name>] [-- arguments...]  # alias for breeze
 b build <adapter> [directory]
 b build workspace <directory> [--plan|--confirm]
-b run <exec|instance> <filename> [-- program arguments...]
-b <adapter> <filename> [-- program arguments...]
-b upload arduino <sketch> --port <port> [--fqbn <matching-board>]
 b create manifest <path>
 b box <manifest.json> <path-to-export>
 ```
+
+Register the project once, refresh its index after the tree changes, then
+run files through the appropriate adapter. A single file can also run without
+a registered project by omitting `--in`.
 
 `exec` builds a runnable source artifact first for compiled-language adapters;
 `instance` uses a source runtime where available. Script adapters use their
@@ -65,20 +71,45 @@ native tool wrappers can affect the final exit status (notably `go run`).
 ```sh
 b create manifest ./box.json      # write the starter form; never overwrites
 b box ./box.json ./release        # validate, then export the declared payload
+b run exec ./hello.c -- one two   # run is an alias for breeze
 ```
 
 ```sh
 git clone https://github.com/vex-graph/b.git
 cd b
 ./b --help
+./b breeze exec ./hello.c -- one two
+./b breeze instance ./app.py
+./b breeze instance ./Hello.java -- world
 ./b run exec ./hello.c -- one two
-./b python ./app.py
-./b java ./Hello.java -- world
 ```
 
 Use an absolute launcher path or add this checkout to `PATH` to use b from other
 projects. It preserves the caller's working directory. `B_HOME` selects external
 build state; the macOS default is `~/Library/Application Support/b`.
+
+## Install a release
+
+After a tagged GitHub Release contains the matching archive and `.sha256` file,
+install the latest release with:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/vex-graph/b/main/install.sh | sh
+```
+
+On Windows PowerShell, use:
+
+```powershell
+irm https://raw.githubusercontent.com/vex-graph/b/main/install.ps1 | iex
+```
+
+The installer checks the downloaded archive checksum, installs the launcher and
+boxed CLI, and records the installation. Unix installs go to `~/.local/bin`;
+Windows installs go to `%LOCALAPPDATA%\b\bin`. The CI workflow builds all
+supported target archives and collects them as the `b-release-assets` artifact
+when every target passes. It does not publish a GitHub Release; attach those
+archives and checksum files to a tagged release before using the install
+commands. Set `B_VERSION` to a release tag to install a specific version.
 
 ## List of languages
 
@@ -116,23 +147,43 @@ For an external CMake project, use `b build cmake <directory>`.
 
 ## Tree
 
-See the [command tree and examples](TREE.md) for the full CLI and the separate
+See the [command tree and examples](docs/TREE.md) for the full CLI and the separate
 Vexgraph workspace commands.
 
 ```text
 b/
 ├── b                 bootstrap launcher; builds outside the checkout
-├── b.c               command validation and dispatch
-├── b.h               shared contracts
-├── box.c/.h          packaging manifest: parse, validate, portable export
-├── inspect.c/.h      adapter listing and tool-presence diagnostics
-├── util.c            paths, child processes and build helpers (API in b.h)
+├── project/          named registry, file resolution and adapter inventory
+├── util/             CLI, shared contracts, packaging, inspection and process helpers
 ├── adapters/         native-tool adapter file pairs and registry
-├── annotation.h      zero-runtime ;;DEFINITION / ;;OVERVIEW markers
-├── ADAPTERS.md       adapter behavior and limits
-├── JETBRAINS.md      external-tool setup
-└── TREE.md           commands and examples
+└── docs/             adapter behavior, IDE setup and command examples
 ```
+
+## Named projects
+
+Register a directory once, then address it by name. The registry is stored in
+the per-user `B_HOME/projects/<name>/` directory (by default
+`~/Library/Application Support/b/projects/<name>/` on macOS). Project files
+stay in their existing directory; registration stores the canonical root. The
+name `remove` is reserved for the project removal command.
+
+```sh
+b project notes ~/work/notes
+b project notes
+b refresh notes
+b breeze exec src/main.c --in notes -- argument
+b project remove notes
+```
+
+With `--in`, a relative file path is resolved from the registered project root,
+the process starts at that root, and build/run adapters receive that project
+context. Absolute file paths are accepted only when they remain inside the
+registered root. Without `--in`, `b breeze` keeps its standalone file behavior.
+`b refresh <name>` rebuilds the adapter-recognized file inventory at
+`B_HOME/projects/<name>/index.tsv`. It skips common dependency/cache directories,
+does not invoke build tools, and never edits the project source tree. Removing a
+project with `b project remove <name>` deletes only B's saved root/index; it
+leaves project files in place.
 
 ## Box: manifest and portable export
 
@@ -166,14 +217,14 @@ declared payload is copied, never machine or user state.
 
 ## JetBrains IDEs
 
-[JETBRAINS.md](JETBRAINS.md) explains External Tools in CLion, IntelliJ IDEA,
+[JETBRAINS.md](docs/JETBRAINS.md) explains External Tools in CLion, IntelliJ IDEA,
 Rider, PyCharm and similar IDEs. Build/run the current file without switching
 editors. b does not supply completion, refactoring, language plugins or a
 debugger; IDE appearance remains user-verified.
 
 ## Adapters
 
-[ADAPTERS.md](ADAPTERS.md) documents tools, selectors, build/run behavior and
+[ADAPTERS.md](docs/ADAPTERS.md) documents tools, selectors, build/run behavior and
 limitations, including Arduino board headers and upload, explicit SQL targets,
 project backends and **GLSL / SPIR-V shader generation**.
 
@@ -203,31 +254,19 @@ not independently runnable programs. Unknown files are counted as unassigned.
 Small scopes build directly; home/ancestor roots, Downloads/Documents/Desktop,
 1,000-file or 100-unit inventories require `--confirm`. No sudo is requested.
 
-## Actual dogfooding across Vexgraph
+## Using B with the Vexgraph workspace
 
-b is essential to Vexgraph's current build entry, not a hypothetical integration.
-`tools/b` invokes `personal/b/b run exec tools/workspace.c`, compiling and running
-the project's C23 build graph. That graph owns repository targets, incremental
-compile/link work, tests, coverage commands, IDE metadata and shader generators.
-The standalone suite remains independent of ecosystem paths and dependencies.
-
-```sh
-# From the Vexgraph workspace root:
-./tools/b targets
-./tools/b build graphvex
-```
-
-The Graphvex build registers GLSL `.vert` and `.frag` sources, invokes
-`glslangValidator -V` and stages `.spv` outputs in external build state; quad
-shaders also become an embedded header. The new standalone shader adapters can
-build compute `.comp` and staged `.glsl`, but this existing Vexgraph graph still
-uses its explicit generators. The recursive builder references its assessment/
-build separation without importing or replacing the ecosystem target graph.
-Build success is not proof of GPU execution or finished R5 applications.
+The Vexgraph workspace has its own C23 build graph and umbrella launcher. That
+integration is separate from this standalone B checkout; the workspace launcher
+still contains a path for the previous B layout and needs its own migration.
+This B checkout remains usable directly and can register/index any accessible
+project root without importing the workspace's target graph.
+The outer workspace owns its target graph and project-specific generators. A
+successful build does not prove GPU execution or finished R5 applications.
 
 ## Future and b's own build
 
-`./b` bootstraps the CLI with an installed C23 compiler, strict warnings and
+`b` bootstraps the CLI with an installed C23 compiler, strict warnings and
 external cached state; changed launcher inputs trigger recompilation. On macOS
 the build targets Apple Silicon M1 and macOS 14+. It does not need a separate
 build-system generator to build itself.
@@ -254,10 +293,13 @@ required fields, absolute paths and `.`/`..` path components; `box` refuses a
 destination that already exists and never copies machine or user state. Export
 is not a sandbox: a stable payload tree is required while it runs. b does not
 replace Cargo, npm, CMake, Maven or Gradle.
-Individual adapter source discovery is top-level; `build workspace` traverses
-recursively and assigns directory/project units. Native project backends own
-their dependency graphs and incremental behavior. It cannot infer arbitrary
-multi-directory C linkage or turn every file into a valid executable.
+Individual adapter builds discover source files at the top level;
+`build workspace` recursively assigns directory/project build units, and
+`refresh <name>` recursively indexes files recognized by the adapter registry.
+Refresh skips common VCS, dependency, build and cache directories. Native
+project backends own dependency graphs and incremental behavior; indexing does
+not infer app entry points, Python environments or arbitrary multi-directory C
+linkage.
 
 Toolchain scripts retain native authority: this is not a sandbox. SQL requires
 `B_SQL_DATABASE` with no default database. Firmware upload changes the board.
@@ -269,18 +311,21 @@ can read/write outside the root: this is not filesystem confinement or protectio
 against hostile build scripts. The process/filesystem implementation uses POSIX APIs; Windows remains a
 gap. Shader compilation and a browser launch do not certify rendered output.
 
-The existing integration owner `tests/b/workspace_test.py` still fails its
-pre-migration Vexspoke IO/NIO path assertion. New recursive/shader owner passes
-do not repair or confer readiness on that separate Vexgraph integration suite.
+The shared B test fixtures still expect the previous `personal/b/b` checkout
+path. Running `b breeze exec tests/b/cli_test.py --in ecosystem` reached Python,
+but its setup stopped before tests ran because that old path no longer exists.
+Update the fixtures before treating their result as evidence for this checkout.
 
-Tests are segregated in the workspace's independent `tests/b` repository:
+Tests are segregated in the workspace's independent `../tests/b` repository:
+the fixture root must first be updated from the previous `personal/b/b` layout
+to this checkout.
 
 ```sh
-python3 ../../../tests/b/cli_test.py
-python3 ../../../tests/b/readme_test.py
-PYTHONPATH=../../../tests/b python3 -m unittest discover -s ../../../tests/b/adapters -p '*_test.py' -v
+python3 ../tests/b/cli_test.py
+python3 ../tests/b/readme_test.py
+PYTHONPATH=../tests/b python3 -m unittest discover -s ../tests/b/adapters -p '*_test.py' -v
 ```
 
 Missing optional tools are explicit skips. Architecture follows the canonical
 [preferences.md](https://gist.github.com/vex-graph/4132a6c45cb6d3797c3e8eff2e94035a),
-the compressed workspace law list `../../../metadata/gists/preferences/gist.md`.
+the compressed workspace law list `../../metadata/gists/preferences/gist.md`.
