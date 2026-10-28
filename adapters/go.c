@@ -59,7 +59,7 @@ static int runGo(const char *file, int argc, char **argv, bool buildArtifact) {
     }
     int status;
     if (buildArtifact) {
-        char *project = Util_parentDirectory(path);
+        char *project = Util_projectDirectory(path);
         char *output = nullptr;
         status = compileGo(project, path, &output);
         if (status == 0) {
