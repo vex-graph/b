@@ -170,10 +170,21 @@ class CiSmokeTest(unittest.TestCase):
             install_environment = dict(
                 self.environment,
                 B_VERSION="0.1.0",
-                B_RELEASE_BASE_URL=assets.resolve().as_uri(),
+                B_DOWNLOAD_BASE_URL=assets.resolve().as_uri(),
                 B_INSTALL_DIR=str(install_dir),
                 B_INSTALL_STATE_DIR=str(install_state),
             )
+            for script_name in ("install.sh", "install.ps1"):
+                installer = (ROOT / script_name).read_text()
+                self.assertIn(
+                    "https://vex-graph.github.io/b/downloads/latest",
+                    installer,
+                )
+                self.assertIn(
+                    "https://github.com/vex-graph/b/releases/download/",
+                    installer,
+                )
+
             if os.name == "nt":
                 script = subprocess.run(
                     ["cygpath", "-w", str(ROOT / "install.ps1")],

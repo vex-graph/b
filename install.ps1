@@ -17,13 +17,16 @@ switch ($architecture.ToUpperInvariant()) {
     default { Stop-Install "unsupported architecture: $architecture" }
 }
 
-if ($env:B_RELEASE_BASE_URL) {
-    $base = $env:B_RELEASE_BASE_URL.TrimEnd('/')
-} elseif ($version -eq 'latest') {
-    $base = 'https://github.com/vex-graph/b/releases/latest/download'
+if ($version -eq 'latest') {
+    $defaultBase = 'https://vex-graph.github.io/b/downloads/latest'
 } else {
     $tag = if ($version.StartsWith('v')) { $version } else { "v$version" }
-    $base = "https://github.com/vex-graph/b/releases/download/$tag"
+    $defaultBase = "https://github.com/vex-graph/b/releases/download/$tag"
+}
+$base = if ($env:B_DOWNLOAD_BASE_URL) {
+    $env:B_DOWNLOAD_BASE_URL.TrimEnd('/')
+} else {
+    $defaultBase
 }
 
 $asset = "b-$target.tar.gz"
@@ -40,15 +43,15 @@ try {
     $expected = ((Get-Content -Raw $checksumFile) -split '\s+')[0].ToLowerInvariant()
     if ($expected -notmatch '^[0-9a-f]{64}$') { Stop-Install 'checksum file is malformed' }
     $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
-    if ($actual -ne $expected) { Stop-Install 'release checksum does not match' }
+    if ($actual -ne $expected) { Stop-Install 'archive checksum does not match' }
 
     $unpacked = Join-Path $scratch 'unpacked'
     New-Item -ItemType Directory -Path $unpacked | Out-Null
     & tar.exe -xzf $archive -C $unpacked
-    if ($LASTEXITCODE -ne 0) { Stop-Install 'cannot unpack the release archive' }
+    if ($LASTEXITCODE -ne 0) { Stop-Install 'cannot unpack the archive' }
     if (-not (Test-Path (Join-Path $unpacked 'b.cmd')) -or
         -not (Test-Path (Join-Path $unpacked 'b-core.exe'))) {
-        Stop-Install 'release archive is incomplete'
+        Stop-Install 'archive is incomplete'
     }
 
     $installDirectory = if ($env:B_INSTALL_DIR) {

@@ -1,4 +1,4 @@
-name: B CI and release assets
+name: B CI and downloads
 
 on:
   push:
@@ -113,7 +113,7 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
-  release-assets:
+  collect-assets:
     name: Collect all green targets
     needs: build
     if: ${{ needs.build.result == 'success' }}
@@ -126,9 +126,56 @@ jobs:
           path: release-assets
           merge-multiple: true
 
-      - name: Upload complete release bundle
+      - name: Upload complete target bundle
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: b-release-assets
+          name: b-all-targets
           path: release-assets/*
           if-no-files-found: error
+
+  publish-pages:
+    name: Publish public curl downloads
+    needs: [build, collect-assets]
+    if: >-
+      github.repository == 'vex-graph/b' &&
+      needs.build.result == 'success' &&
+      needs.collect-assets.result == 'success' &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: b-github-pages
+      cancel-in-progress: false
+    steps:
+      - name: Check out B
+        uses: actions/checkout@v7.0.1
+
+      - name: Download complete target bundle
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: b-all-targets
+          path: release-assets
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Prepare public download site
+        run: |
+          mkdir -p site/downloads/latest
+          cp -R pages/. site/
+          cp release-assets/* install.sh install.ps1 site/downloads/latest/
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+      - name: Deploy GitHub Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -9,14 +9,15 @@ fail() {
 [ -n "${HOME:-}" ] || fail 'HOME is unset'
 version=${B_VERSION:-latest}
 case "$version" in
-    latest) base=${B_RELEASE_BASE_URL:-https://github.com/vex-graph/b/releases/latest/download} ;;
+    latest) default_base=https://vex-graph.github.io/b/downloads/latest ;;
     *[!A-Za-z0-9._+-]*|'') fail 'B_VERSION contains unsupported characters' ;;
     *)
-        release_tag=$version
-        case "$release_tag" in v*) ;; *) release_tag="v$release_tag" ;; esac
-        base=${B_RELEASE_BASE_URL:-https://github.com/vex-graph/b/releases/download/$release_tag}
+        version_tag=$version
+        case "$version_tag" in v*) ;; *) version_tag="v$version_tag" ;; esac
+        default_base=https://github.com/vex-graph/b/releases/download/$version_tag
         ;;
 esac
+base=${B_DOWNLOAD_BASE_URL:-$default_base}
 
 system=$(uname -s)
 machine=$(uname -m)
@@ -44,13 +45,13 @@ if command -v sha256sum >/dev/null 2>&1; then
 elif command -v shasum >/dev/null 2>&1; then
     actual=$(shasum -a 256 "$temporary/$asset" | awk '{ print $1 }')
 else
-    fail 'sha256sum or shasum is required to verify the release archive'
+    fail 'sha256sum or shasum is required to verify the archive'
 fi
-[ "$(printf '%s' "$expected" | tr 'A-F' 'a-f')" = "$(printf '%s' "$actual" | tr 'A-F' 'a-f')" ] || fail 'release checksum does not match'
+[ "$(printf '%s' "$expected" | tr 'A-F' 'a-f')" = "$(printf '%s' "$actual" | tr 'A-F' 'a-f')" ] || fail 'archive checksum does not match'
 
 mkdir "$temporary/unpacked"
-tar -xzf "$temporary/$asset" -C "$temporary/unpacked" || fail 'cannot unpack the release archive'
-[ -f "$temporary/unpacked/b" ] && [ -f "$temporary/unpacked/b-core" ] || fail 'release archive is incomplete'
+tar -xzf "$temporary/$asset" -C "$temporary/unpacked" || fail 'cannot unpack the archive'
+[ -f "$temporary/unpacked/b" ] && [ -f "$temporary/unpacked/b-core" ] || fail 'archive is incomplete'
 
 install_dir=${B_INSTALL_DIR:-$HOME/.local/bin}
 mkdir -p "$install_dir" || fail "cannot create install directory: $install_dir"

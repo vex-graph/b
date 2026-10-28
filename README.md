@@ -88,60 +88,37 @@ Use an absolute launcher path or add this checkout to `PATH` to use b from other
 projects. It preserves the caller's working directory. `B_HOME` selects external
 build state; the macOS default is `~/Library/Application Support/b`.
 
-## Download a build
+## Install with curl
 
-No GitHub Release is needed to download a CI build. Open the [B CI workflow
-runs](https://github.com/vex-graph/b/actions/workflows/ci.yml), choose a
-successful run, then download `b-release-assets` from its **Artifacts** section.
-That bundle contains the archive and SHA-256 file for each supported target:
-macOS arm64 and x86_64, Linux arm64 and x86_64, and Windows arm64 and x86_64.
-The complete bundle appears only after all six target jobs pass. A passing
-target job also publishes its own `b-<target>` artifact, which you can download
-when you only need that platform.
-
-You can also download the bundle with GitHub CLI after signing in and selecting
-a successful run ID:
+The latest successful build for `main` is published as public files on GitHub
+Pages; a GitHub Release is not required. Before the first deploy, set the
+repository's **Settings → Pages → Build and deployment → Source** to **GitHub
+Actions**. On macOS or Linux:
 
 ```sh
-gh run list --repo vex-graph/b --workflow ci.yml --branch main
-gh run download <run-id> --repo vex-graph/b --name b-release-assets
+curl -fsSL https://vex-graph.github.io/b/downloads/latest/install.sh | sh
 ```
 
-The Actions download is a ZIP; unzip it, then choose the `.tar.gz` matching your
-operating system and CPU. Verify that archive with its matching `.sha256` file
-before extracting it. For example:
-
-```sh
-# macOS
-shasum -a 256 -c b-darwin-arm64.tar.gz.sha256
-
-# Linux
-sha256sum -c b-linux-x86_64.tar.gz.sha256
-```
-
-On Windows, compare the SHA-256 shown by
-`Get-FileHash .\b-windows-x86_64.tar.gz -Algorithm SHA256` with the first value
-in the matching `.sha256` file. Extract the selected `.tar.gz`, then run the
-launcher beside its `b-core` file:
-
-```sh
-./b --help
-```
-
-On Windows PowerShell, run:
+On Windows PowerShell:
 
 ```powershell
-.\b.cmd --help
+irm https://vex-graph.github.io/b/downloads/latest/install.ps1 | iex
 ```
 
-Keep the extracted files together; add that directory to `PATH` to call `b`
-from other directories.
+The installer selects the matching platform archive, verifies its SHA-256
+checksum, installs the launcher and CLI, and records the installation. Unix
+installs go to `~/.local/bin`; Windows installs go to `%LOCALAPPDATA%\b\bin`.
+Add the install directory to `PATH` if the installer reports that it is missing.
 
-Workflow artifacts are temporary downloads and expire according to the
-repository's retention settings (90 days by default). The included
-`install.sh` and `install.ps1` scripts currently download from GitHub Releases,
-so they become useful after a release is published; they do not install an
-Actions artifact. See [GitHub's artifact download guide](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts).
+CI updates `downloads/latest` only after all six platform builds pass. The
+supported targets are macOS arm64 and x86_64, Linux arm64 and x86_64, and
+Windows arm64 and x86_64. Each archive and its `.sha256` sidecar can also be
+downloaded directly from
+`https://vex-graph.github.io/b/downloads/latest/<target-archive>`. If
+`B_VERSION` is set, the installer selects that tag from GitHub Releases instead
+of the latest CI build. CI run artifacts remain available from the
+[B CI workflow](https://github.com/vex-graph/b/actions/workflows/ci.yml) for
+inspecting an individual build.
 
 ## List of languages
 
