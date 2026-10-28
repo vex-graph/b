@@ -1,6 +1,6 @@
 # b — command tree and examples
 
-[Back to README](README.md) · [JetBrains setup](JETBRAINS.md)
+[Back to README](../README.md) · [JetBrains setup](JETBRAINS.md)
 
 See [ADAPTERS.md](ADAPTERS.md) for build-only `glsl`/`metal` shader contracts
 and recursive workspace safety. GLSL file selectors also have `glsl-vert`,
@@ -17,8 +17,14 @@ Install the required toolchain before using its adapter.
 ```text
 b
 ├── help | --help                         (no command also prints help)
-├── adapters | languages                  (registry discovery; languages is an alias)
-├── doctor [adapter]                      (executable presence only)
+├── project <name> <project-path>          (register a project under B_HOME)
+├── project <name>                         (print its registered root)
+├── project remove <name>                  (remove B's saved registration/index)
+├── refresh <project-name>                 (refresh its adapter file index)
+├── breeze
+│   ├── exec <file> [--in <project>] [-- arguments...]
+│   └── instance <file> [--in <project>] [-- arguments...]
+├── run <exec|instance> ...              (alias for breeze)
 ├── build <adapter> [directory]
 │   ├── native: c · cpp · objc · swift · java · rust · csharp · go · zig
 │   ├── syntax/parse checks: python · r · javascript · typescript · php · shell · lua
@@ -26,18 +32,17 @@ b
 │   ├── firmware compilation: arduino
 │   ├── shader compilation: glsl · metal (build-only)
 │   └── workspace <directory> [--plan|--confirm] (recursive assessment/build)
-├── run
-│   ├── exec <file> [-- arguments...]
-│   └── instance <file> [-- arguments...]
-├── <adapter> <file> [-- arguments...]      (instance shorthand)
-├── upload
-│   └── arduino <sketch> --port <port> [--fqbn <matching-board>]
 ├── create
 │   └── manifest <path>                 (write starter JSON; never overwrite)
 └── box <manifest.json> <path-to-export>
     └── validate schema 1, then export the declared payload
         (only the `portable` format; every other format rejects)
 ```
+
+The everyday cycle is **project → breeze or build → box**. `b run` is an alias
+for `b breeze` with the same syntax. Adapter discovery, tool diagnostics and
+Arduino upload are optional utilities described in [ADAPTERS.md](ADAPTERS.md);
+they are not steps in normal project use.
 
 The separate `./tools/b` ecosystem target engine is described below; it is not
 a standalone `b workspace` command. `b build workspace` is the recursive builder.
@@ -67,14 +72,15 @@ builds a project but has no source run adapter.
 | `sql` | — | `.sql` (PostgreSQL) |
 | `npm` | — | `package.json` |
 | `arduino` | — | `.ino` (build/upload only) |
-| `cmake` | — | Existing `CMakeLists.txt` project (build only) |
+| `cmake` | — | Existing `../CMakeLists.txt` project (build only) |
 | `go` | — | `.go` |
 | `lua` | — | `.lua` |
 | `zig` | — | `.zig` (directory builds may delegate build.zig) |
 | `cargo` | — | Exact `Cargo.toml` basename |
 
-Run dispatch uses the **file suffix** or exact manifest basename, including for adapter shorthand; a CLI
-name does not force a different compiler onto an incompatible file.
+Every single-file run uses `b breeze exec` or `b breeze instance`. The file suffix or
+exact manifest basename selects its adapter; there is no adapter-name run
+shorthand. `b run` is an alias for both forms.
 
 ## Discover adapters and inspect tools
 
@@ -92,16 +98,16 @@ optional tools; selecting a missing or unknown adapter returns an error.
 ## Go, Lua, Zig and Cargo
 
 ```sh
-b go ./main.go -- argument
-b run exec ./main.go
+b breeze exec ./main.go -- argument
+b breeze exec ./main.go
 b build go ./go-project
-b lua ./script.lua -- argument
+b breeze instance ./script.lua -- argument
 b build lua ./scripts
-b zig ./main.zig
+b breeze exec ./main.zig
 b build zig ./zig-project
 b build cargo ./rust-project
-b cargo ./rust-project/Cargo.toml -- argument
-b run exec ./rust-project/Cargo.toml
+b breeze exec ./rust-project/Cargo.toml -- argument
+b breeze exec ./rust-project/Cargo.toml
 ```
 
 Go directory builds use native modules; single-file runs compile only that file.
@@ -117,30 +123,42 @@ selects binaries, ambiguity rejects. Exec builds before cargo run; instance
 delegates cargo run (which may compile). Cargo may write a lockfile and execute
 trusted build scripts. No automatic dependency installation is offered.
 
-## Run: breeze
+## Breeze
 
 `exec` compiles first where supported, then runs only if compilation succeeds.
 `instance` runs through the source runtime. Both can launch an existing native
 executable. C, C++ and Objective-C reject source instance mode. Script adapters
 use their runtimes in both modes; this does not produce standalone binaries.
 
-```sh
-b run exec ./hello.c -- "Hello World"
-b run exec ./hello.cpp
-b run exec ./hello.m
-b run exec ./hello.swift
-b run exec ./Hello.java
-b run exec ./main.rs
-b run exec ./hello.cs
-b run instance ./already-built-program -- input.txt
+Named projects keep a per-user name-to-root record under `B_HOME/projects/`.
+For example, on macOS the default location is
+`~/Library/Application Support/b/projects/`. `--in <name>` resolves relative
+file paths from that root and makes it the run working directory. Without
+`--in`, file paths retain their normal caller-relative behavior.
+`b refresh <name>` rescans the registered root and replaces
+`projects/<name>/index.tsv` with files recognized by the adapter registry. It
+skips common dependency/cache directories and does not build or modify sources.
 
-b python ./app.py -- input.csv
-b node ./app.mjs -- "argument with spaces"
-b typescript ./app.ts
-b php ./hello.php
-b r ./analysis.R
-b shell ./script.sh
-b swift ./hello.swift
+```sh
+b breeze exec ./hello.c -- "Hello World"
+b run exec ./hello.c -- "Hello World" # alias for breeze
+b project demo ~/work/demo
+b breeze exec src/main.c --in demo -- "Hello World"
+b breeze exec ./hello.cpp
+b breeze exec ./hello.m
+b breeze exec ./hello.swift
+b breeze exec ./Hello.java
+b breeze exec ./main.rs
+b breeze exec ./hello.cs
+b breeze instance ./already-built-program -- input.txt
+
+b breeze instance ./app.py -- input.csv
+b breeze instance ./app.mjs -- "argument with spaces"
+b breeze instance ./app.ts
+b breeze instance ./hello.php
+b breeze instance ./analysis.R
+b breeze instance ./script.sh
+b breeze instance ./hello.swift
 ```
 
 Arguments after `--` are passed literally, without shell interpolation by b.
@@ -151,10 +169,11 @@ compiles internally.
 
 ## Build
 
-An omitted directory means the current directory. Source discovery is top-level,
-not recursive. Successful builds print their result path; tool diagnostics go
-to stderr. Native artifacts belong to b's external state directory; syntax
-checks return the checked directory instead of inventing an executable.
+An omitted directory means the current directory. Individual adapter build
+discovery is top-level; workspace builds and `b refresh` use recursive scans.
+Successful builds print their result path; tool diagnostics go to stderr. Native
+artifacts belong to b's external state directory; syntax checks return the
+checked directory instead of inventing an executable.
 
 ```sh
 b build c
@@ -171,7 +190,7 @@ b build php ./scripts
 b build shell ./scripts
 
 # Capture a native artifact and launch it only after a successful build:
-program="$(b build c ./native-app)" && b run exec "$program"
+program="$(b build c ./native-app)" && b breeze exec "$program"
 ```
 
 ### Existing CMake and npm projects
@@ -183,7 +202,7 @@ b build npm ./web-project
 b npm ./web-project/package.json
 # npm run start; no build first
 
-b run exec ./web-project/package.json -- app-argument
+b breeze exec ./web-project/package.json -- app-argument
 # npm run build, then npm run start only if build succeeded
 ```
 
@@ -194,10 +213,10 @@ no automatic npm install or missing-script fallback.
 ## HTML and PostgreSQL
 
 ```sh
-b html ./index.html
+b breeze instance ./index.html
 
 PGHOST=/path/to/socket PGUSER=your_user \
-  B_SQL_DATABASE=disposable_database b sql ./example.sql
+  B_SQL_DATABASE=disposable_database b breeze instance ./example.sql
 ```
 
 HTML opens the original local document through the host opener or the executable
@@ -258,8 +277,8 @@ direction, not a claim that packaging or IDE language intelligence is complete.
 
 ## Ecosystem workspace command tree
 
-Vexgraph owns this separate target-based graph in `tools/workspace.c`, not the
-standalone b checkout. Its project launcher uses generic `b run exec`; a
+Vexgraph owns this separate target-based graph in `../../tools/workspace.c`, not the
+standalone b checkout. Its project launcher uses generic `b breeze exec`; a
 standalone clone contains no ecosystem graph. Global options precede the command:
 
 ```text
@@ -278,19 +297,10 @@ standalone clone contains no ecosystem graph. Global options precede the command
 └── doctor
 ```
 
-Within vexgraph, `./tools/b` forwards to this engine:
-
-```sh
-./tools/b targets
-./tools/b build <target>
-./tools/b run <target>
-./tools/b test <substring>
-./tools/b doctor
-
-# Equivalent explicit entry point:
-personal/b/b run exec tools/workspace.c -- targets
-```
+The outer Vexgraph workspace has a separate target engine and launcher. Its
+launcher still refers to the previous B checkout layout and needs a separate
+path migration; it is not a command in this standalone CLI.
 
 Angle-bracket values are placeholders, not literal shell arguments. See the
-[README](README.md) for adapter limitations and the
+[README](../README.md) for adapter limitations and the
 [JetBrains tutorial](JETBRAINS.md) for editor integration.
