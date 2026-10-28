@@ -88,28 +88,60 @@ Use an absolute launcher path or add this checkout to `PATH` to use b from other
 projects. It preserves the caller's working directory. `B_HOME` selects external
 build state; the macOS default is `~/Library/Application Support/b`.
 
-## Install a release
+## Download a build
 
-After a tagged GitHub Release contains the matching archive and `.sha256` file,
-install the latest release with:
+No GitHub Release is needed to download a CI build. Open the [B CI workflow
+runs](https://github.com/vex-graph/b/actions/workflows/ci.yml), choose a
+successful run, then download `b-release-assets` from its **Artifacts** section.
+That bundle contains the archive and SHA-256 file for each supported target:
+macOS arm64 and x86_64, Linux arm64 and x86_64, and Windows arm64 and x86_64.
+The complete bundle appears only after all six target jobs pass. A passing
+target job also publishes its own `b-<target>` artifact, which you can download
+when you only need that platform.
+
+You can also download the bundle with GitHub CLI after signing in and selecting
+a successful run ID:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/vex-graph/b/main/install.sh | sh
+gh run list --repo vex-graph/b --workflow ci.yml --branch main
+gh run download <run-id> --repo vex-graph/b --name b-release-assets
 ```
 
-On Windows PowerShell, use:
+The Actions download is a ZIP; unzip it, then choose the `.tar.gz` matching your
+operating system and CPU. Verify that archive with its matching `.sha256` file
+before extracting it. For example:
+
+```sh
+# macOS
+shasum -a 256 -c b-darwin-arm64.tar.gz.sha256
+
+# Linux
+sha256sum -c b-linux-x86_64.tar.gz.sha256
+```
+
+On Windows, compare the SHA-256 shown by
+`Get-FileHash .\b-windows-x86_64.tar.gz -Algorithm SHA256` with the first value
+in the matching `.sha256` file. Extract the selected `.tar.gz`, then run the
+launcher beside its `b-core` file:
+
+```sh
+./b --help
+```
+
+On Windows PowerShell, run:
 
 ```powershell
-irm https://raw.githubusercontent.com/vex-graph/b/main/install.ps1 | iex
+.\b.cmd --help
 ```
 
-The installer checks the downloaded archive checksum, installs the launcher and
-boxed CLI, and records the installation. Unix installs go to `~/.local/bin`;
-Windows installs go to `%LOCALAPPDATA%\b\bin`. The CI workflow builds all
-supported target archives and collects them as the `b-release-assets` artifact
-when every target passes. It does not publish a GitHub Release; attach those
-archives and checksum files to a tagged release before using the install
-commands. Set `B_VERSION` to a release tag to install a specific version.
+Keep the extracted files together; add that directory to `PATH` to call `b`
+from other directories.
+
+Workflow artifacts are temporary downloads and expire according to the
+repository's retention settings (90 days by default). The included
+`install.sh` and `install.ps1` scripts currently download from GitHub Releases,
+so they become useful after a release is published; they do not install an
+Actions artifact. See [GitHub's artifact download guide](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts).
 
 ## List of languages
 
