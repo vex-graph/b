@@ -65,7 +65,7 @@ static int runSwift(const char *file, int argc, char **argv, bool buildArtifact)
         char *prefix[] = { "swift", (char*) file };
         return Util_runCommand(prefix, 2, argc, argv);
     }
-    char *project = Util_parentDirectory(file);
+    char *project = Util_projectDirectory(file);
     char *output = nullptr;
     char *sources[] = { (char*) file };
     int status = compileSwift(project, sources, 1, &output);
