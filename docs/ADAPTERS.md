@@ -4,7 +4,7 @@
 
 # b — adapters
 
-[Back to README](README.md) · [Command tree](TREE.md) · [JetBrains setup](JETBRAINS.md)
+[Back to README](../README.md) · [Command tree](TREE.md) · [JetBrains setup](JETBRAINS.md)
 
 This reference describes native-tool delegation, file selectors and adapter
 limits. The README's language list is alphabetical; the detailed walkthroughs
@@ -17,17 +17,21 @@ See the **[command tree and examples](TREE.md)** for the complete command map,
 adapter names, run/build behavior, and separate workspace commands.
 
 ```text
-b run <exec|instance> <filename> [-- program arguments...]
-b adapters
-b languages   # compatibility alias for adapters
-b doctor [adapter]
+b project <name> <project-path>
+b project <name>
+b project remove <name>
+b refresh <project-name>
+b breeze <exec|instance> <filename> [--in <project-name>] [-- program arguments...]
+b run <exec|instance> <filename> [--in <project-name>] [-- program arguments...] # alias
 b build <adapter> [directory]
 b build workspace <directory> [--plan|--confirm]
-b upload arduino <sketch> --port <port> [--fqbn <matching-board>]
-b <adapter> <filename> [-- program arguments...]
 b create manifest <path>
 b box <manifest.json> <path-to-export>
 ```
+
+The normal cycle is **project → breeze or build → box**. `b run` is an alias for
+`b breeze` with the same syntax. Adapter discovery,
+tool diagnostics and Arduino upload are optional commands outside that flow.
 
 `run instance` runs a file as-is through its runtime, or launches an existing
 native executable. It does not package an app. `run exec` builds a runnable
@@ -41,9 +45,36 @@ Swift can use its script runner for instance or swiftc for exec.
 
 Arguments are preserved; runtime wrappers may affect exit codes as noted below.
 Paths with spaces work when
-quoted. An omitted build directory means the current directory. Source discovery
-is top-level, not recursive. Builds print their result path; compiler diagnostics
-go to stderr. Failed compilation never launches an older artifact.
+quoted. An omitted build directory means the current directory. Individual
+adapter builds discover source files at the top level; workspace builds and
+project refresh have separate recursive scans. Builds print their result path;
+compiler diagnostics go to stderr. Failed compilation never launches an older
+artifact.
+
+### Named project context
+
+`b project <name> <path>` stores a canonical root under `B_HOME/projects/<name>/`;
+`b project remove <name>` removes that registration and index while leaving the
+project files untouched. The name `remove` is reserved.
+The launcher sets `B_HOME` to `~/Library/Application Support/b` on macOS by
+default. `b breeze ... --in <name>` resolves relative files from that root and runs
+with it as the working directory. The file suffix or exact manifest name still
+selects the adapter, so this context applies to Python, script and compiled
+language run adapters alike. Adapters without a run operation reject instead of
+being invoked as though they could run.
+
+```sh
+b project my-app /path/to/my-app
+b refresh my-app
+b breeze exec src/main.py --in my-app
+```
+
+`b refresh <name>` recursively indexes paths recognized by the adapter registry,
+including files in nested repositories. It skips `.git`, common dependency,
+build and cache directories, symlinks and special files, then atomically replaces
+`B_HOME/projects/<name>/index.tsv`. Refresh does not run build tools, install
+dependencies, edit source files, or infer app entry points or Python
+environments. Use each adapter's normal invocation requirements for those cases.
 
 ## Adapter inventory
 
@@ -102,12 +133,12 @@ Go instance preserves `go run`'s wrapper status (typically 1 for a failed
 program); Go exec preserves the native program's exit code.
 
 ```sh
-b run exec ./hello.c -- one two
-b java ./Hello.java -- world
-b python ./app.py
-b run exec ./hello.rs
-b run exec ./hello.cs -- world
-b r ./hello.R -- world
+b breeze exec ./hello.c -- one two
+b breeze exec ./Hello.java -- world
+b breeze instance ./app.py
+b breeze exec ./hello.rs
+b breeze exec ./hello.cs -- world
+b breeze instance ./hello.R -- world
 b build c ./native
 b build java ./java-src
 b build python ./scripts
@@ -115,17 +146,17 @@ b build rust ./crate
 b build csharp ./csharp-src
 b build r ./r-scripts
 b upload arduino ./Blink/Blink.ino --port /dev/cu.YOUR_BOARD
-b swift ./hello.swift -- world
-b run exec ./hello.swift
-b run exec ./hello.m
-b run exec ./hello.cpp
-b node ./hello.js -- world
-b typescript ./hello.ts
-b html ./index.html
-b php ./hello.php
-b shell ./script.sh
+b breeze instance ./hello.swift -- world
+b breeze exec ./hello.swift
+b breeze exec ./hello.m
+b breeze exec ./hello.cpp
+b breeze instance ./hello.js -- world
+b breeze instance ./hello.ts
+b breeze instance ./index.html
+b breeze instance ./hello.php
+b breeze instance ./script.sh
 b build npm ./web-project
-b run exec ./web-project/package.json -- program-arguments
+b breeze exec ./web-project/package.json -- program-arguments
 ```
 
 Java exec assumes a default-package main class matching the filename. Rust
@@ -164,7 +195,7 @@ project defines them; b returns the project directory rather than guessing a
 dependency download, or missing-script fallback is performed automatically.
 npm scripts themselves can invoke shells, run servers or perform network/I/O.
 
-`b html index.html` opens a local file. `B_BROWSER` may name one browser/opener
+`b breeze instance index.html` opens a local file. `B_BROWSER` may name one browser/opener
 executable (not an embedded shell command). Success means launch accepted, not
 page rendering, script execution or browser shutdown. There is no implicit HTTP
 server. File-URL security restrictions still apply; use a declared npm start
@@ -285,7 +316,7 @@ Rendering remains unproved.
 ### Recursive workspace assessment and build
 
 `b build workspace <directory> [--plan|--confirm]` inventories first, then builds.
-It references Vexgraph's `tools/workspace.c` approach, not its specific target
+It references Vexgraph's `../../tools/workspace.c` approach, not its specific target
 graph. The iterative alphabetical directory walk grows without a fixed total
 ceiling. Cargo.toml, package.json, CMakeLists.txt and build.zig own their subtrees;
 competing manifests reject. Loose sources group by directory/build callback.
@@ -329,7 +360,7 @@ your shell's `PATH` (replace the example path):
 ```sh
 export PATH="/absolute/path/to/b:$PATH"
 cd /path/to/your/project
-b run exec ./hello.c
+b breeze exec ./hello.c
 ```
 
 The launcher preserves your working directory. `CC` can select one compiler
@@ -360,23 +391,26 @@ Existing CMake projects work through `b build cmake /path/to/project`. b invokes
 `cmake -S <source> -B <external-build-directory>`, then `cmake --build` only after
 configuration succeeds. CMake retains its targets, dependencies, flags and
 incremental decisions. The result path is a build directory; run the chosen
-artifact explicitly with `b run exec /path/to/build/program`. b does not guess
+artifact explicitly with `b breeze exec /path/to/build/program`. b does not guess
 which target to launch or run install/tests automatically. Other build backends
 can use the same delegation pattern; they are not all implemented yet.
 
-`b.c` is the suite: argument validation, registry dispatch and existing-executable
-fallback. Shared helpers live in `b.h`/`util.c`. Adding an adapter is one file pair
+`util/b.c` is the suite: argument validation, registry dispatch and existing-executable
+fallback. Shared helpers live in `util/b.h` and `util/util.c`. Named project
+registration and inventory live in `project/`. Adding an adapter is one file pair
 under `adapters` and a registry entry in `adapters/adapter.c`; adapter
 selection uses a file suffix or exact manifest basename; build-only backends have no source
 extension. Each C source/header begins with `;;DEFINITION` and `;;OVERVIEW`
 blueprints documenting capabilities, fields and public/private function registries.
 The markers compile to zero-runtime assertions in standalone `annotation.h`.
-Adapter shorthand should match that file selector. Builds currently delegate
-incremental decisions to project backends rather than providing a shared cache.
+Single-file run commands use `b breeze exec` or `b breeze instance`; the run adapter is
+selected from the file suffix or exact manifest basename. Builds currently
+delegate incremental decisions to project backends rather than providing a
+shared cache.
 
 Project-specific graphs belong to their project, not this checkout. Vexgraph's
-`tools/workspace.c` holds its targets, shaders and tests; its `tools/b` launcher
-uses generic `b run exec` to compile and execute that graph. There is no special
+`../../tools/workspace.c` holds its targets, shaders and tests; its `tools/b` launcher
+uses generic `b breeze exec` to compile and execute that graph. There is no special
 `b workspace` command or ecosystem dependency in this standalone launcher.
 
 `create manifest` writes a starter schema-1 JSON form without overwriting an
@@ -392,13 +426,16 @@ existing destination never replaced and staged failures cleaned up. Only
 dependency graphs, additional database dialects and supervised web-serving remain
 future work. b does not replace Maven, Gradle, Cargo, npm or CMake.
 
-Tests live in the shared workspace `../../../tests/b` tree, not in production
-source. In the workspace, run:
+Tests live in the shared workspace `../tests/b` tree, not in production
+source. From the B checkout root, run:
+
+The current fixture root still expects the previous `personal/b/b` layout; update
+that path before treating these commands as evidence for this checkout.
 
 ```sh
-python3 ../../../tests/b/cli_test.py
-python3 ../../../tests/b/readme_test.py
-python3 -m unittest discover -s ../../../tests/b -p '*_test.py' -v
+python3 ../tests/b/cli_test.py
+python3 ../tests/b/readme_test.py
+python3 -m unittest discover -s ../tests/b -p '*_test.py' -v
 ```
 
 They use temporary projects and an isolated `B_HOME`. Missing optional runtimes
@@ -409,4 +446,4 @@ PostgreSQL cluster, with bounded cleanup, never an existing database.
 
 Architecture follows the canonical
 [preferences.md](https://gist.github.com/vex-graph/4132a6c45cb6d3797c3e8eff2e94035a)
-(compressed workspace law list at `../../../metadata/gists/preferences/gist.md`).
+(compressed workspace law list at `../../metadata/gists/preferences/gist.md`).
