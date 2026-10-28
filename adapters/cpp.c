@@ -74,7 +74,7 @@ static int runCpp(const char *file, int argc, char **argv, bool buildArtifact) {
         THROW("C++ has no source runtime; use b run exec");
         return EXIT_FAILURE;
     }
-    char *project = Util_parentDirectory(file);
+    char *project = Util_projectDirectory(file);
     char *output = nullptr;
     char *sources[] = { (char*) file };
     int status = compileCpp(project, sources, 1, &output);
