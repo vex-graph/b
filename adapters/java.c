@@ -85,7 +85,7 @@ static int runJava(const char *file, int argc, char **argv, bool buildArtifact) 
         free(arguments);
         return status;
     }
-    char *project = Util_parentDirectory(file);
+    char *project = Util_projectDirectory(file);
     char *output = nullptr;
     char *sources[1] = { (char*) file };
     int status = compileJava(project, sources, 1, &output);
