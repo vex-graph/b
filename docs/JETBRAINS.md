@@ -22,7 +22,7 @@ rendering or production packaging. Assess those capabilities independently.
 
 ## Before opening settings
 
-Clone b as explained in [README.md](README.md). In a terminal, run
+Clone b as explained in [README.md](../README.md). In a terminal, run
 `/absolute/path/to/b/b --help`. Also check the compiler or runtime for the file
 you want to run. b does not install these tools for you.
 
@@ -86,6 +86,22 @@ b delegates configuration and building to CMake and prints its external build
 directory. CMake's own targets, dependencies and flags remain authoritative;
 this tool does not guess an executable to launch afterward. This is a separate
 workflow from running one source file or uploading Arduino firmware.
+
+### Run the selected file in a named project
+
+For files that need a shared project working directory, register the project
+once from a terminal:
+
+```sh
+b project my-app "$HOME/path/to/my-app"
+b refresh my-app
+```
+
+Create a separate External Tool with Program `/absolute/path/to/b/b`, Arguments
+`run exec "$FilePath$" --in my-app`, and Working directory `$ProjectFileDir$`.
+The file must be inside the registered root. `--in` sets the selected file's
+adapter context; refresh updates b's inventory but is not required to run a
+known file.
 
 For npm projects, use `build npm "$ProjectFileDir$"` to run the declared build
 script, or select `package.json` and use the run tool to build then start it.
