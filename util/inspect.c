@@ -1,6 +1,6 @@
 #include "inspect.h"
 #include "b.h"
-#include "adapters/adapter.h"
+#include "../adapters/adapter.h"
 
 ;;DEFINITION
 /* Standalone introspection enumerates the same immutable registry that dispatches
