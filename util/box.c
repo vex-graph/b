@@ -64,6 +64,12 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#ifdef _WIN32
+#define BOX_BINARY_MODE _O_BINARY
+#else
+#define BOX_BINARY_MODE 0
+#endif
+
 // Named bounds: each is a validation limit, stated where it is enforced.
 #define BOX_MANIFEST_MAX_BYTES (256u * 1024u)
 #define BOX_TEXT_MAX 255u
@@ -907,12 +913,12 @@ static bool removeTree(const char *path) {
 
 // Copy one regular file, preserving its permission bits.
 static bool copyRegularFile(const char *source, const char *target, mode_t mode) {
-    int input = open(source, O_RDONLY);
+    int input = open(source, O_RDONLY | BOX_BINARY_MODE);
     if (input < 0) {
         THROW("cannot read payload file %s: %s", source, strerror(errno));
         return false;
     }
-    int output = open(target, O_WRONLY | O_CREAT | O_EXCL, mode & 0777);
+    int output = open(target, O_WRONLY | O_CREAT | O_EXCL | BOX_BINARY_MODE, mode & 0777);
     if (output < 0) {
         THROW("cannot create payload file %s: %s", target, strerror(errno));
         close(input);

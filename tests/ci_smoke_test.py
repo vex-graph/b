@@ -132,6 +132,10 @@ class CiSmokeTest(unittest.TestCase):
             self.invoke("box", manifest_path, package)
             for name in (core_name, wrapper_name, "LICENSE", "README.md"):
                 self.assertTrue((package / name).is_file(), f"self-box omitted {name}")
+            self.assertEqual(
+                (package / core_name).read_bytes(), self.binary.read_bytes(),
+                "self-box changed executable bytes",
+            )
             self.assertEqual(self.invoke("--help"), help_text)
 
             target = os.environ.get("B_TARGET", "local")
@@ -153,6 +157,10 @@ class CiSmokeTest(unittest.TestCase):
             unpacked.mkdir()
             with tarfile.open(archive, "r:gz") as bundle:
                 bundle.extractall(unpacked)
+            self.assertEqual(
+                (unpacked / core_name).read_bytes(), self.binary.read_bytes(),
+                "release archive changed executable bytes",
+            )
             if os.name == "nt":
                 packaged_binary = unpacked / core_name
                 result = subprocess.run([str(packaged_binary), "--help"],
