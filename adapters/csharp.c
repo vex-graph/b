@@ -62,7 +62,7 @@ static int buildCsharp(const char *project, char **output) {
 
 // Use dotnet's file runner in instance mode or build and launch the DLL in exec mode.
 static int runCsharp(const char *file, int argc, char **argv, bool buildArtifact) {
-    char *project = Util_parentDirectory(file);
+    char *project = Util_projectDirectory(file);
     char *output = nullptr;
     int status = buildArtifact ? compileCsharp(project, file, &output) : 0;
     if (status == 0) {
