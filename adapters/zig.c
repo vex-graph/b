@@ -96,7 +96,7 @@ static int runZig(const char *file, int argc, char **argv, bool buildArtifact) {
         THROW("Zig source cannot be resolved");
         return EXIT_FAILURE;
     }
-    char *project = Util_parentDirectory(path);
+    char *project = Util_projectDirectory(path);
     char *output = nullptr;
     int status = compileZig(project, path, &output);
     if (status == 0) {
