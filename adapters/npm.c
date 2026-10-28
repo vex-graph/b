@@ -56,7 +56,7 @@ static int runNpm(const char *file, int argc, char **argv, bool buildArtifact) {
         free(path);
         return EXIT_FAILURE;
     }
-    char *project = Util_parentDirectory(path);
+    char *project = Util_projectDirectory(path);
     free(path);
     char *output = nullptr;
     int status = buildArtifact ? buildNpm(project, &output) : 0;
