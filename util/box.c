@@ -944,7 +944,7 @@ static bool copyRegularFile(const char *source, const char *target, mode_t mode)
             offset += written;
         }
     }
-    if (copied && fchmod(output, mode & 0777) != 0) {
+    if (copied && Util_setFileMode(output, mode & 0777) != 0) {
         THROW("cannot set payload permissions on %s: %s", target, strerror(errno));
         copied = false;
     }
@@ -992,7 +992,7 @@ static bool copyTree(const char *source, const char *target, size_t depth) {
     free(parent);
     if (!prepared)
         return false;
-    if (mkdir(target, info.st_mode & 0777) != 0) {
+    if (Util_createDirectory(target, info.st_mode & 0777) != 0) {
         THROW("cannot create payload directory %s: %s", target, strerror(errno));
         return false;
     }
@@ -1288,7 +1288,7 @@ int BoxManifest_export(const BoxManifest *self, const char *destination) {
         free(entrySource);
         return EXIT_FAILURE;
     }
-    if (lstat(staging, &info) == 0 || mkdir(staging, 0755) != 0) {
+    if (lstat(staging, &info) == 0 || Util_createDirectory(staging, 0755) != 0) {
         THROW("cannot create private staging directory: %s", staging);
         free(staging);
         free(parent);
