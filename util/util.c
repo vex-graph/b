@@ -16,7 +16,8 @@
 ;;OVERVIEW
 /* MODULE: shared utility implementation; public declarations: b.h.
  * PUBLIC MEMORY/PATH: Util_allocate; Util_combine; Util_endsWith;
- * Util_makeDirectory; Util_outputDirectory; Util_parentDirectory.
+ * Util_makeDirectory; Util_outputDirectory; Util_parentDirectory;
+ * Util_projectDirectory.
  * PUBLIC PROCESS: Util_executeWithEnvironment; Util_execute; Util_executeBuild;
  * Util_runCommand — append borrowed program arguments without shell parsing.
  * PUBLIC CHECKS: Util_checkSources — run a checker on each discovered source.
@@ -347,6 +348,14 @@ char *Util_parentDirectory(const char *file) {
     if (slash != nullptr)
         slash[1] = '\0';
     return directory;
+}
+
+// Return the registered project root during contextual runs, or the file's parent.
+char *Util_projectDirectory(const char *file) {
+    const char *root = getenv("B_PROJECT_ROOT");
+    if (root != nullptr && *root != '\0')
+        return Util_combine(root, "");
+    return Util_parentDirectory(file);
 }
 
 // Glob an extension under a literal project path and return owned copies of matching paths.

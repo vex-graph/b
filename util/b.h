@@ -6,7 +6,7 @@
 // Constitution: the real workspace metadata/PREFERENCES.md (canonical Gist);
 // Semantic Consistency Law (Reference form) requires explicit dereferences.
 // OVERVIEW: allocation/path helpers (Util_allocate, Util_combine, Util_endsWith,
-// Util_makeDirectory, Util_outputDirectory, Util_parentDirectory); process launch
+// Util_makeDirectory, Util_outputDirectory, Util_parentDirectory, Util_projectDirectory); process launch
 // (Util_execute, Util_executeWithEnvironment); source discovery
 // (Util_collectSources, Util_freeSources); environment (Util_environmentWith,
 // Util_freeEnvironment).
@@ -22,7 +22,8 @@
 ;;OVERVIEW
 /* MODULE: shared utility API (implementation: util.c).
  * PUBLIC: Util_allocate; Util_combine; Util_endsWith; Util_makeDirectory;
- * Util_outputDirectory; Util_parentDirectory; Util_execute; Util_executeBuild;
+ * Util_outputDirectory; Util_parentDirectory; Util_projectDirectory;
+ * Util_execute; Util_executeBuild;
  * Util_executeWithEnvironment; Util_runCommand; Util_checkSources;
  * Util_collectSources; Util_freeSources;
  * Util_environmentWith; Util_freeEnvironment.
@@ -42,6 +43,7 @@ bool Util_endsWith(const char *text, const char *suffix);
 bool Util_makeDirectory(char *path);
 char *Util_outputDirectory(const char *project);
 char *Util_parentDirectory(const char *file);
+char *Util_projectDirectory(const char *file);
 
 int Util_execute(char **arguments);
 // Build diagnostics go to stderr; stdout remains the build result path.
