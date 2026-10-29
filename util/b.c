@@ -59,6 +59,7 @@ static void usage(void) {
          "  b build <adapter> [directory]\n"
          "  b build workspace <directory> [--plan|--confirm]\n"
          "  b graph list [--file <path>]         list a serialized target graph\n"
+         "  b graph build [target...] [--all]    build targets and their graph deps\n"
          "\nBox\n"
          "  b create manifest <path>             write a starter manifest\n"
          "  b box <manifest.json> <export-path>  export declared portable files\n"
