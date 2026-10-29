@@ -882,7 +882,73 @@ static int buildCommand(Graph *graph, int argc, char **argv) {
     return status;
 }
 
-// Run a graph command: `b graph list|build [target...] [--file <path>]`.
+// Build then run one target, forwarding program arguments to it.
+static int runCommand(Graph *graph, const char *name, const Rows *program) {
+    char *requested[1] = {(char *) name};
+    int status = buildCommand(graph, 1, requested);
+    if (status != EXIT_SUCCESS)
+        return status;
+    int index = targetIndex(graph, name);
+    if (index < 0) {
+        THROW("graph has no target %s", name);
+        return EXIT_FAILURE;
+    }
+    char *output = targetOutput(&(*graph).items[index]);
+    Rows argv = {0};
+    rowsPush(&argv, output);
+    for (int i = 0; i < (*program).count; i++)
+        rowsPush(&argv, (*program).items[i]);
+    char **list = rowsArgv(&argv);
+    int code = Util_execute(list);
+    Util_release(list);
+    rowsFree(&argv);
+    Util_release(output);
+    return code == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+// Build the matching tests, then run each binary; 77 is a declared skip.
+static int testCommand(Graph *graph, const char *filter) {
+    Rows names = {0};
+    for (int i = 0; i < (*graph).count; i++) {
+        if (!(*graph).items[i].isTest)
+            continue;
+        if (filter != nullptr && strstr((*graph).items[i].name, filter) == nullptr)
+            continue;
+        rowsPush(&names, (*graph).items[i].name);
+    }
+    if (names.count == 0) {
+        THROW("no test matches %s", filter == nullptr ? "*" : filter);
+        rowsFree(&names);
+        return EXIT_FAILURE;
+    }
+    int status = buildCommand(graph, names.count, names.items);
+    if (status != EXIT_SUCCESS) {
+        rowsFree(&names);
+        return status;
+    }
+    int passed = 0, skipped = 0, failed = 0;
+    for (int i = 0; i < names.count; i++) {
+        size_t size = strlen(names.items[i]) + 32;
+        char *binary = Util_allocate(size);
+        snprintf(binary, size, ".b/out/bin/%s", names.items[i]);
+        char *argv[2] = {binary, nullptr};
+        int code = Util_execute(argv);
+        if (code == 0) {
+            passed++;
+        } else if (code == 77) {
+            skipped++;
+        } else {
+            fprintf(stderr, "b: FAIL %s (%d)\n", names.items[i], code);
+            failed++;
+        }
+        Util_release(binary);
+    }
+    fprintf(stderr, "tests: %d passed, %d skipped, %d failed\n", passed, skipped, failed);
+    rowsFree(&names);
+    return failed == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+// Run a graph command: `b graph list|build|test|run [target...] [--file <path>]`.
 int Graph_command(int argc, char **argv) {
     const char *path = ".b/graph.json";
     const char *command = "list";
@@ -892,14 +958,21 @@ int Graph_command(int argc, char **argv) {
         first = 1;
     }
     Rows names = {0};
+    Rows program = {0};
     for (int i = first; i < argc; i++) {
         if (strcmp(argv[i], "--file") == 0 && i + 1 < argc) {
             path = argv[++i];
             continue;
         }
+        // Everything after `run <target>` belongs to the program, not to b.
+        if (strcmp(command, "run") == 0 && names.count >= 1) {
+            rowsPush(&program, argv[i]);
+            continue;
+        }
         if (argv[i][0] == '-' && strcmp(argv[i], "--all") != 0) {
             THROW("unsupported graph option: %s", argv[i]);
             rowsFree(&names);
+            rowsFree(&program);
             return EXIT_FAILURE;
         }
         rowsPush(&names, argv[i]);
@@ -908,6 +981,7 @@ int Graph_command(int argc, char **argv) {
     if (!loadGraph(path, &graph)) {
         graphFree(&graph);
         rowsFree(&names);
+        rowsFree(&program);
         return EXIT_FAILURE;
     }
     int status;
@@ -915,11 +989,21 @@ int Graph_command(int argc, char **argv) {
         status = listCommand(&graph, path);
     } else if (strcmp(command, "build") == 0) {
         status = buildCommand(&graph, names.count, names.items);
+    } else if (strcmp(command, "test") == 0) {
+        status = testCommand(&graph, names.count ? names.items[0] : nullptr);
+    } else if (strcmp(command, "run") == 0) {
+        if (names.count == 0) {
+            THROW("usage: b graph run <target> [arguments...]");
+            status = EXIT_FAILURE;
+        } else {
+            status = runCommand(&graph, names.items[0], &program);
+        }
     } else {
         THROW("unsupported graph command: %s", command);
         status = EXIT_FAILURE;
     }
     graphFree(&graph);
     rowsFree(&names);
+    rowsFree(&program);
     return status;
 }
