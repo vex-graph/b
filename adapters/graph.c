@@ -107,9 +107,18 @@ typedef struct {
 } GraphTarget;
 
 typedef struct {
+    char *output;
+    Rows sources;
+    Rows generator;
+} GenStep;
+
+typedef struct {
     GraphTarget *items;
     int count;
     int cap;
+    GenStep *gens;
+    int genCount;
+    int genCap;
 } Graph;
 
 static GraphTarget *targetAdd(Graph *graph) {
@@ -123,6 +132,19 @@ static GraphTarget *targetAdd(Graph *graph) {
         (*graph).cap = cap;
     }
     return &(*graph).items[(*graph).count++];
+}
+
+static GenStep *genAdd(Graph *graph) {
+    if ((*graph).genCount == (*graph).genCap) {
+        int cap = (*graph).genCap ? (*graph).genCap * 2 : 16;
+        GenStep *grown = Util_allocate((size_t) cap * sizeof *grown);
+        if ((*graph).genCount)
+            memcpy(grown, (*graph).gens, (size_t) (*graph).genCount * sizeof *grown);
+        Util_release((*graph).gens);
+        (*graph).gens = grown;
+        (*graph).genCap = cap;
+    }
+    return &(*graph).gens[(*graph).genCount++];
 }
 
 // ── schema walk ────────────────────────────────────────────────────────────
@@ -331,6 +353,60 @@ static bool parseTargetRecord(Cursor *cursor, GraphTarget *target) {
     }
 }
 
+static bool parseGenRecord(Cursor *cursor, GenStep *step) {
+    if (!take(cursor, '{'))
+        return false;
+    skipSpace(cursor);
+    if (take(cursor, '}'))
+        return true;
+    for (;;) {
+        char *key = parseString(cursor);
+        if (key == nullptr)
+            return false;
+        if (!take(cursor, ':')) {
+            Util_release(key);
+            return false;
+        }
+        bool ok;
+        if (strcmp(key, "output") == 0) {
+            (*step).output = parseString(cursor);
+            ok = (*step).output != nullptr;
+        } else if (strcmp(key, "sources") == 0) {
+            ok = parseRowArray(cursor, &(*step).sources);
+        } else if (strcmp(key, "generator") == 0) {
+            ok = parseRowArray(cursor, &(*step).generator);
+        } else {
+            ok = skipValue(cursor);
+        }
+        Util_release(key);
+        if (!ok)
+            return false;
+        if (take(cursor, ','))
+            continue;
+        return take(cursor, '}');
+    }
+}
+
+static bool parseGenArray(Cursor *cursor, Graph *graph) {
+    if (!take(cursor, '['))
+        return false;
+    skipSpace(cursor);
+    if (take(cursor, ']'))
+        return true;
+    for (;;) {
+        GenStep *step = genAdd(graph);
+        if (!parseGenRecord(cursor, step))
+            return false;
+        if ((*step).output == nullptr) {
+            THROW("generated step without an output");
+            return false;
+        }
+        if (take(cursor, ','))
+            continue;
+        return take(cursor, ']');
+    }
+}
+
 static bool parseTargetArray(Cursor *cursor, Graph *graph, bool isTest) {
     if (!take(cursor, '['))
         return false;
@@ -368,10 +444,12 @@ static bool parseGraph(const char *json, Graph *graph) {
             return false;
         }
         bool ok;
-        if (strcmp(key, "targets") == 0)
+        if (strcmp(key, "targets") == 0 || strcmp(key, "index") == 0)
             ok = parseTargetArray(&cursor, graph, false);
         else if (strcmp(key, "tests") == 0)
             ok = parseTargetArray(&cursor, graph, true);
+        else if (strcmp(key, "generated") == 0)
+            ok = parseGenArray(&cursor, graph);
         else
             ok = skipValue(&cursor);
         Util_release(key);
@@ -401,6 +479,15 @@ static void graphFree(Graph *graph) {
         rowsFree(&(*t).linkFlags);
         rowsFree(&(*t).generator);
     }
+    for (int i = 0; i < (*graph).genCount; i++) {
+        Util_release((*graph).gens[i].output);
+        rowsFree(&(*graph).gens[i].sources);
+        rowsFree(&(*graph).gens[i].generator);
+    }
+    Util_release((*graph).gens);
+    (*graph).gens = nullptr;
+    (*graph).genCount = 0;
+    (*graph).genCap = 0;
     Util_release((*graph).items);
     (*graph).items = nullptr;
     (*graph).count = 0;
@@ -495,20 +582,13 @@ static int targetIndex(Graph *graph, const char *name) {
 }
 
 // The artifact this target produces; an external artifact keeps its own path.
+// The artifact path is declared by the graph; a builder invents no layout.
 static char *targetOutput(const GraphTarget *target) {
-    const char *kind = (*target).kind ? (*target).kind : "exe";
-    if (strcmp(kind, "ext") == 0 && (*target).output != nullptr)
-        return copyText((*target).output);
-    const char *directory = strcmp(kind, "lib") == 0 ? ".b/out/lib"
-                          : strcmp(kind, "mod") == 0 ? ".b/out/modules"
-                                                     : ".b/out/bin";
-    const char *prefix = strcmp(kind, "lib") == 0 ? "lib" : "";
-    const char *suffix = strcmp(kind, "lib") == 0 ? ".a"
-                       : strcmp(kind, "mod") == 0 ? ".so" : "";
-    size_t size = strlen(directory) + strlen(prefix) + strlen((*target).name) + strlen(suffix) + 3;
-    char *path = Util_allocate(size);
-    snprintf(path, size, "%s/%s%s%s", directory, prefix, (*target).name, suffix);
-    return path;
+    if ((*target).output == nullptr) {
+        THROW("target %s declares no output", (*target).name);
+        return nullptr;
+    }
+    return copyText((*target).output);
 }
 
 // Object path: a hash of the source bytes and the exact flag words decides the
@@ -601,16 +681,6 @@ static bool generateExternal(const GraphTarget *target, const char *output) {
     return true;
 }
 
-// Framework pairs arrive as one word; the linker needs them as two arguments.
-static void pushLinkWord(Rows *argv, const char *word) {
-    if (strncmp(word, "-framework ", 11) == 0) {
-        rowsPush(argv, "-framework");
-        rowsPush(argv, word + 11);
-        return;
-    }
-    rowsPush(argv, word);
-}
-
 static bool linkTarget(Graph *graph, GraphTarget *target, const Rows *objects, const char *output) {
     const char *kind = (*target).kind ? (*target).kind : "exe";
     char *directory = Util_parentDirectory(output);
@@ -650,7 +720,7 @@ static bool linkTarget(Graph *graph, GraphTarget *target, const Rows *objects, c
             Util_release(library);
         }
         for (int i = 0; i < (*target).linkFlags.count; i++)
-            pushLinkWord(&argv, (*target).linkFlags.items[i]);
+            rowsPush(&argv, (*target).linkFlags.items[i]);
         ok = runRows(&argv);
     }
     rowsFree(&argv);
@@ -741,6 +811,54 @@ static bool artifactFresh(const char *name, const char *output, uint64_t signatu
     char expected[32];
     snprintf(expected, sizeof expected, "%016llx", (unsigned long long) signature);
     return strncmp(text, expected, 16) == 0;
+}
+
+// Produce every generated input whose sources or command changed since last time.
+// The generator argv is data: glslang, python or cargo, the builder does not care.
+static bool runGenerated(Graph *graph) {
+    for (int i = 0; i < (*graph).genCount; i++) {
+        GenStep *step = &(*graph).gens[i];
+        uint64_t hash = 1469598103934665603ull;
+        for (int s = 0; s < (*step).sources.count; s++) {
+            hash = hashText(hash, (*step).sources.items[s]);
+            if (!hashFile(&hash, (*step).sources.items[s])) {
+                THROW("cannot read generator input: %s", (*step).sources.items[s]);
+                return false;
+            }
+        }
+        for (int g = 0; g < (*step).generator.count; g++)
+            hash = hashText(hash, (*step).generator.items[g]);
+        uint64_t key = hashText(1469598103934665603ull, (*step).output);
+        char name[64];
+        snprintf(name, sizeof name, "gen-%016llx", (unsigned long long) key);
+        char expected[32];
+        snprintf(expected, sizeof expected, "%016llx", (unsigned long long) hash);
+        char *sigPath = signaturePath(name);
+        char recorded[64] = "";
+        bool fresh = access((*step).output, F_OK) == 0 &&
+                     readSmallText(sigPath, recorded, sizeof recorded) &&
+                     strncmp(recorded, expected, 16) == 0;
+        Util_release(sigPath);
+        if (fresh)
+            continue;
+        char *directory = Util_parentDirectory((*step).output);
+        bool made = Util_makeDirectory(directory);
+        Util_release(directory);
+        if (!made)
+            return false;
+        Rows argv = {0};
+        for (int g = 0; g < (*step).generator.count; g++)
+            rowsPush(&argv, (*step).generator.items[g]);
+        bool ok = runRows(&argv);
+        rowsFree(&argv);
+        if (!ok || access((*step).output, F_OK) != 0) {
+            THROW("generator failed for %s", (*step).output);
+            return false;
+        }
+        writeSignature(name, hash);
+        fprintf(stderr, "b: generated %s\n", (*step).output);
+    }
+    return true;
 }
 
 static bool buildTarget(Graph *graph, GraphTarget *target) {
@@ -841,7 +959,8 @@ static int listCommand(Graph *graph, const char *path) {
         else
             targets++;
     }
-    fprintf(stderr, "graph: %d targets, %d tests (%s)\n", targets, tests, path);
+    fprintf(stderr, "graph: %d targets, %d tests, %d generated (%s)\n",
+            targets, tests, (*graph).genCount, path);
     return EXIT_SUCCESS;
 }
 
@@ -870,6 +989,8 @@ static int buildCommand(Graph *graph, int argc, char **argv) {
             if (!planVisit(&plan, i))
                 status = EXIT_FAILURE;
     }
+    if (status == EXIT_SUCCESS && !runGenerated(graph))
+        status = EXIT_FAILURE;
     if (status == EXIT_SUCCESS) {
         for (int i = 0; i < plan.count; i++)
             if (!buildTarget(graph, &(*graph).items[plan.order[i]]))
@@ -928,9 +1049,12 @@ static int testCommand(Graph *graph, const char *filter) {
     }
     int passed = 0, skipped = 0, failed = 0;
     for (int i = 0; i < names.count; i++) {
-        size_t size = strlen(names.items[i]) + 32;
-        char *binary = Util_allocate(size);
-        snprintf(binary, size, ".b/out/bin/%s", names.items[i]);
+        int index = targetIndex(graph, names.items[i]);
+        char *binary = index < 0 ? nullptr : targetOutput(&(*graph).items[index]);
+        if (binary == nullptr) {
+            failed++;
+            continue;
+        }
         char *argv[2] = {binary, nullptr};
         int code = Util_execute(argv);
         if (code == 0) {
