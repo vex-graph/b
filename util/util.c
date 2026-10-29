@@ -72,6 +72,12 @@ void *Util_allocate(size_t size) {
     return memory;
 }
 
+// Release storage from Util_allocate; the single release seam for the suite.
+// Relational Memory Law: one owner for allocation, no scattered free().
+void Util_release(void *block) {
+    free(block);
+}
+
 // Allocate and return the concatenation of two strings, rejecting size overflow.
 char *Util_combine(const char *left, const char *right) {
     size_t a = strlen(left), b = strlen(right);

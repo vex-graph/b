@@ -44,7 +44,9 @@
 
 #define THROW(...) do { fprintf(stderr, "[vex] %s:%d: ", __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fputc('\n', stderr); } while (0)
 
+// The suite owns one allocation pair; adapters never call malloc/calloc/free.
 void *Util_allocate(size_t size);
+void Util_release(void *block);
 char *Util_combine(const char *left, const char *right);
 bool Util_endsWith(const char *text, const char *suffix);
 bool Util_makeDirectory(char *path);

@@ -9,6 +9,7 @@
 #include "../adapters/adapter.h"
 #include "../adapters/arduino.h"
 #include "../adapters/workspace.h"
+#include "../adapters/graph.h"
 #include "box.h"
 #include "inspect.h"
 #include "../project/project.h"
@@ -57,6 +58,7 @@ static void usage(void) {
          "\nBuild\n"
          "  b build <adapter> [directory]\n"
          "  b build workspace <directory> [--plan|--confirm]\n"
+         "  b graph list [--file <path>]         list a serialized target graph\n"
          "\nBox\n"
          "  b create manifest <path>             write a starter manifest\n"
          "  b box <manifest.json> <export-path>  export declared portable files\n"
@@ -245,6 +247,8 @@ int main(int argc, char **argv) {
         return refreshCommand(argc, argv);
     if (strcmp(argv[1], "doctor") == 0 && (argc == 2 || argc == 3))
         return Inspect_doctor(argc == 3 ? argv[2] : nullptr);
+    if (strcmp(argv[1], "graph") == 0)
+        return Graph_command(argc - 2, argv + 2);
     if (argc >= 3 && strcmp(argv[1], "build") == 0 && strcmp(argv[2], "workspace") == 0)
         return Workspace_command(argc - 3, argv + 3);
     if (strcmp(argv[1], "build") == 0 && (argc == 3 || argc == 4)) {
