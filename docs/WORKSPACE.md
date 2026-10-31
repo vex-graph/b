@@ -161,7 +161,6 @@ It is authored once and never regenerated afterwards.
 
 ```json
 {
-  "schemaVersion": 2,
   "application": {
     "id": "org.vexgraph.determinant",
     "name": "determinant",
@@ -184,7 +183,11 @@ It is authored once and never regenerated afterwards.
     "link": "executable"
   },
   "payload": { "files": ["README.md", "LICENSE"] },
-  "targets": ["darwin-arm64", "linux-x86_64", "windows-x86_64"],
+  "targets": {
+    "darwin-arm64": {},
+    "linux-x86_64": {},
+    "windows-x86_64": {}
+  },
   "formats": ["portable"],
   "statePolicy": "clean"
 }
@@ -194,18 +197,18 @@ Every key is present in the file `b assembly` writes. Values it can derive are
 filled in; values it cannot derive are written as their default rather than
 omitted, so the file is a complete statement of intent and not a stub.
 
-### Schema 2 is schema 1 plus build intent
+### The shape is final; there is no version field
 
-`box.c` already parses schema 1: `application {id, name, version, authors,
-publisher, description, license, homepage, icon}`, `payload {entry, files}`,
-`targets`, `formats`, `statePolicy`. Those keys keep their meaning and their
-spelling; the assembly adds `build {entry, sources, includes, defines, options,
-link}` and nothing else.
+`box.c` already parses the assembly's keys: `application {id, name, version,
+authors, publisher, description, license, homepage, icon}`, `payload {entry,
+files}`, `targets`, `formats`, `statePolicy`. The assembly adds `build {entry,
+sources, includes, defines, options, link}` and nothing else. Targets are an
+object keyed by canonical target name, so per-target settings are added as keys
+rather than as parallel arrays.
 
-The number moves to 2 because a schema-1 reader must **reject** the file rather
-than ignore the key it does not understand, and `box.c` is strict about unknown
-keys by design. A schema-1 manifest still parses; anything carrying `build` is
-2.
+The file carries no `schemaVersion`. The reader is strict: an unknown key is an
+error, so a file cannot be silently misread. Extending the format means adding a
+key inside its section and a test for it, a change in one place.
 
 `b`'s own assembly is the first file written against it, and the acceptance test
 for the schema: when `b assembly` lands, running it on `b` must reproduce that
@@ -403,8 +406,10 @@ platform spelling out — but unlike those two, b never gets to pick it.
 `0.1.0` default — the counter belongs to whoever owns the application, and a
 build tool that guesses it is asserting authorship of something it does not own.
 
-So the rule is one sentence: **a version is required, and b refuses without
-one.**
+So the rule is one sentence: **`box` requires a version, and refuses without
+one.** `run` and `breeze` only execute a local build, so they need no version:
+they use the default assembly, whose version stays empty until the author sets
+it. An empty version is never written into an artifact.
 
 ```text
 b: hello declares no version
@@ -549,10 +554,11 @@ things a future change is not allowed to touch:
 - the six verbs and their arguments
 - `.b/` as the only marker, and `generate` as the only act that claims ground
 - a unit is a directory; three kinds; `objects` stops after compiling
-- `schemaVersion` numbers are never reused and never renumbered, and every past
-  parser stays in the binary, so a file written today reads in ten years
+- no version field: the manifest shape is final. New settings are added as keys
+  inside an existing section, and the reader rejects keys it does not know, so a
+  file written today still reads in ten years
 - one assembly file per target, named by the canonical target
-- version declared by the author; b refuses without one
+- version declared by the author; box refuses without one, run needs none
 - three writers, three files, and no generated file is ever authoritative
 - the six target names, spelled exactly as the Platform Support Floor spells them
 

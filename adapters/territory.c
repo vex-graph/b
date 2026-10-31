@@ -30,6 +30,13 @@
  * TerritoryUnit — char *directory (relative, owned), char **names (owned),
  *     count/capacity of the directory's compiled sources.
  * TerritoryWalk — directory stack plus unit array, source and exclusion counts.
+ * PUBLIC (added): Territory_buildAll builds every unit at or below a directory,
+ * scoped by the caller's location; Territory_writeAssembly authors one unit's
+ * b.assembly.json once, with its include roots.
+ * PRIVATE (added): absoluteOf joins a unit onto the root; inScope is the scope
+ * test; classify picks one adapter family per unit; entryOf returns the owned
+ * entry-source path; displayNameOf title-cases; freeEntries releases a listing;
+ * keyText writes a quoted key; releaseWalk releases an inventory walk.
  * PRIVATE STATIC: grow — checked doubling; excluded — fixed skip names;
  * normalize — strip one trailing separator; unitFor/addSource — record a source
  * under its directory; relative — root-relative unit name; escape — JSON string
@@ -230,6 +237,49 @@ static bool inventory(const char *root, TerritoryWalk *walk) {
     return true;
 }
 
+typedef enum { UNIT_OK, UNIT_MIXED } UnitVerdict;
+
+// Join a unit's relative directory onto the root; "." names the root itself.
+static char *absoluteOf(const char *root, const char *directory) {
+    if (strcmp(directory, ".") == 0)
+        return Util_combine(root, "");
+    char *prefix = Util_combine(root, "/");
+    char *path = Util_combine(prefix, directory);
+    free(prefix);
+    return path;
+}
+
+// Whether a unit lies at or below the scope directory; scope "." means everything.
+static bool inScope(const char *directory, const char *scope) {
+    if (strcmp(scope, ".") == 0)
+        return true;
+    size_t length = strlen(scope);
+    return strcmp(directory, scope) == 0 ||
+        (strncmp(directory, scope, length) == 0 && directory[length] == '/');
+}
+
+// Choose the adapter that claims a unit's sources. Adapters that share a build
+// callback form one family (glsl stages, the js/ts extensions), so only sources
+// from different families make a unit mixed.
+static UnitVerdict classify(const TerritoryUnit *unit, const Adapter **adapter) {
+    *adapter = nullptr;
+    for (size_t source = 0; source < (*unit).count; ++source) {
+        const Adapter *claimed = Adapter_forFile((*unit).names[source]);
+        if (claimed == nullptr)
+            continue;
+        if (*adapter == nullptr)
+            *adapter = claimed;
+        else if ((**adapter).build != (*claimed).build)
+            return UNIT_MIXED;
+    }
+    return UNIT_OK;
+}
+
+// Ask the unit's adapter for the owned path of its entry source; nullptr means none.
+static char *entryOf(const Adapter *adapter, const char *absolute) {
+    return (*adapter).entry != nullptr ? (*adapter).entry(absolute) : nullptr;
+}
+
 // Write the generated fact file; the only writer of .b/workspace.json.
 static bool emit(const char *path, const char *root, TerritoryWalk *walk) {
     FILE *file = fopen(path, "wb");
@@ -239,13 +289,23 @@ static bool emit(const char *path, const char *root, TerritoryWalk *walk) {
     }
     size_t unitCount = (*walk).unitCount;
     TerritoryUnit *units = (*walk).units;
-    fprintf(file, "{\n  \"schemaVersion\": 1,\n  \"root\": ");
+    fprintf(file, "{\n  \"root\": ");
     escape(file, root);
     fprintf(file, ",\n  \"units\": [");
     for (size_t index = 0; index < unitCount; ++index) {
         TerritoryUnit *unit = &units[index];
         fprintf(file, "%s\n    { \"dir\": ", index == 0 ? "" : ",");
         escape(file, (*unit).directory);
+        const Adapter *adapter = nullptr;
+        const char *kind = "ambiguous";
+        if (classify(unit, &adapter) == UNIT_OK && adapter != nullptr) {
+            char *absolute = absoluteOf(root, (*unit).directory);
+            char *entry = entryOf(adapter, absolute);
+            kind = entry != nullptr ? "app" : "library";
+            free(entry);
+            free(absolute);
+        }
+        fprintf(file, ", \"kind\": \"%s\"", kind);
         fprintf(file, ", \"sources\": [");
         for (size_t source = 0; source < (*unit).count; ++source) {
             if (source != 0)
@@ -368,3 +428,250 @@ bool Territory_claim(const char *directory) {
     free(root);
     return ok;
 }
+
+// Release every slot of a walk; the caller owns the walk until this runs.
+static void releaseWalk(TerritoryWalk *walk) {
+    for (size_t index = 0; index < (*walk).unitCount; ++index) {
+        TerritoryUnit *unit = &(*walk).units[index];
+        for (size_t source = 0; source < (*unit).count; ++source)
+            free((*unit).names[source]);
+        free((*unit).names);
+        free((*unit).directory);
+    }
+    for (size_t index = 0; index < (*walk).directoryCount; ++index)
+        free((*walk).directories[index]);
+    free((*walk).units);
+    free((*walk).directories);
+}
+
+// Build every unit at or below the directory (default: the current directory).
+// Units are built in walk order; a mixed unit fails without stopping the others.
+bool Territory_buildAll(const char *startDirectory) {
+    const char *start = startDirectory != nullptr ? startDirectory : ".";
+    char *here = realpath(start, nullptr);
+    if (here == nullptr) {
+        THROW("cannot resolve directory: %s", start);
+        return false;
+    }
+    normalize(here);
+    char *root = Territory_find(here);
+    if (root == nullptr) {
+        THROW("build outside a territory; run b generate first");
+        free(here);
+        return false;
+    }
+    char *scope = relative(root, here);
+    TerritoryWalk walk = { nullptr, 0, 0, nullptr, 0, 0, 0, 0 };
+    bool ok = inventory(root, &walk);
+    size_t scoped = 0, succeeded = 0, failed = 0, skipped = 0;
+    for (size_t index = 0; ok && index < walk.unitCount; ++index) {
+        TerritoryUnit *unit = &walk.units[index];
+        if (!inScope((*unit).directory, scope))
+            continue;
+        ++scoped;
+        const Adapter *adapter = nullptr;
+        if (classify(unit, &adapter) != UNIT_OK || adapter == nullptr) {
+            THROW("unit %s mixes adapters; move its sources into separate directories", (*unit).directory);
+            ++failed;
+            continue;
+        }
+        char *absolute = absoluteOf(root, (*unit).directory);
+        char *entry = entryOf(adapter, absolute);
+        bool app = entry != nullptr;
+        free(entry);
+        if (!app) {
+            // Library artifacts are not built yet; reporting beats a failing link.
+            printf("  skip %s (library: library builds are not implemented yet)\n", absolute);
+            ++skipped;
+            free(absolute);
+            continue;
+        }
+        char *output = nullptr;
+        int status = (*adapter).build(absolute, &output);
+        if (status == 0)
+            ++succeeded;
+        else
+            ++failed;
+        printf("  %s %s (%s, %s)\n", status == 0 ? "ok  " : "FAIL", absolute,
+               app ? "app" : "library", (*adapter).name);
+        free(output);
+        free(absolute);
+    }
+    if (ok && scoped == 0)
+        printf("b build: no units under %s\n", scope);
+    else if (ok)
+        printf("b build: %zu succeeded, %zu failed, %zu libraries skipped\n", succeeded, failed, skipped);
+    releaseWalk(&walk);
+    free(scope);
+    free(root);
+    free(here);
+    return ok && failed == 0;
+}
+
+// Title-case a kebab or snake name for display: "my-app" becomes "My App".
+static char *displayNameOf(const char *name) {
+    char *text = Util_combine(name, "");
+    bool start = true;
+    for (char *cursor = text; *cursor != '\0'; ++cursor) {
+        if (*cursor == '-' || *cursor == '_') {
+            *cursor = ' ';
+            start = true;
+            continue;
+        }
+        if (start && *cursor >= 'a' && *cursor <= 'z')
+            *cursor = (char) (*cursor - 'a' + 'A');
+        start = *cursor == ' ';
+    }
+    return text;
+}
+
+// Release a directory listing that a writer kept alive while reading its sources.
+static void freeEntries(struct dirent **entries, int total) {
+    for (int index = 0; index < total; ++index)
+        free(entries[index]);
+    free(entries);
+}
+
+// Emit a quoted key followed by its colon separator; the value follows the caller.
+static void keyText(FILE *file, const char *key) {
+    escape(file, key);
+    fputs(": ", file);
+}
+
+// Write one unit's assembly declaration. Authored once: an existing file is refused
+// unless force is set. The version may be empty; only box refuses an empty one.
+bool Territory_writeAssembly(const char *directory, const char *version, const char *const *includes, size_t includeCount, bool force) {
+    char *here = realpath(directory, nullptr);
+    if (here == nullptr) {
+        THROW("cannot resolve directory: %s", directory);
+        return false;
+    }
+    normalize(here);
+    char *root = Territory_find(here);
+    if (root == nullptr) {
+        THROW("assembly outside a territory; run b generate first");
+        free(here);
+        return false;
+    }
+    free(root);
+    char *path = Util_combine(here, "/b.assembly.json");
+    struct stat information;
+    if (stat(path, &information) == 0 && !force) {
+        THROW("%s already exists; assemblies are authored once (pass --force to replace)", path);
+        free(path);
+        free(here);
+        return false;
+    }
+    struct dirent **entries = nullptr;
+    int total = scandir(here, &entries, nullptr, alphasort);
+    if (total < 0) {
+        THROW("cannot read %s: %s", here, strerror(errno));
+        free(path);
+        free(here);
+        return false;
+    }
+    const Adapter *adapter = nullptr;
+    bool mixed = false;
+    for (int index = 0; index < total; ++index) {
+        const Adapter *claimed = Adapter_forFile((*entries[index]).d_name);
+        if (claimed == nullptr)
+            continue;
+        if (adapter == nullptr)
+            adapter = claimed;
+        else if ((*adapter).build != (*claimed).build)
+            mixed = true;
+    }
+    if (mixed) {
+        THROW("%s mixes adapters; move its sources into separate directories", here);
+        freeEntries(entries, total);
+        free(path);
+        free(here);
+        return false;
+    }
+    if (adapter == nullptr) {
+        THROW("no buildable sources in %s", here);
+        freeEntries(entries, total);
+        free(path);
+        free(here);
+        return false;
+    }
+    char *entry = entryOf(adapter, here);
+    bool app = entry != nullptr;
+    const char *entryName = "";
+    if (entry != nullptr) {
+        const char *entrySlash = strrchr(entry, '/');
+        entryName = entrySlash != nullptr ? entrySlash + 1 : entry;
+    }
+    const char *slash = strrchr(here, '/');
+    const char *name = slash != nullptr ? slash + 1 : here;
+    const char *user = getenv("USER");
+    const char *publisher = user != nullptr && *user != '\0' ? user : "Unknown";
+    const char *declared = version != nullptr ? version : "";
+    char *prefix = Util_combine("local.", publisher);
+    char *dotted = Util_combine(prefix, ".");
+    char *identifier = Util_combine(dotted, name);
+    char *display = displayNameOf(name);
+    FILE *file = fopen(path, "wb");
+    if (file == nullptr) {
+        THROW("cannot write %s: %s", path, strerror(errno));
+        free(display); free(identifier); free(dotted); free(prefix); free(path); free(here);
+        freeEntries(entries, total);
+        free(entry);
+        return false;
+    }
+    fputs("{\n  ", file);
+    keyText(file, "application"); fputs("{\n    ", file);
+    keyText(file, "id"); escape(file, identifier); fputs(",\n    ", file);
+    keyText(file, "name"); escape(file, name); fputs(",\n    ", file);
+    keyText(file, "displayName"); escape(file, display); fputs(",\n    ", file);
+    keyText(file, "version"); escape(file, declared); fputs(",\n    ", file);
+    keyText(file, "type"); escape(file, app ? "cli" : "library"); fputs(",\n    ", file);
+    keyText(file, "authors"); fputs("[", file); escape(file, publisher); fputs("],\n    ", file);
+    keyText(file, "publisher"); escape(file, publisher); fputs(",\n    ", file);
+    keyText(file, "description"); escape(file, ""); fputs(",\n    ", file);
+    keyText(file, "license"); escape(file, "UNLICENSED"); fputs(",\n    ", file);
+    keyText(file, "homepage"); escape(file, ""); fputs(",\n    ", file);
+    keyText(file, "icon"); escape(file, ""); fputs("\n  },\n  ", file);
+    keyText(file, "build"); fputs("{\n    ", file);
+    keyText(file, "entry"); escape(file, entryName); fputs(",\n    ", file);
+    keyText(file, "sources"); fputs("[", file);
+    bool firstSource = true;
+    for (int index = 0; index < total; ++index) {
+        const Adapter *claimed = Adapter_forFile((*entries[index]).d_name);
+        if (claimed == nullptr || (*claimed).build != (*adapter).build)
+            continue;
+        if (!firstSource)
+            fputs(", ", file);
+        firstSource = false;
+        escape(file, (*entries[index]).d_name);
+    }
+    fputs("],\n    ", file);
+    keyText(file, "includes"); fputs("[", file);
+    for (size_t index = 0; index < includeCount; ++index) {
+        if (index != 0)
+            fputs(", ", file);
+        escape(file, includes[index]);
+    }
+    fputs("],\n    ", file);
+    keyText(file, "defines"); fputs("[],\n    ", file);
+    keyText(file, "options"); fputs("[],\n    ", file);
+    keyText(file, "link"); escape(file, app ? "executable" : "static"); fputs("\n  },\n  ", file);
+    keyText(file, "payload"); fputs("{ ", file); keyText(file, "files"); fputs("[] },\n  ", file);
+    keyText(file, "targets"); fputs("{},\n  ", file);
+    keyText(file, "formats"); fputs("[", file); escape(file, "portable"); fputs("],\n  ", file);
+    keyText(file, "statePolicy"); escape(file, "clean"); fputs("\n}\n", file);
+    bool ok = fflush(file) == 0 && ferror(file) == 0;
+    if (fclose(file) != 0)
+        ok = false;
+    if (ok)
+        printf("b: assembly %s\n   %s, version %s\n", path, app ? "cli" : "library",
+               declared[0] != '\0' ? declared : "(undeclared: box refuses until set)");
+    else
+        THROW("cannot complete %s", path);
+    free(display); free(identifier); free(dotted); free(prefix); free(path); free(here);
+    freeEntries(entries, total);
+    free(entry);
+    return ok;
+}
+
+

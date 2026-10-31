@@ -1,5 +1,5 @@
 #pragma once
-#include "annotation.h"
+#include "../util/annotation.h"
 ;;DEFINITION
 /* Immutable crate-root compiler adapter contract; behavior lives in rust.c. */
 ;;OVERVIEW

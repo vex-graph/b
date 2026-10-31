@@ -110,4 +110,4 @@ static int runZig(const char *file, int argc, char **argv, bool buildArtifact) {
 }
 
 const Adapter ZIG_ADAPTER = { "zig", ".zig", buildZig, runZig,
-    "ZIG=zig", "source/project build; compile-then-run" };
+    "ZIG=zig", "source/project build; compile-then-run", nullptr };

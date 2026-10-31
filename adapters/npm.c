@@ -70,4 +70,4 @@ static int runNpm(const char *file, int argc, char **argv, bool buildArtifact) {
 }
 
 const Adapter NPM_ADAPTER = { "npm", "package.json", buildNpm, runNpm,
-    "npm,node", "build/start scripts; exec builds then starts" };
+    "npm,node", "build/start scripts; exec builds then starts", nullptr };

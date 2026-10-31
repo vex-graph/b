@@ -76,4 +76,4 @@ static int runPython(const char *file, int argc, char **argv, bool buildArtifact
 }
 
 const Adapter PYTHON_ADAPTER = { "python", ".py", buildPython, runPython,
-    "python3", "bytecode check; instance/exec runtime" };
+    "python3", "bytecode check; instance/exec runtime", nullptr };

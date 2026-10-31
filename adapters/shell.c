@@ -29,4 +29,4 @@ static int runShell(const char *file, int argc, char **argv, bool buildArtifact)
 }
 
 const Adapter SHELL_ADAPTER = { "shell", ".sh", buildShell, runShell,
-    "/bin/sh", "POSIX syntax-check; instance/exec runtime" };
+    "/bin/sh", "POSIX syntax-check; instance/exec runtime", nullptr };

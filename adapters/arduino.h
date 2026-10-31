@@ -1,6 +1,7 @@
 // Arduino sketch builds and explicit compile-before-upload command.
 #pragma once
-#include "annotation.h"
+#include "../util/annotation.h"
+
 ;;DEFINITION
 /* Arduino contract separates host build/check from explicit hardware upload.
  * The sketch's b_build header supplies the board; callers supply the port.

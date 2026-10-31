@@ -58,4 +58,4 @@ static int runSql(const char *file, int argc, char **argv, bool buildArtifact) {
 }
 
 const Adapter SQL_ADAPTER = { "sql", ".sql", buildSql, runSql,
-    "psql", "explicit PostgreSQL run; no standalone build" };
+    "psql", "explicit PostgreSQL run; no standalone build", nullptr };

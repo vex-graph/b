@@ -46,4 +46,4 @@ static int runLua(const char *file, int argc, char **argv, bool buildArtifact) {
 }
 
 const Adapter LUA_ADAPTER = { "lua", ".lua", buildLua, runLua,
-    "LUA=lua,LUAC=luac", "parse-check; instance/exec runtime" };
+    "LUA=lua,LUAC=luac", "parse-check; instance/exec runtime", nullptr };

@@ -77,4 +77,4 @@ static int runGo(const char *file, int argc, char **argv, bool buildArtifact) {
 }
 
 const Adapter GO_ADAPTER = { "go", ".go", buildGo, runGo,
-    "GO=go", "package build; source instance; native exec" };
+    "GO=go", "package build; source instance; native exec", nullptr };

@@ -88,8 +88,8 @@ static int runCpp(const char *file, int argc, char **argv, bool buildArtifact) {
 }
 
 const Adapter CPP_ADAPTER = { "cpp", ".cpp", buildCpp, runCpp,
-    "CXX=c++", "native build/exec; source instance rejects" };
+    "CXX=c++", "native build/exec; source instance rejects", nullptr };
 const Adapter CXX_ADAPTER = { "cxx", ".cc", buildCpp, runCpp,
-    "CXX=c++", "native build/exec; source instance rejects" };
+    "CXX=c++", "native build/exec; source instance rejects", nullptr };
 const Adapter CPP_LONG_ADAPTER = { "c++", ".cxx", buildCpp, runCpp,
-    "CXX=c++", "native build/exec; source instance rejects" };
+    "CXX=c++", "native build/exec; source instance rejects", nullptr };

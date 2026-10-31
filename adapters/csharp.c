@@ -89,4 +89,4 @@ static int runCsharp(const char *file, int argc, char **argv, bool buildArtifact
 }
 
 const Adapter CSHARP_ADAPTER = { "csharp", ".cs", buildCsharp, runCsharp,
-    "dotnet", "SDK 10+ file build/exec; native file-run instance" };
+    "dotnet", "SDK 10+ file build/exec; native file-run instance", nullptr };

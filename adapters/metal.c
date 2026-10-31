@@ -95,4 +95,4 @@ static int rejectRun(const char *file, int argc, char **argv, bool buildArtifact
     return EXIT_FAILURE;
 }
 const Adapter METAL_ADAPTER = { "metal", ".metal", buildMetal, rejectRun,
-    "XCRUN=xcrun", "macOS AIR/metallib build; no host run" };
+    "XCRUN=xcrun", "macOS AIR/metallib build; no host run", nullptr };

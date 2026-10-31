@@ -7,7 +7,7 @@
 // disposable fact file, and refuses a nested claim.
 #pragma once
 
-#include "annotation.h"
+#include "../util/annotation.h"
 
 ;;DEFINITION
 /* A territory is claimed, never inferred. Claiming creates .b/ and writes the
@@ -31,3 +31,7 @@
 char *Territory_find(const char *startDirectory);
 char *Territory_workspacePath(const char *root);
 bool Territory_claim(const char *directory);
+// Build every unit at or below the directory (nullptr means the current directory).
+bool Territory_buildAll(const char *directory);
+// Write <unit>/b.assembly.json once; force replaces it. An empty version is allowed.
+bool Territory_writeAssembly(const char *directory, const char *version, const char *const *includes, size_t includeCount, bool force);

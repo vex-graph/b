@@ -268,6 +268,46 @@ int Util_setFileMode(int descriptor, int mode) {
 #endif
 }
 
+// Report whether a readable regular file's bytes contain the needle.
+// Whole-file read: adequate for source files, not for arbitrary large data.
+bool Util_fileContains(const char *path, const char *needle) {
+    FILE *input = fopen(path, "rb");
+    if (input == nullptr)
+        return false;
+    bool found = false;
+    if (fseek(input, 0, SEEK_END) == 0) {
+        long size = ftell(input);
+        if (size >= 0 && fseek(input, 0, SEEK_SET) == 0) {
+            char *text = Util_allocate((size_t) size + 1);
+            size_t bytes = fread(text, 1, (size_t) size, input);
+            found = bytes == (size_t) size && strstr(text, needle) != nullptr;
+            free(text);
+        }
+    }
+    fclose(input);
+    return found;
+}
+
+// Read a whole regular file as NUL-terminated text; nullptr when it cannot be read.
+char *Util_readText(const char *path) {
+    FILE *input = fopen(path, "rb");
+    if (input == nullptr)
+        return nullptr;
+    char *text = nullptr;
+    if (fseek(input, 0, SEEK_END) == 0) {
+        long size = ftell(input);
+        if (size >= 0 && fseek(input, 0, SEEK_SET) == 0) {
+            text = Util_allocate((size_t) size + 1);
+            if (fread(text, 1, (size_t) size, input) != (size_t) size) {
+                free(text);
+                text = nullptr;
+            }
+        }
+    }
+    fclose(input);
+    return text;
+}
+
 // Test whether text ends with the complete suffix string.
 bool Util_endsWith(const char *text, const char *suffix) {
     size_t a = strlen(text), b = strlen(suffix);

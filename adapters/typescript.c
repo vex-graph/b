@@ -35,8 +35,8 @@ static int runTypescript(const char *file, int argc, char **argv, bool buildArti
 }
 
 const Adapter TYPESCRIPT_ADAPTER = { "typescript", ".ts", buildTypescript, runTypescript,
-    "node", "native type-strip check/runtime; NOT type-checking" };
+    "node", "native type-strip check/runtime; NOT type-checking", nullptr };
 const Adapter TS_ADAPTER = { "ts", ".mts", buildTypescript, runTypescript,
-    "node", "native type-strip check/runtime; NOT type-checking" };
+    "node", "native type-strip check/runtime; NOT type-checking", nullptr };
 const Adapter CTS_ADAPTER = { "node-ts", ".cts", buildTypescript, runTypescript,
-    "node", "native type-strip check/runtime; NOT type-checking" };
+    "node", "native type-strip check/runtime; NOT type-checking", nullptr };

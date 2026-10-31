@@ -101,7 +101,7 @@ static int rejectRun(const char *file, int argc, char **argv, bool buildArtifact
     return EXIT_FAILURE;
 }
 
-#define GLSL_RECORD(name, suffix) { name, suffix, buildGlsl, rejectRun, "GLSLC=glslc", "Vulkan SPIR-V build; no host run" }
+#define GLSL_RECORD(name, suffix) { name, suffix, buildGlsl, rejectRun, "GLSLC=glslc", "Vulkan SPIR-V build; no host run", nullptr }
 const Adapter GLSL_ADAPTER = GLSL_RECORD("glsl", ".glsl");
 const Adapter GLSL_VERT_ADAPTER = GLSL_RECORD("glsl-vert", ".vert");
 const Adapter GLSL_FRAG_ADAPTER = GLSL_RECORD("glsl-frag", ".frag");

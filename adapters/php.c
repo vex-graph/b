@@ -29,4 +29,4 @@ static int runPhp(const char *file, int argc, char **argv, bool buildArtifact) {
 }
 
 const Adapter PHP_ADAPTER = { "php", ".php", buildPhp, runPhp,
-    "php", "parse-check; instance/exec CLI runtime" };
+    "php", "parse-check; instance/exec CLI runtime", nullptr };

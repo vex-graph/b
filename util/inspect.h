@@ -1,5 +1,5 @@
 #pragma once
-#include "annotation.h"
+#include "../util/annotation.h"
 ;;DEFINITION
 /* Standalone registry discovery; this never executes a tool or imports a graph. */
 ;;OVERVIEW

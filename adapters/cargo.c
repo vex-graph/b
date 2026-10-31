@@ -108,4 +108,4 @@ static int runCargo(const char *file, int argc, char **argv, bool buildArtifact)
 }
 
 const Adapter CARGO_ADAPTER = { "cargo", "Cargo.toml", buildCargo, runCargo,
-    "CARGO=cargo,rustc", "offline project build/run" };
+    "CARGO=cargo,rustc", "offline project build/run", nullptr };

@@ -62,6 +62,6 @@ static int runHtml(const char *file, int argc, char **argv, bool buildArtifact) 
 #define HTML_TOOLS "B_BROWSER=xdg-open"
 #endif
 const Adapter HTML_ADAPTER = { "html", ".html", buildHtml, runHtml,
-    HTML_TOOLS, "local browser launch; no standalone build/rendering proof" };
+    HTML_TOOLS, "local browser launch; no standalone build/rendering proof", nullptr };
 const Adapter HTM_ADAPTER = { "web", ".htm", buildHtml, runHtml,
-    HTML_TOOLS, "local browser launch; no standalone build/rendering proof" };
+    HTML_TOOLS, "local browser launch; no standalone build/rendering proof", nullptr };

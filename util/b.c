@@ -133,6 +133,33 @@ static int runCommand(int argc, char **argv) {
     return runFile(file, true, argc - first, argv + first);
 }
 
+// Parse `b assembly [<unit>] [--version <v>] [--force]`; the unit defaults to the current directory.
+static int assemblyCommand(int argc, char **argv) {
+    const char *unit = ".";
+    const char *version = nullptr;
+    enum { ASSEMBLY_INCLUDE_MAX = 32 };
+    const char *includes[ASSEMBLY_INCLUDE_MAX];
+    size_t includeCount = 0;
+    bool force = false;
+    bool haveUnit = false;
+    for (int index = 0; index < argc; ++index) {
+        if (strcmp(argv[index], "--force") == 0)
+            force = true;
+        else if (strcmp(argv[index], "--version") == 0 && index + 1 < argc && *argv[index + 1] != '\0')
+            version = argv[++index];
+        else if (strcmp(argv[index], "--include") == 0 && index + 1 < argc && *argv[index + 1] != '\0' && includeCount < ASSEMBLY_INCLUDE_MAX)
+            includes[includeCount++] = argv[++index];
+        else if (!haveUnit && argv[index][0] != '-') {
+            unit = argv[index];
+            haveUnit = true;
+        } else {
+            THROW("usage: b assembly [<unit>] [--version <version>] [--include <dir>]... [--force]");
+            return EXIT_FAILURE;
+        }
+    }
+    return Territory_writeAssembly(unit, version, includes, includeCount, force) ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
 // Parse b commands and forward build, run, inspection, and upload work.
 int main(int argc, char **argv) {
     if (argc == 1 || (argc == 2 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "help") == 0))) {
@@ -163,10 +190,14 @@ int main(int argc, char **argv) {
     }
     if (strcmp(argv[1], "doctor") == 0 && (argc == 2 || argc == 3))
         return Inspect_doctor(argc == 3 ? argv[2] : nullptr);
+    if (strcmp(argv[1], "assembly") == 0)
+        return assemblyCommand(argc - 2, argv + 2);
     if (strcmp(argv[1], "graph") == 0)
         return Graph_command(argc - 2, argv + 2);
     if (argc >= 3 && strcmp(argv[1], "build") == 0 && strcmp(argv[2], "workspace") == 0)
         return Workspace_command(argc - 3, argv + 3);
+    if (strcmp(argv[1], "build") == 0 && argc == 2)
+        return Territory_buildAll(nullptr) ? EXIT_SUCCESS : EXIT_FAILURE;
     if (strcmp(argv[1], "build") == 0 && (argc == 3 || argc == 4)) {
         const Adapter *adapter = Adapter_forName(argv[2]);
         if (adapter == nullptr) {

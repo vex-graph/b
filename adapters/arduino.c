@@ -39,7 +39,6 @@
  */
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -300,4 +299,4 @@ int Arduino_upload(int argc, char **argv) {
 }
 
 const Adapter ARDUINO_ADAPTER = { "arduino", ".ino", buildArduino, runArduino,
-    "ARDUINO_CLI=arduino-cli", "firmware build/upload; no host run" };
+    "ARDUINO_CLI=arduino-cli", "firmware build/upload; no host run", nullptr };

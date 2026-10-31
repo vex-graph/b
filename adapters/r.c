@@ -63,6 +63,6 @@ static int runR(const char *file, int argc, char **argv, bool buildArtifact) {
 }
 
 const Adapter R_ADAPTER = { "r", ".R", buildR, runR,
-    "Rscript", "parse-check; instance/exec runtime" };
+    "Rscript", "parse-check; instance/exec runtime", nullptr };
 const Adapter R_LOWER_ADAPTER = { "R", ".r", buildR, runR,
-    "Rscript", "parse-check; instance/exec runtime" };
+    "Rscript", "parse-check; instance/exec runtime", nullptr };

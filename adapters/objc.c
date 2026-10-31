@@ -100,4 +100,4 @@ static int runObjc(const char *file, int argc, char **argv, bool buildArtifact) 
 }
 
 const Adapter OBJC_ADAPTER = { "objc", ".m", buildObjc, runObjc,
-    "CC=clang", "macOS Foundation build/exec; source instance rejects" };
+    "CC=clang", "macOS Foundation build/exec; source instance rejects", nullptr };

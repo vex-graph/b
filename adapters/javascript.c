@@ -31,8 +31,8 @@ static int runJavascript(const char *file, int argc, char **argv, bool buildArti
 }
 
 const Adapter JAVASCRIPT_ADAPTER = { "javascript", ".js", buildJavascript, runJavascript,
-    "node", "syntax-check; instance/exec runtime" };
+    "node", "syntax-check; instance/exec runtime", nullptr };
 const Adapter NODE_ADAPTER = { "node", ".mjs", buildJavascript, runJavascript,
-    "node", "syntax-check; instance/exec runtime" };
+    "node", "syntax-check; instance/exec runtime", nullptr };
 const Adapter JS_ADAPTER = { "js", ".cjs", buildJavascript, runJavascript,
-    "node", "syntax-check; instance/exec runtime" };
+    "node", "syntax-check; instance/exec runtime", nullptr };

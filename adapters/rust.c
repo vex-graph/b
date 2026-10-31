@@ -95,5 +95,18 @@ static int runRust(const char *file, int argc, char **argv, bool buildArtifact) 
     return status;
 }
 
+// Return an owned path to the top-level Rust source that defines main(), or nullptr.
+static char *entryRust(const char *project) {
+    size_t count = 0;
+    bool ok = false;
+    char **sources = Util_collectSources(project, "/*.rs", &count, &ok);
+    char *found = nullptr;
+    for (size_t i = 0; ok && i < count && found == nullptr; ++i)
+        if (Util_fileContains(sources[i], "fn main("))
+            found = Util_combine(sources[i], "");
+    Util_freeSources(sources, count);
+    return found;
+}
+
 const Adapter RUST_ADAPTER = { "rust", ".rs", buildRust, runRust,
-    "rustc", "native build/exec; source instance rejects" };
+    "rustc", "native build/exec; source instance rejects", entryRust };

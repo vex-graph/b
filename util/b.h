@@ -13,7 +13,7 @@
 // Util_freeEnvironment).
 #pragma once
 
-#include "annotation.h"
+#include "../util/annotation.h"
 
 ;;DEFINITION
 /* Shared standalone services for every adapter. Arguments and inherited
@@ -67,6 +67,10 @@ int Util_checkSources(const char *project, const char *pattern, char **prefix, s
 
 char **Util_collectSources(const char *project, const char *extension, size_t *count, bool *ok);
 void Util_freeSources(char **sources, size_t count);
+// Report whether a readable regular file's bytes contain the needle (whole-file read; source-sized inputs).
+bool Util_fileContains(const char *path, const char *needle);
+// Read a whole regular file as NUL-terminated text; nullptr when it cannot be read. Caller frees.
+char *Util_readText(const char *path);
 
 char **Util_environmentWith(const char *name, const char *value);
 void Util_freeEnvironment(char **environment);

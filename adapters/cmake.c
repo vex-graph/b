@@ -57,4 +57,4 @@ static int runCmake(const char *file, int argc, char **argv, bool buildArtifact)
 }
 
 const Adapter CMAKE_ADAPTER = { "cmake", nullptr, buildCmake, runCmake,
-    "cmake", "project configure/build; no source run" };
+    "cmake", "project configure/build; no source run", nullptr };
