@@ -1,6 +1,6 @@
 #pragma once
 #include "annotation.h"
-#include "adapters/adapter.h"
+#include "adapter.h"
 ;;DEFINITION
 /* Installed PHP CLI script execution and parse-only checks, not a web server. */
 ;;OVERVIEW

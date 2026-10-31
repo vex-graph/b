@@ -1,5 +1,5 @@
-#include "adapters/glsl.h"
-#include "b.h"
+#include "glsl.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* GLSL compilation defaults to shaderc's glslc, targeting Vulkan SPIR-V;

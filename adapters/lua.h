@@ -1,6 +1,6 @@
 #pragma once
-#include "annotation.h"
-#include "adapters/adapter.h"
+#include "../util/annotation.h"
+#include "../adapters/adapter.h"
 ;;DEFINITION
 /* Lua delegates execution and parse-only validation to installed native tools. */
 ;;OVERVIEW

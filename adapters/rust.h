@@ -6,5 +6,5 @@
 /* PUBLIC RECORD: RUST_ADAPTER; fields name="rust", extension=".rs",
  * build=buildRust, run=runRust. No functions or owned state in this header.
  */
-#include "adapters/adapter.h"
+#include "adapter.h"
 extern const Adapter RUST_ADAPTER;

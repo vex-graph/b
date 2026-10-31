@@ -1,5 +1,5 @@
-#include "adapters/zig.h"
-#include "b.h"
+#include "zig.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* Zig compiles one explicit source root with ReleaseSafe; sibling imports belong

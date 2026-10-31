@@ -1,6 +1,6 @@
 #pragma once
 #include "annotation.h"
-#include "adapters/adapter.h"
+#include "adapter.h"
 ;;DEFINITION
 /* Cargo orchestrates existing Rust manifests without guessing binary targets. */
 ;;OVERVIEW

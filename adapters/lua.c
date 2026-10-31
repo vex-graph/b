@@ -1,5 +1,5 @@
-#include "adapters/lua.h"
-#include "b.h"
+#include "lua.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* Lua source runs through Lua in both modes. Build uses luac -p independently

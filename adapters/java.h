@@ -6,5 +6,5 @@
 /* PUBLIC RECORD: JAVA_ADAPTER; fields name="java", extension=".java",
  * build=buildJava, run=runJava. No functions or owned state in this header.
  */
-#include "adapters/adapter.h"
+#include "adapter.h"
 extern const Adapter JAVA_ADAPTER;

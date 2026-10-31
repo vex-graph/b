@@ -1,6 +1,6 @@
 #pragma once
 #include "annotation.h"
-#include "adapters/adapter.h"
+#include "adapter.h"
 ;;DEFINITION
 /* Local HTML browser-launch adapter; web builds belong to declared project tools. */
 ;;OVERVIEW

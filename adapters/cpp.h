@@ -1,6 +1,6 @@
 #pragma once
 #include "annotation.h"
-#include "adapters/adapter.h"
+#include "adapter.h"
 ;;DEFINITION
 /* Strict C++23 source/native compiler adapter using the installed CXX tool. */
 ;;OVERVIEW

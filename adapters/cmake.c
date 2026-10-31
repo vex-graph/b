@@ -1,5 +1,5 @@
-#include "adapters/cmake.h"
-#include "b.h"
+#include "cmake.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* b orchestrates an installed CMake rather than translating its project.

@@ -1,5 +1,5 @@
-#include "adapters/php.h"
-#include "b.h"
+#include "php.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* PHP uses the installed CLI in both modes. Build checks each top-level .php

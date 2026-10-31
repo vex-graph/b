@@ -1,6 +1,6 @@
-#include "adapters/workspace.h"
-#include "adapters/adapter.h"
-#include "b.h"
+#include "workspace.h"
+#include "adapter.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* The standalone workspace command borrows the assess/build separation from

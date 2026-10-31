@@ -1,6 +1,6 @@
 #pragma once
 #include "annotation.h"
-#include "adapters/adapter.h"
+#include "adapter.h"
 ;;DEFINITION
 /* Explicit PostgreSQL script execution; no default database is guessed. */
 ;;OVERVIEW

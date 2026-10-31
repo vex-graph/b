@@ -1,5 +1,5 @@
-#include "adapters/swift.h"
-#include "b.h"
+#include "swift.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* Swift instance delegates a single script to swift; exec uses swiftc then

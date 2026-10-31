@@ -1,6 +1,6 @@
 #pragma once
 #include "annotation.h"
-#include "adapters/adapter.h"
+#include "adapter.h"
 ;;DEFINITION
 /* POSIX sh script execution and non-evaluating syntax checks. */
 ;;OVERVIEW

@@ -1,6 +1,6 @@
 // Metal build-only adapter: Apple tools emit a metallib, never host execution.
 #pragma once
-#include "adapters/adapter.h"
+#include "adapter.h"
 ;;DEFINITION
 /* Build-only Apple Metal adapter. Borrowed source directory, caller-owned output
  * directory on success, unchanged output on failure. Requires installed tools.

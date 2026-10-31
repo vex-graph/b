@@ -3,8 +3,8 @@
 // executable with the C23 dialect and the project's build flags; a single
 // source is compiled on demand for `run exec`. C has no source runtime, so
 // `run instance` rejects and points at `run exec`. The compiler is $CC or cc.
-#include "adapters/c.h"
-#include "b.h"
+#include "c.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* C compilation produces one native executable from supplied sources, using

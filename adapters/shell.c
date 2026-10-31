@@ -1,5 +1,5 @@
-#include "adapters/shell.h"
-#include "b.h"
+#include "shell.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* POSIX shell scripts run through /bin/sh in either mode. Build checks each

@@ -1,5 +1,5 @@
-#include "adapters/html.h"
-#include "b.h"
+#include "html.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* HTML runs by opening the original local document in a browser; index.html is

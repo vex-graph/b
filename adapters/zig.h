@@ -1,6 +1,6 @@
 #pragma once
 #include "annotation.h"
-#include "adapters/adapter.h"
+#include "adapter.h"
 ;;DEFINITION
 /* Zig native source compilation; project build.zig ownership remains native. */
 ;;OVERVIEW

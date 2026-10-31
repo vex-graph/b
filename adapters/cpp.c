@@ -1,5 +1,5 @@
-#include "adapters/cpp.h"
-#include "b.h"
+#include "cpp.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* C++23 uses CXX or c++ to compile native programs with strict warnings. Exec

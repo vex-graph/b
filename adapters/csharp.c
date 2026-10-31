@@ -4,8 +4,8 @@
 // Instance delegates to dotnet's file runner (which internally compiles); it
 // does not publish an application. Multi-file/project discovery is not guessed.
 // OVERVIEW: compileCsharp; buildCsharp (one entry); runCsharp; CSHARP_ADAPTER.
-#include "adapters/csharp.h"
-#include "b.h"
+#include "csharp.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* .NET 10+ provides file-based C# applications without a hand-written project.

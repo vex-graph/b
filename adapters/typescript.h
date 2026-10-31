@@ -1,6 +1,6 @@
 #pragma once
 #include "annotation.h"
-#include "adapters/adapter.h"
+#include "adapter.h"
 ;;DEFINITION
 /* Native Node TypeScript type-stripping adapter, not a TypeScript type checker. */
 ;;OVERVIEW

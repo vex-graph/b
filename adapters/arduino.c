@@ -45,7 +45,7 @@
 #include <unistd.h>
 
 #include "../util/b.h"
-#include "adapters/adapter.h"
+#include "adapter.h"
 
 // Resolve the Arduino CLI override, PATH executable, or macOS IDE-bundled tool.
 static const char *cli(void) {

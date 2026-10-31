@@ -1,5 +1,5 @@
-#include "adapters/metal.h"
-#include "b.h"
+#include "metal.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* Apple Metal sources compile through xcrun metal to AIR and then metallib.

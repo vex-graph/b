@@ -3,8 +3,8 @@
 // 2021) into one native executable; `run exec` compiles a single file on demand.
 // Rust has no source runtime, so `run instance` rejects. Requires rustc on PATH;
 // b does not download it. Cargo projects use the separate cargo adapter.
-#include "adapters/rust.h"
-#include "b.h"
+#include "rust.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* Rust uses one rustc crate root, never treats every module as a separate root.

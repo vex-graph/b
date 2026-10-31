@@ -1,5 +1,5 @@
-#include "adapters/javascript.h"
-#include "b.h"
+#include "javascript.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* Node runs JavaScript source in either mode; build syntax-checks top-level .js/.mjs/.cjs

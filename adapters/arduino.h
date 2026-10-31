@@ -11,6 +11,6 @@
  * PUBLIC FUNCTION: Arduino_upload — validate argv and compile before flashing.
  * No owned state in this header; behavior lives in arduino.c.
  */
-#include "adapters/adapter.h"
+#include "adapter.h"
 extern const Adapter ARDUINO_ADAPTER;
 int Arduino_upload(int argc, char **argv);

@@ -1,5 +1,5 @@
-#include "adapters/cargo.h"
-#include "b.h"
+#include "cargo.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* Existing Cargo.toml owns the package graph and native target selection. Build

@@ -1,5 +1,5 @@
-#include "adapters/go.h"
-#include "b.h"
+#include "go.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* Go directory builds compile the selected package with go -C project build .;

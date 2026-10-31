@@ -5,8 +5,8 @@
 // artifact, its output and the generator argv that produces it. The reader
 // walks that schema directly; it builds no general JSON tree.
 // OVERVIEW: Graph_command; parseGraph; plan; buildTarget; readFile; hashing.
-#include "adapters/graph.h"
-#include "b.h"
+#include "graph.h"
+#include "../util/b.h"
 
 #include <stdint.h>
 #include <stdlib.h>

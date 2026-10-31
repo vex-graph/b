@@ -1,6 +1,6 @@
 #pragma once
 #include "annotation.h"
-#include "adapters/adapter.h"
+#include "adapter.h"
 ;;DEFINITION
 /* npm project-script orchestration. Existing package.json owns its commands. */
 ;;OVERVIEW

@@ -1,6 +1,6 @@
 // GLSL build-only adapter: shaderc glslc emits Vulkan SPIR-V, never host execution.
 #pragma once
-#include "adapters/adapter.h"
+#include "adapter.h"
 ;;DEFINITION
 /* Immutable build-only shader records. Directory inputs are borrowed; successful
  * output is owned by the caller. GLSLC selects shaderc; GLSL_BACKEND=glslang

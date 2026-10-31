@@ -8,6 +8,6 @@
  * R_LOWER_ADAPTER {name="R", extension=".r"}; both build=buildR, run=runR.
  * No functions or owned state in this header.
  */
-#include "adapters/adapter.h"
+#include "adapter.h"
 extern const Adapter R_ADAPTER;
 extern const Adapter R_LOWER_ADAPTER;

@@ -1,5 +1,5 @@
-#include "adapters/npm.h"
-#include "b.h"
+#include "npm.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* b delegates to the scripts declared in package.json, never invents a bundler.

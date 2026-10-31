@@ -12,9 +12,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "adapters/territory.h"
-#include "adapters/adapter.h"
-#include "b.h"
+#include "territory.h"
+#include "adapter.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* The walk is cold and total: every directory under the claimed root is read

@@ -6,11 +6,11 @@
 // OVERVIEW: usage; regularFile; runFile (adapter, else existing executable);
 // generateCommand; runCommand; main (generate | run | breeze | build | box).
 #include "b.h"
-#include "adapters/adapter.h"
-#include "adapters/arduino.h"
-#include "adapters/graph.h"
-#include "adapters/territory.h"
-#include "adapters/workspace.h"
+#include "../adapters/adapter.h"
+#include "../adapters/arduino.h"
+#include "../adapters/graph.h"
+#include "../adapters/territory.h"
+#include "../adapters/workspace.h"
 #include "box.h"
 #include "inspect.h"
 

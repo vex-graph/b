@@ -1,5 +1,5 @@
-#include "adapters/typescript.h"
-#include "b.h"
+#include "typescript.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* Recent Node versions execute erasable TypeScript through native type stripping.

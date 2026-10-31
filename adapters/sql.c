@@ -1,5 +1,5 @@
-#include "adapters/sql.h"
-#include "b.h"
+#include "sql.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* SQL scripts execute through psql only when B_SQL_DATABASE explicitly names a

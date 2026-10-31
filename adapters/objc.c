@@ -1,5 +1,5 @@
-#include "adapters/objc.h"
-#include "b.h"
+#include "objc.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* Objective-C uses clang, ARC and Foundation on Apple Silicon/macOS 14+.

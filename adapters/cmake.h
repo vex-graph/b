@@ -1,6 +1,6 @@
 #pragma once
 #include "annotation.h"
-#include "adapters/adapter.h"
+#include "adapter.h"
 
 ;;DEFINITION
 /* Build-backend contract for existing CMake projects; no compiler replacement. */

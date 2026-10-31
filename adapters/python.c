@@ -4,8 +4,8 @@
 // `build` is a bytecode syntax check: py_compile runs with PYTHONPYCACHEPREFIX
 // redirected to the out-of-tree output directory, so no __pycache__ is written
 // into the source tree.
-#include "adapters/python.h"
-#include "b.h"
+#include "python.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* Python executes through the installed python3 interpreter in both modes;

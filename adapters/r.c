@@ -4,8 +4,8 @@
 // Build parses each top-level .R/.r file without evaluating it and returns the
 // checked directory, not a fabricated binary. Package installation is not owned.
 // OVERVIEW: buildR; runR; R_ADAPTER and R_LOWER_ADAPTER (.R/.r aliases).
-#include "adapters/r.h"
-#include "b.h"
+#include "r.h"
+#include "../util/b.h"
 
 ;;DEFINITION
 /* Rscript --vanilla supplies a clean startup without saved workspaces/profiles.
