@@ -16,7 +16,7 @@ export B_HOME="$state"
 bin="$state/cli"
 stale=0
 [ -x "$bin" ] || stale=1
-for f in "$here/util/b.c" "$here/util/util.c" "$here/util/b.h" "$here/util/inspect.c" "$here/util/inspect.h" "$here/util/box.c" "$here/util/box.h" "$here/util/annotation.h" "$here"/project/*.c "$here"/project/*.h "$here"/adapters/*.c "$here"/adapters/*.h; do
+for f in "$here/util/b.c" "$here/util/util.c" "$here/util/b.h" "$here/util/inspect.c" "$here/util/inspect.h" "$here/util/box.c" "$here/util/box.h" "$here/util/annotation.h" "$here"/adapters/*.c "$here"/adapters/*.h; do
     [ -e "$f" ] || continue
     [ "$f" -nt "$bin" ] && stale=1
 done
@@ -42,7 +42,7 @@ if [ "$stale" = 1 ]; then
         extra_flags="-Dnullptr=0"
     fi
 
-    "${CC:-cc}" -std="$std_flag" -O2 -Wall -Wextra -Werror -I"$here" -I"$here/util" $extra_flags -o "$temp" "$here/util/b.c" "$here/util/util.c" "$here/util/inspect.c" "$here/util/box.c" "$here"/project/*.c "$here"/adapters/*.c
+    "${CC:-cc}" -std="$std_flag" -O2 -Wall -Wextra -Werror -I"$here" -I"$here/util" $extra_flags -o "$temp" "$here/util/b.c" "$here/util/util.c" "$here/util/inspect.c" "$here/util/box.c" "$here"/adapters/*.c
     mv "$temp" "$bin"
     trap - EXIT HUP INT TERM
 fi

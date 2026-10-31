@@ -590,7 +590,8 @@ specification replaces.
 
 Not yet implemented, in dependency order:
 
-- [ ] territory resolution and `b generate` writing `.b/workspace.json`
+- [x] `b generate` claims a territory and writes `.b/workspace.json` with units
+- [ ] build/run/box resolve upward to the territory and refuse outside one
 - [ ] unit discovery, kind classification and entry detection per adapter
 - [ ] include-root derivation and inferred dependencies
 - [ ] library kinds with per-target spelling

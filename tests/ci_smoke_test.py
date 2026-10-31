@@ -38,6 +38,62 @@ class CiSmokeTest(unittest.TestCase):
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return result.stdout.strip()
 
+    def invoke_result(self, *arguments, expected=0, cwd=None):
+        result = subprocess.run([str(self.binary), *map(str, arguments)],
+                                cwd=cwd or ROOT, env=self.environment,
+                                capture_output=True, text=True, timeout=90)
+        self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
+        return result
+
+    def test_generate_claims_a_territory(self):
+        with tempfile.TemporaryDirectory(prefix="b-ci-generate-") as scratch:
+            root = Path(scratch) / "territory"
+            unit = root / "src" / "hello"
+            unit.mkdir(parents=True)
+            (unit / "main.c").write_text("int main(void) { return 0; }\n")
+            (root / "README.md").write_text("# prose, not a unit\n")
+
+            claimed = self.invoke("generate", root, cwd=root)
+            self.assertIn("claimed", claimed)
+            workspace = root / ".b" / "workspace.json"
+            self.assertTrue(workspace.is_file(), "generate did not write .b/workspace.json")
+            document = json.loads(workspace.read_text())
+            self.assertEqual(document["schemaVersion"], 1)
+            self.assertEqual(document["root"], str(root.resolve()))
+            units = {entry["dir"]: entry["sources"] for entry in document["units"]}
+            self.assertEqual(list(units), ["src/hello"])
+            self.assertEqual(units["src/hello"], ["main.c"])
+
+            # Claiming the same root again regenerates the same facts.
+            self.invoke("generate", root)
+            self.assertEqual(json.loads(workspace.read_text()), document)
+
+            # A nested claim is refused, and the nested tree gains no marker.
+            nested = unit / "inner"
+            nested.mkdir()
+            refused = self.invoke_result("generate", nested, expected=1)
+            self.assertIn("already inside the territory", refused.stderr)
+            self.assertFalse((nested / ".b").exists())
+            self.assertEqual(json.loads(workspace.read_text()), document)
+
+    def test_run_and_breeze_are_one_verb(self):
+        with tempfile.TemporaryDirectory(prefix="b-ci-run-") as scratch:
+            project = Path(scratch) / "hello"
+            project.mkdir()
+            (project / "main.c").write_text(
+                '#include <stdio.h>\n'
+                'int main(int argc, char **argv) {\n'
+                '    printf("project:");\n'
+                '    for (int index = 1; index < argc; ++index) printf("%s%s", index == 1 ? "" : " ", argv[index]);\n'
+                '    putchar(\'\\n\');\n'
+                '    return 0;\n'
+                '}\n'
+            )
+            self.assertEqual(self.invoke("breeze", "main.c", "--", "one", "two", cwd=project),
+                             "project:one two")
+            self.assertEqual(self.invoke("run", "main.c", "--", "alias", cwd=project),
+                             "project:alias")
+
     def test_project_run_build_and_self_box(self):
         with tempfile.TemporaryDirectory(prefix="b-ci-project-") as scratch:
             temp = Path(scratch)
@@ -54,22 +110,16 @@ class CiSmokeTest(unittest.TestCase):
             )
 
             help_text = self.invoke("--help")
-            self.assertIn("b breeze exec", help_text)
-            self.assertIn("b run <exec|instance>", help_text)
-            self.invoke("project", "ci-smoke", project)
-            refresh = self.invoke("refresh", "ci-smoke")
-            self.assertIn("1 adapter files indexed", refresh)
-            index = self.home / "projects" / "ci-smoke" / "index.tsv"
-            self.assertIn("main.c", index.read_text())
-
-            self.assertEqual(self.invoke("breeze", "exec", "main.c", "--in", "ci-smoke",
-                                         "--", "one", "two"), "project:one two")
-            self.assertEqual(self.invoke("run", "exec", "main.c", "--in", "ci-smoke",
-                                         "--", "alias"), "project:alias")
+            self.assertIn("b breeze <file>", help_text)
+            self.assertIn("b run <file>", help_text)
+            self.assertIn("b generate", help_text)
+            self.assertNotIn("breeze exec", help_text)
+            self.assertNotIn("instance", help_text)
+            self.assertNotIn("--in", help_text)
 
             standalone = temp / "standalone.c"
             standalone.write_text('int main(void) { return 0; }\n')
-            self.assertEqual(self.invoke("breeze", "exec", standalone), "")
+            self.assertEqual(self.invoke("breeze", standalone), "")
 
             stage = temp / "b-stage"
             stage.mkdir()
@@ -171,7 +221,7 @@ class CiSmokeTest(unittest.TestCase):
                                         env=self.environment, capture_output=True,
                                         text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertIn("b breeze exec", result.stdout)
+            self.assertIn("b breeze <file>", result.stdout)
 
             install_dir = temp / "installed-bin"
             install_state = temp / "installed-state"
@@ -224,7 +274,7 @@ class CiSmokeTest(unittest.TestCase):
             )
             self.assertEqual(installed_help.returncode, 0,
                              installed_help.stdout + installed_help.stderr)
-            self.assertIn("b breeze exec", installed_help.stdout)
+            self.assertIn("b breeze <file>", installed_help.stdout)
 
 
 if __name__ == "__main__":
