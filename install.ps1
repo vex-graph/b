@@ -47,12 +47,13 @@ try {
 
     $unpacked = Join-Path $scratch 'unpacked'
     New-Item -ItemType Directory -Path $unpacked | Out-Null
-    # GNU tar (MSYS2, Git Bash) reads "C:\..." or "C:/..." as host:path and
-    # tries to reach a machine named C. A bare file name carries no colon, so
-    # unpack from the scratch directory; bsdtar (System32\tar.exe) agrees.
+    # GNU tar (MSYS2, Git Bash) resolves no drive-letter path: an archive named
+    # "C:\..." is read as host:path, and a -C directory outside its own
+    # namespace does not open. Bare relative names reach both, and bsdtar
+    # (System32\tar.exe) accepts the same spelling.
     Push-Location $scratch
     try {
-        & tar.exe -xzf $asset -C $unpacked
+        & tar.exe -xzf $asset -C 'unpacked'
     } finally {
         Pop-Location
     }
