@@ -47,7 +47,15 @@ try {
 
     $unpacked = Join-Path $scratch 'unpacked'
     New-Item -ItemType Directory -Path $unpacked | Out-Null
-    & tar.exe -xzf $archive -C $unpacked
+    # GNU tar (MSYS2, Git Bash) reads "C:\..." or "C:/..." as host:path and
+    # tries to reach a machine named C. A bare file name carries no colon, so
+    # unpack from the scratch directory; bsdtar (System32\tar.exe) agrees.
+    Push-Location $scratch
+    try {
+        & tar.exe -xzf $asset -C $unpacked
+    } finally {
+        Pop-Location
+    }
     if ($LASTEXITCODE -ne 0) { Stop-Install 'cannot unpack the archive' }
     if (-not (Test-Path (Join-Path $unpacked 'b.cmd')) -or
         -not (Test-Path (Join-Path $unpacked 'b-core.exe'))) {
