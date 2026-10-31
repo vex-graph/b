@@ -541,6 +541,37 @@ directories count, whether a zero-match is a pass, how failures aggregate.
 The same rule as the storage law: the tool that compiles does not also decide
 what deserves to be compiled.
 
+## What is frozen
+
+The point of finishing this design is that it stays finished. These are the
+things a future change is not allowed to touch:
+
+- the six verbs and their arguments
+- `.b/` as the only marker, and `generate` as the only act that claims ground
+- a unit is a directory; three kinds; `objects` stops after compiling
+- `schemaVersion` numbers are never reused and never renumbered, and every past
+  parser stays in the binary, so a file written today reads in ten years
+- one assembly file per target, named by the canonical target
+- version declared by the author; b refuses without one
+- three writers, three files, and no generated file is ever authoritative
+- the six target names, spelled exactly as the Platform Support Floor spells them
+
+Adding a language is a new file in `adapters/`. Adding a platform is a row in
+the spelling and bundle tables. Neither touches the list above. That asymmetry —
+a small total core, a wide additive edge — is the design; everything else here
+is detail.
+
+What is expected to change, and is therefore **not** part of the contract:
+bundle layouts (`Info.plist` keys, `.desktop` fields, PE resources track OS
+releases), icon encoders, and the compiler invocations adapters emit.
+
+The invariant that matters most is the third writer rule. The old design failed
+because a generated file was also authoritative: `tools/workspace.c` produced
+`workspace.json`, the file became truth, and when the generator was deleted the
+registry kept claiming `targets: []`. Nothing in this design can rot that way,
+because the only file a human keeps is the assembly, and it is the only file `b`
+never rewrites.
+
 ## Open questions
 
 - **Icon rendering.** Deriving `.icns` / `.ico` / PNG sets needs either an image
