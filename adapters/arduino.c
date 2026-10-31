@@ -9,7 +9,7 @@
 // or edits are made to the user's source.
 // OVERVIEW: cli; stageFile; sketchDirectory; boardFromHeader; compileSketch; buildArduino; runArduino rejects
 // host execution; Arduino_upload validates flags; ARDUINO_ADAPTER.
-#include "util/annotation.h"
+#include "../util/annotation.h"
 
 ;;DEFINITION
 /* Arduino firmware runs on a board, not the host. This adapter reads the
@@ -44,7 +44,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "util/b.h"
+#include "../util/b.h"
 #include "adapters/adapter.h"
 
 // Resolve the Arduino CLI override, PATH executable, or macOS IDE-bundled tool.
