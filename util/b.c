@@ -71,6 +71,7 @@ static bool regularFile(const char *path) {
 }
 
 // Dispatch a source file to its adapter or execute an existing native binary.
+// Refuses if the file lives outside a claimed territory.
 static int runFile(const char *input, bool buildArtifact, int argc, char **argv) {
     if (!regularFile(input)) {
         THROW("run file does not exist or is not regular: %s", input);
@@ -81,10 +82,24 @@ static int runFile(const char *input, bool buildArtifact, int argc, char **argv)
         THROW("adapter %s does not support running files", (*adapter).name);
         return EXIT_FAILURE;
     }
-    if (adapter != nullptr)
-        return (*adapter).run(input, argc, argv, buildArtifact);
     char *file = realpath(input, nullptr);
-    if (file == nullptr || access(file, X_OK) != 0) {
+    if (file == nullptr) {
+        THROW("run file cannot be resolved: %s", input);
+        return EXIT_FAILURE;
+    }
+    // Refuse if the file lives outside a claimed territory.
+    char *directory = Util_parentDirectory(file);
+    char *territoryRoot = Territory_find(directory);
+    free(directory);
+    if (territoryRoot == nullptr) {
+        THROW("run outside a claimed territory; run b generate <directory> first");
+        free(file);
+        return EXIT_FAILURE;
+    }
+    free(territoryRoot);
+    if (adapter != nullptr)
+        return (*adapter).run(file, argc, argv, buildArtifact);
+    if (access(file, X_OK) != 0) {
         THROW("file is not an executable or a supported source: %s", input);
         free(file);
         return EXIT_FAILURE;
@@ -166,6 +181,17 @@ int main(int argc, char **argv) {
             free(project);
             return EXIT_FAILURE;
         }
+        // Refuse if the build directory lives outside a claimed territory.
+        char *directory = Util_parentDirectory(project);
+        char *territoryRoot = Territory_find(directory);
+        free(directory);
+        if (territoryRoot == nullptr) {
+            THROW("build outside a claimed territory; run b generate <directory> first");
+            free(territoryRoot);
+            free(project);
+            return EXIT_FAILURE;
+        }
+        free(territoryRoot);
         char *output = nullptr;
         int status = (*adapter).build(project, &output);
         if (status == 0)

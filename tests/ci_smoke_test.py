@@ -89,6 +89,8 @@ class CiSmokeTest(unittest.TestCase):
                 '    return 0;\n'
                 '}\n'
             )
+            # Claim a territory first — run/breeze now require it.
+            self.invoke("generate", project, cwd=project)
             self.assertEqual(self.invoke("breeze", "main.c", "--", "one", "two", cwd=project),
                              "project:one two")
             self.assertEqual(self.invoke("run", "main.c", "--", "alias", cwd=project),
@@ -116,6 +118,9 @@ class CiSmokeTest(unittest.TestCase):
             self.assertNotIn("breeze exec", help_text)
             self.assertNotIn("instance", help_text)
             self.assertNotIn("--in", help_text)
+
+            # Claim a territory for standalone file execution.
+            self.invoke("generate", temp, cwd=temp)
 
             standalone = temp / "standalone.c"
             standalone.write_text('int main(void) { return 0; }\n')
