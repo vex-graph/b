@@ -3,8 +3,9 @@
 // thing that makes the tree below b's: no .git sniffing, no cwd guess, no home
 // sweep. This class answers where the territory is, where its workspace file
 // lives, and how to claim one.
-// OVERVIEW: find; workspacePath; claim. Claim writes .b/workspace.json, the one
-// disposable fact file, and refuses a nested claim.
+// OVERVIEW: find; workspacePath; claim; buildAll; writeAssembly. Claim writes .b/workspace.json, the one
+// disposable fact file, and refuses a nested claim. buildAll builds the units
+// under a directory; writeAssembly authors one unit's b.assembly.json once.
 #pragma once
 
 #include "../util/annotation.h"
@@ -22,6 +23,10 @@
  *     nullptr when the tree is unclaimed.
  * Territory_workspacePath — <root>/.b/workspace.json, caller-owned.
  * Territory_claim — create .b/, walk the tree once, write the inventory.
+ * Territory_buildAll — build every unit at or below a directory, scoped by the
+ *     caller's location; one line per unit and a summary.
+ * Territory_writeAssembly — author one unit's b.assembly.json once, with its
+ *     include roots; force replaces it.
  * Claim is idempotent at the same root and refuses a nested claim; a failed
  * claim leaves no workspace file behind.
  */

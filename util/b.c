@@ -4,7 +4,7 @@
 // contract; it never contains per-language logic. Run and breeze are one verb
 // spelled twice: build the unit, box it, execute it.
 // OVERVIEW: usage; regularFile; runFile (adapter, else existing executable);
-// generateCommand; runCommand; main (generate | run | breeze | build | box).
+// generateCommand; runCommand; assemblyCommand; main (generate | run | breeze | build | assembly | box).
 #include "b.h"
 #include "../adapters/adapter.h"
 #include "../adapters/arduino.h"
@@ -32,6 +32,9 @@
  * regular source/executable input; runFile — adapter/native dispatch;
  * generateCommand — claim and inventory; runCommand — strip the optional
  * separator and dispatch.
+ * assemblyCommand — parse b assembly [<unit>] [--version] [--include <dir>]...
+ *     [--force] and author one unit's b.assembly.json once; build with no argument
+ *     builds every unit under the current directory via Territory_buildAll.
  * BOX SEAM: BoxManifest_writeTemplate (create manifest) and
  * BoxManifest_load/export/free (box), both documented in box.h.
  * TERRITORY SEAM: Territory_claim, documented in territory.h.

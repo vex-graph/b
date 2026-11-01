@@ -28,6 +28,7 @@
  * Util_execute; Util_executeBuild;
  * Util_executeWithEnvironment; Util_runCommand; Util_checkSources;
  * Util_collectSources; Util_freeSources;
+ * Util_fileContains; Util_readText (read-only file helpers);
  * Util_environmentWith; Util_freeEnvironment.
  * MACRO: THROW — one recoverable cold rejection diagnostic.
  * No owned class or persistent state; callers release successful allocations.
