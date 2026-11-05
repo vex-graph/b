@@ -64,9 +64,9 @@ language run adapters alike. Adapters without a run operation reject instead of
 being invoked as though they could run.
 
 ```sh
-b project my-app /path/to/my-app
-b refresh my-app
-b breeze exec src/main.py --in my-app
+b.sh project my-app /path/to/my-app
+b.sh refresh my-app
+b.sh breeze exec src/main.py --in my-app
 ```
 
 `b refresh <name>` recursively indexes paths recognized by the adapter registry,
@@ -93,7 +93,7 @@ downloads a toolchain automatically.
 | Adapter / CLI name | Required tool | What works today |
 | --- | --- | --- |
 | Arduino / `arduino` | Arduino CLI and installed board core | Sketch compilation and explicit compile-before-upload |
-| C / `c` | `cc` or `CC` | Single-file exec; directory build into one executable with `main()` |
+| C / `c` | `cc` or `CC` | Directory build into one executable with `main()`, or `lib<unit>.a` when there is none |
 | C# / `csharp` | .NET SDK 10+ (`dotnet`) | File-based `.cs` instance/exec; directory build with exactly one `.cs` entry |
 | C++ / `cpp` (`cxx`, `c++`) | `c++` or `CXX` | C++23 exec and directory builds for `.cpp`/`.cc`/`.cxx` |
 | Cargo / `cargo` | `cargo` or `CARGO`, `rustc` | Existing Cargo.toml builds/runs offline; external target directory, no guessed executable |
@@ -133,30 +133,30 @@ Go instance preserves `go run`'s wrapper status (typically 1 for a failed
 program); Go exec preserves the native program's exit code.
 
 ```sh
-b breeze exec ./hello.c -- one two
-b breeze exec ./Hello.java -- world
-b breeze instance ./app.py
-b breeze exec ./hello.rs
-b breeze exec ./hello.cs -- world
-b breeze instance ./hello.R -- world
-b build c ./native
-b build java ./java-src
-b build python ./scripts
-b build rust ./crate
-b build csharp ./csharp-src
-b build r ./r-scripts
-b upload arduino ./Blink/Blink.ino --port /dev/cu.YOUR_BOARD
-b breeze instance ./hello.swift -- world
-b breeze exec ./hello.swift
-b breeze exec ./hello.m
-b breeze exec ./hello.cpp
-b breeze instance ./hello.js -- world
-b breeze instance ./hello.ts
-b breeze instance ./index.html
-b breeze instance ./hello.php
-b breeze instance ./script.sh
-b build npm ./web-project
-b breeze exec ./web-project/package.json -- program-arguments
+b.sh breeze exec ./hello.c -- one two
+b.sh breeze exec ./Hello.java -- world
+b.sh breeze instance ./app.py
+b.sh breeze exec ./hello.rs
+b.sh breeze exec ./hello.cs -- world
+b.sh breeze instance ./hello.R -- world
+b.sh build c ./native
+b.sh build java ./java-src
+b.sh build python ./scripts
+b.sh build rust ./crate
+b.sh build csharp ./csharp-src
+b.sh build r ./r-scripts
+b.sh upload arduino ./Blink/Blink.ino --port /dev/cu.YOUR_BOARD
+b.sh breeze instance ./hello.swift -- world
+b.sh breeze exec ./hello.swift
+b.sh breeze exec ./hello.m
+b.sh breeze exec ./hello.cpp
+b.sh breeze instance ./hello.js -- world
+b.sh breeze instance ./hello.ts
+b.sh breeze instance ./index.html
+b.sh breeze instance ./hello.php
+b.sh breeze instance ./script.sh
+b.sh build npm ./web-project
+b.sh breeze exec ./web-project/package.json -- program-arguments
 ```
 
 Java exec assumes a default-package main class matching the filename. Rust
@@ -209,7 +209,7 @@ Shell execution means POSIX sh, not automatic Bash/zsh dialect detection.
 
 ```sh
 PGHOST=/path/to/socket PGPORT=5432 PGUSER=your_user \
-  B_SQL_DATABASE=your_disposable_database b sql ./example.sql
+  B_SQL_DATABASE=your_disposable_database b.sh sql ./example.sql
 ```
 
 There is **no default database**. `B_SQL_DATABASE` accepts a database name, not a
@@ -249,7 +249,7 @@ without launching Arduino CLI. Uploading replaces the program on the board.
 For compile-only work, the same header supplies the board:
 
 ```sh
-b build arduino ./Blink
+b.sh build arduino ./Blink
 ```
 
 A standard sketch folder has a primary `.ino` matching its folder name; b builds
@@ -276,8 +276,8 @@ There is no silent compiler fallback or install. Vulkan is the target API,
 not the compiler. Both backends target Vulkan 1.0 SPIR-V.
 
 ```sh
-b build glsl ./shaders
-GLSL_BACKEND=glslang b build glsl ./shaders
+b.sh build glsl ./shaders
+GLSL_BACKEND=glslang b.sh build glsl ./shaders
 ```
 
 GLSL is the source language; `.vert` (vertex), `.frag` (fragment) and `.comp`
@@ -345,8 +345,8 @@ inference, native Windows support and live project-graph migration remain gaps.
 
 ```sh
 git clone https://github.com/vex-graph/b.git
-cd b
-./b --help
+cd b.sh
+./b.sh --help
 ```
 
 The launcher compiles the CLI using your installed C23 compiler with
@@ -360,7 +360,7 @@ your shell's `PATH` (replace the example path):
 ```sh
 export PATH="/absolute/path/to/b:$PATH"
 cd /path/to/your/project
-b breeze exec ./hello.c
+b.sh breeze exec ./hello.c
 ```
 
 The launcher preserves your working directory. `CC` can select one compiler
@@ -395,10 +395,11 @@ artifact explicitly with `b breeze exec /path/to/build/program`. b does not gues
 which target to launch or run install/tests automatically. Other build backends
 can use the same delegation pattern; they are not all implemented yet.
 
-`util/b.c` is the suite: argument validation, registry dispatch and existing-executable
-fallback. Shared helpers live in `util/b.h` and `util/util.c`. Named project
-registration and inventory live in `project/`. Adding an adapter is one file pair
-under `adapters` and a registry entry in `adapters/adapter.c`; adapter
+`src/b.c` is the suite: argument validation and dispatch. The verbs live beside
+it: `src/breeze.c` (run and breeze), `src/build.c` (units and declaration
+authoring) and `src/box.c` (packaging). Shared helpers live in `src/b.h` and
+`src/util.c`. Adding an adapter is one file pair under `adapters/` and a registry
+entry in `adapters/lang/adapter.c`; adapter
 selection uses a file suffix or exact manifest basename; build-only backends have no source
 extension. Each C source/header begins with `;;DEFINITION` and `;;OVERVIEW`
 blueprints documenting capabilities, fields and public/private function registries.
@@ -408,10 +409,10 @@ selected from the file suffix or exact manifest basename. Builds currently
 delegate incremental decisions to project backends rather than providing a
 shared cache.
 
-Project-specific graphs belong to their project, not this checkout. Vexgraph's
-`../../tools/workspace.c` holds its targets, shaders and tests; its `tools/b` launcher
-uses generic `b breeze exec` to compile and execute that graph. There is no special
-`b workspace` command or ecosystem dependency in this standalone launcher.
+Project-specific build policy belongs to the workspace, not this checkout.
+Vexgraph's `tools/orchestrator` forwards every engine verb unchanged and owns
+only its own verbs (`test`, `prefs`, `ci`); the engine carries no ecosystem
+dependency, no workspace graph and no project layout.
 
 `create manifest` writes a starter schema-1 JSON form without overwriting an
 existing file. `box` parses and validates that form (unknown or duplicate keys,
@@ -433,9 +434,9 @@ The current fixture root still expects the previous `personal/b/b` layout; updat
 that path before treating these commands as evidence for this checkout.
 
 ```sh
-python3 ../tests/b/cli_test.py
-python3 ../tests/b/readme_test.py
-python3 -m unittest discover -s ../tests/b -p '*_test.py' -v
+python3 ../tests/b.sh/cli_test.py
+python3 ../tests/b.sh/readme_test.py
+python3 -m unittest discover -s ../tests/b.sh -p '*_test.py' -v
 ```
 
 They use temporary projects and an isolated `B_HOME`. Missing optional runtimes

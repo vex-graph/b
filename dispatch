@@ -1,0 +1,50 @@
+#!/bin/zsh
+# Workspace front door
+root="/Users/vexgraph/~v/vexgraph"
+assembly="$root/b.assembly.json"
+workspace="$root/.b/workspace.json"
+
+needs_assembly() {
+    case "$1" in
+        build|run|breeze) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+if needs_assembly "$1"; then
+    if [[ ! -f "$assembly" ]]; then
+        echo "[vex] $root needs a b.assembly.json to compile. Run: b assembly" >&2
+        exit 1
+    fi
+    if [[ ! -f "$workspace" ]]; then
+        echo "[vex] $root needs .b/workspace.json. Run: b generate" >&2
+        exit 1
+    fi
+fi
+
+case "$1" in
+    generate)
+        exec "$root/vex-graph/b/generate" "$root" "$workspace"
+        ;;
+    assembly)
+        exec "$root/vex-graph/b/assembly" "${2:-$assembly}" "$workspace"
+        ;;
+    build)
+        shift
+        exec "$root/vex-graph/b/build" "$@" "$assembly" "$workspace" "$root/.b/out"
+        ;;
+    run)
+        shift
+        src="$1"; shift
+        "$root/vex-graph/b/build" "$src" "$assembly" "$workspace" "$root/.b/out" || exit $?
+        base="${src##*/}"; base="${base%.*}"
+        if [[ -x "$root/.b/out/$base.app/Contents/MacOS/$base" ]]; then
+            exec "$root/.b/out/$base.app/Contents/MacOS/$base" "$@"
+        else
+            exec "$root/.b/out/$base" "$@"
+        fi
+        ;;
+    *)
+        exec "$root/vex-graph/b/b.sh" "$@"
+        ;;
+esac

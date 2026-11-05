@@ -2,7 +2,7 @@
 set -eu
 
 fail() {
-    printf 'b installer: %s\n' "$1" >&2
+    printf 'b.sh installer: %s\n' "$1" >&2
     exit 1
 }
 
@@ -62,16 +62,16 @@ case "$system" in
     Darwin) default_state="$HOME/Library/Application Support" ;;
     *) default_state=${XDG_STATE_HOME:-$HOME/.local/state} ;;
 esac
-state_dir=${B_INSTALL_STATE_DIR:-$default_state/b}
+state_dir=${B_INSTALL_STATE_DIR:-$default_state/b.sh}
 mkdir -p "$state_dir" || fail "cannot create install record directory: $state_dir"
 record="$state_dir/org.vexgraph.b.record"
 record_temp="$record.$$"
-printf 'application=org.vexgraph.b\nstate=installed\nversion=%s\ntarget=%s\ninstall_dir=%s\n' \
+printf 'application=org.vexgraph.b.sh\nstate=installed\nversion=%s\ntarget=%s\ninstall_dir=%s\n' \
     "$version" "$target" "$install_dir" > "$record_temp"
 mv -f "$record_temp" "$record"
 
-printf 'Installed b for %s in %s\n' "$target" "$install_dir"
+printf 'Installed b.sh for %s in %s\n' "$target" "$install_dir"
 case ":${PATH:-}:" in
     *":$install_dir:"*) ;;
-    *) printf 'Add this to your shell startup file to use b: export PATH="%s:$PATH"\n' "$install_dir" ;;
+    *) printf 'Add this to your shell startup file to use b.sh: export PATH="%s:$PATH"\n' "$install_dir" ;;
 esac

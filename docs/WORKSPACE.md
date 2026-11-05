@@ -13,8 +13,9 @@ b
 ├── generate [<directory>]
 │     claim a territory; write .b/workspace.json
 │
-├── assembly [<unit>] [--version <version>] [--target <target>] [--force]
-│     write <unit>/b.assembly.json once; --version is required on creation
+├── assembly [<unit>] [--version <version>] [--include <dir>]... [--depends <dir>]... [--force]
+│     write <unit>/b.assembly.json once; --version is optional on creation: box
+│     requires one, run and breeze do not
 │
 ├── build [<unit>...] [--explain]
 │     no argument builds every descendant unit; --explain names inert ones
@@ -57,6 +58,35 @@ means: every file beneath this directory is runnable through `b`.
 
 `b generate` is the only act that claims ground. Nothing else creates a
 territory as a side effect.
+
+## Tiers: libraries and applications
+
+Every unit declares a tier, using the R0-based numbering the ecosystem readme
+publishes: R0 lifetime, R1 relational engine, R2 computation, R3 drivers, R4
+interfaces, R5 interactables, R6 superapps.
+
+- A unit at R0–R4 is a **library**. It builds to an archive that the tiers above
+  it consume.
+- A unit at R5–R6 is an **application**. It links the libraries below it.
+- A test is an application at the top of the stack it verifies: it links the
+  library under test and anything beneath it.
+- `hotcwap` is R1 by boot order but sits outside the R0–R4 library. It is an
+  optional **load** edge, not a link dependency of any library.
+
+`b` enforces three edges:
+
+- **include** (headers, compile time) and **link** (archives, link time) point
+  strictly downward. A unit may use its own sources freely; it may not use a tier
+  at or above its own, except through the unit itself.
+- **load** (dlopen, run time) is allowed only from an application, is optional,
+  and never becomes a build dependency.
+- A tier is declared in the assembly's `application` block as `"tier": "R2"`. A
+  link or include that points upward is refused with the two tiers named.
+
+**Current state:** not yet implemented. The assembly writer does not emit
+`tier`, `b` does not refuse upward edges, downward linking is not modelled, and
+only the C adapter archives a library unit today. The include roots and the C
+build are implemented (see [Assembly](#assembly)).
 
 Resolution walks up from the current directory:
 
@@ -149,7 +179,15 @@ concept; the spelling follows the target.
 | `executable` | `<name>` | `<name>` | `<name>.exe` |
 
 `objects` stops after compiling. The unit's artifact is its object set under
-`.b/obj/<unit>/`, one object per source, and nothing is archived.
+`.b/obj/<unit>/`, and a library unit adds `lib<unit>.a` beside them (only the C
+adapter implements this archive step today).
+
+A unit with an entry source produces one program per entry, named after that
+entry: `main.c` becomes `.b/obj/<unit>/main`, and a directory holding fourteen
+test programs produces fourteen artifacts beside each other. Shared helpers (a
+`.c` with no `main`) link into every program of their unit. The unit line in
+`b build` prints the artifact when it holds one program and the artifact
+directory when it holds several.
 
 The kind is derived by default and may be overridden in the assembly. An
 explicit platform extension is an escape hatch, not the vocabulary.
@@ -178,6 +216,7 @@ It is authored once and never regenerated afterwards.
     "entry": "main.c",
     "sources": [],
     "includes": [],
+    "dependencies": [],
     "defines": [],
     "options": [],
     "link": "executable"
@@ -202,7 +241,7 @@ omitted, so the file is a complete statement of intent and not a stub.
 `box.c` already parses the assembly's keys: `application {id, name, version,
 authors, publisher, description, license, homepage, icon}`, `payload {entry,
 files}`, `targets`, `formats`, `statePolicy`. The assembly adds `build {entry,
-sources, includes, defines, options, link}` and nothing else. Targets are an
+sources, includes, dependencies, defines, options, link}` and nothing else. Targets are an
 object keyed by canonical target name, so per-target settings are added as keys
 rather than as parallel arrays.
 
@@ -508,9 +547,9 @@ includes is automatic, with an override for the cases inference gets wrong.
 ## Artifacts
 
 ```text
-.b/workspace.json        the territory: units[] with dir, kind, sources, entry, deps
+.b/workspace.json        the territory: root, then each directory's files
 <unit>/b.assembly.json   identity and packaging intent, authored once
-.b/obj/<unit>/           objects, content-addressed
+.b/obj/<unit>/           objects and the unit's build artifact
 .b/box/<unit>/           packaged artifacts
 ```
 
@@ -534,8 +573,11 @@ Two requirements follow:
 ### Tests are units, not a verb
 
 There is no `b test`. A test is a program with an entry point in a directory,
-which makes it a unit like any other: `b run tests/lang/vec3/vec3_test.c` builds
-it, boxes it and runs it.
+which makes it a unit like any other: `b run exec tests/lang/vec3/vec3_test.c`
+builds that program and runs it. `tools/orchestrator test` is the workspace
+runner, not an engine verb: it reads `.b/workspace.json`, picks the programs
+under `vexgraph-ecosystem/tests`, runs each through the engine, and reports the
+exit codes. That is exactly the aggregator `b` refuses to grow.
 
 What `b` will not grow is an aggregator. "Run every matching test, collect exit
 codes, report" is orchestration, and orchestration belongs to whoever is
@@ -585,39 +627,56 @@ never rewrites.
 
 ## Current State
 
-Nothing in this document is implemented. The shipping binary is a different
-design: a global registry under `B_HOME/<name>/` claimed by `b project`, a
-`--in` flag to reach it, an `exec` / `instance` mode pair, and a `graph` verb
-that read a target graph generated by a project-owned `tools/workspace.c`.
+Implemented and exercised on scratch units and on the repository's own tree:
 
-That generator was deleted. With it gone, the shipping `b workspace` produces an
-empty target list and `b build` has nothing to build, which is the state this
-specification replaces.
+- [x] `b generate` claims a territory and writes `.b/workspace.json` as two
+      layers: each directory's relative path, then the files directly inside it
+- [x] build/run resolve upward to the territory and refuse outside one
+- [x] unit discovery, kind classification (`app`, `library`, `ambiguous`) and
+      entry detection for C (`int main(`) and Rust (`fn main(`)
+- [x] include-root derivation from `build.includes` in each unit's assembly,
+      passed to the C compiler as `-I`
+- [x] `b build` over units, scoped to the current directory, with a summary line
+- [x] `b assembly` writing a complete declaration once; `--force`, `--version`
+      and repeated `--include` work
+- [x] `vexgraph-hobby-projects/b/b.assembly.json` written (first consumer)
+- [x] `test.sh` discovers `app` units under `vexgraph-ecosystem/tests` and runs
+      each through `b run`
+
+Partly implemented:
+
+- [~] library kinds: classified, and skipped with a count, but not archived; the
+      `objects` and `static` artifacts are not produced yet
+- [~] `b build` summary line reports skipped libraries; `inert` units are not
+      counted yet, and `--explain` is not implemented
 
 Not yet implemented, in dependency order:
 
-- [x] `b generate` claims a territory and writes `.b/workspace.json` with units
-- [x] build/run resolve upward to the territory and refuse outside one
-- [ ] unit discovery, kind classification and entry detection per adapter
-- [ ] include-root derivation and inferred dependencies
-- [ ] library kinds with per-target spelling
-- [ ] `b build` over units, with the inert summary line
-- [ ] `b assembly` writing a complete descriptor once; `--force` replaces it
-- [ ] per-target assembly files and the `--target` resolution order
-- [ ] host-capability refusal with the three escapes, and no artifact written
+- [ ] tier field in the assembly, and refusal of upward include or link edges
+- [ ] library archives per target, with the per-target spelling table
+- [ ] `deps` in the assembly, linking libraries into applications and tests
 - [ ] `b box` reading the unit assembly and taking no manifest argument
 - [ ] `b box --assembly` (command-line intent) and `--assembly default` (synth)
 - [ ] `b box --assembly <file>` reading any named assembly file
+- [ ] per-target assembly files and the `--target` resolution order
+- [ ] host-capability refusal with the three escapes, and no artifact written
 - [ ] schema 2 in `box.c`: accept `build`, keep schema 1 parsing
-- [ ] commit the release launchers so `payload.files` can name them
-- [x] `vexgraph-hobby-projects/b/b.assembly.json` written (schema 2, first consumer)
 - [ ] lenient version parse and canonicalization; per-target projection
 - [ ] version required at the seam: no git read, no VERSION file, no default
 - [ ] version in the box signature
 - [ ] `b run` = build, box, exec with a signature-keyed box
 - [ ] icon derivation per target, and `gui` / `service` bundle layouts
+- [ ] commit the release launchers so `payload.files` can name them
 - [ ] `scripts/package_release.py` deleted; its job is `b box`
 - [ ] `tests/ci_smoke_test.py` asserts `b breeze` rather than `b breeze exec`
+- [ ] the `vexspoke` tests link: needs library archives and `deps`
+
+The shipping binary is a different design: a global registry under
+`B_HOME/<name>/` claimed by `b project`, a `--in` flag to reach it, an
+`exec` / `instance` mode pair, and a `graph` verb that read a target graph
+generated by a project-owned `tools/workspace.c`. That generator was deleted,
+so the shipping `b workspace` produces an empty target list. This document
+describes the target; the checklist is the honest line between the two.
 
 ## Scope and Limitations
 

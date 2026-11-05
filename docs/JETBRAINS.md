@@ -93,8 +93,8 @@ For files that need a shared project working directory, register the project
 once from a terminal:
 
 ```sh
-b project my-app "$HOME/path/to/my-app"
-b refresh my-app
+b.sh project my-app "$HOME/path/to/my-app"
+b.sh refresh my-app
 ```
 
 Create a separate External Tool with Program `/absolute/path/to/b/b`, Arguments
