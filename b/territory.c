@@ -6,41 +6,47 @@
 #include <dirent.h>
 #include <errno.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "territory.h"
-#include "adapter.h"
-#include "../util/b.h"
+#include "adapters/lang/adapter.h"
+#include "b.h"
+
+#include "annotation.h"
 
 ;;DEFINITION
 /* The walk is cold and total: every directory under the claimed root is read
- * once, in alphasort order, and units are recorded as they are found. A
- * directory owns the sources sitting directly in it, so no unit ever merges a
- * subdirectory upward. Generated, cache and control names are excluded; the
- * walk never leaves the claimed root and never follows a symlink out of it.
- * The inventory is disposable: regenerating replaces it, and no consumer reads
- * it back as intent.
+ * once, in alphasort order, and every regular file is recorded under the
+ * directory that holds it — the path is one layer, the names inside it the
+ * next. Compiled sources are also grouped as units so the build can hand one
+ * directory at a time to its adapter. Generated, cache and control names are
+ * excluded; the walk never leaves the claimed root and never follows a symlink
+ * out of it. The inventory is disposable: regenerating replaces it, and no
+ * consumer reads it back as intent.
  */
 ;;OVERVIEW
 /* PRIVATE RECORDS (co-located, one inventory):
  * TerritoryUnit — char *directory (relative, owned), char **names (owned),
  *     count/capacity of the directory's compiled sources.
- * TerritoryWalk — directory stack plus unit array, source and exclusion counts.
+ * TerritoryFiles — char *directory (relative, owned) and the owned names of
+ *     the regular files directly inside it: the two layers of the inventory.
+ * TerritoryWalk — directory stack, the unit array, and the directory/file
+ *     tree; source, file and exclusion counts.
  * PUBLIC (added): Territory_buildAll builds every unit at or below a directory,
  * scoped by the caller's location; Territory_writeAssembly authors one unit's
- * b.assembly.json once, with its include roots.
+ * b.sh.assembly.json once, with its include roots.
  * PRIVATE (added): absoluteOf joins a unit onto the root; inScope is the scope
  * test; classify picks one adapter family per unit; entryOf returns the owned
  * entry-source path; displayNameOf title-cases; freeEntries releases a listing;
  * keyText writes a quoted key; releaseWalk releases an inventory walk.
  * PRIVATE STATIC: grow — checked doubling; excluded — fixed skip names;
  * normalize — strip one trailing separator; unitFor/addSource — record a source
- * under its directory; relative — root-relative unit name; escape — JSON string
- * emission; inventory — the cold walk; emit — write the file.
+ * under its directory; relative — root-relative path; addFile — record one
+ * regular file under its directory; escape — JSON string emission; inventory —
+ * the cold walk; emit — write the two-layer inventory.
  * Errors report through THROW and abort the claim; the caller owns returned
  * paths, and every slot is released before the claim returns.
  */
@@ -54,6 +60,13 @@ typedef struct TerritoryUnit {
     size_t capacity;
 } TerritoryUnit;
 
+typedef struct TerritoryFiles {
+    char *directory;
+    char **names;
+    size_t count;
+    size_t capacity;
+} TerritoryFiles;
+
 typedef struct TerritoryWalk {
     char **directories;
     size_t directoryCount;
@@ -61,6 +74,10 @@ typedef struct TerritoryWalk {
     TerritoryUnit *units;
     size_t unitCount;
     size_t unitCapacity;
+    TerritoryFiles *tree;
+    size_t treeCount;
+    size_t treeCapacity;
+    size_t files;
     size_t sources;
     size_t excluded;
 } TerritoryWalk;
@@ -152,6 +169,44 @@ static char *relative(const char *root, const char *directory) {
     return Util_combine(directory, "");
 }
 
+// Record one regular file under its directory: the directory is the first
+// layer, the names inside it are the second.
+static bool addFile(TerritoryWalk *walk, const char *root, const char *directory, const char *name) {
+    char *path = relative(root, directory);
+    size_t count = (*walk).treeCount;
+    TerritoryFiles *tree = (*walk).tree;
+    size_t index = 0;
+    while (index < count && strcmp(tree[index].directory, path) != 0)
+        ++index;
+    if (index == count) {
+        void *storage = tree;
+        if (!grow(count, sizeof(TerritoryFiles), &(*walk).treeCapacity, &storage)) {
+            free(path);
+            return false;
+        }
+        (*walk).tree = storage;
+        tree = (*walk).tree;
+        tree[count].directory = path;
+        tree[count].names = nullptr;
+        tree[count].count = 0;
+        tree[count].capacity = 0;
+        (*walk).treeCount = count + 1;
+    } else {
+        free(path);
+    }
+    TerritoryFiles *entry = &tree[index];
+    size_t nameCount = (*entry).count;
+    void *names = (*entry).names;
+    if (!grow(nameCount, sizeof(char*), &(*entry).capacity, &names))
+        return false;
+    (*entry).names = names;
+    char **grown = (*entry).names;
+    grown[nameCount] = Util_combine(name, "");
+    (*entry).count = nameCount + 1;
+    (*walk).files = (*walk).files + 1;
+    return true;
+}
+
 // Emit one JSON string, escaping what cannot appear literally in a path.
 static void escape(FILE *file, const char *text) {
     fputc('"', file);
@@ -217,10 +272,18 @@ static bool inventory(const char *root, TerritoryWalk *walk) {
                     free(path);
                 }
             } else if (S_ISREG(information.st_mode)) {
+                // The inventory records RUNNABLE files only: a source an
+                // adapter can build or run. READMEs, licenses, JSON, images
+                // and editor droppings are not work, so they are not listed.
                 if (Adapter_forFile(path) != nullptr) {
-                    char *directory = relative(root, current);
-                    ok = addSource(walk, directory, name);
-                    free(directory);
+                    ok = addFile(walk, root, current, name);
+                    if (ok) {
+                        char *directory = relative(root, current);
+                        ok = addSource(walk, directory, name);
+                        free(directory);
+                    }
+                } else {
+                    (*walk).excluded = (*walk).excluded + 1;
                 }
                 free(path);
             } else {
@@ -287,34 +350,23 @@ static bool emit(const char *path, const char *root, TerritoryWalk *walk) {
         THROW("cannot write %s: %s", path, strerror(errno));
         return false;
     }
-    size_t unitCount = (*walk).unitCount;
-    TerritoryUnit *units = (*walk).units;
+    size_t treeCount = (*walk).treeCount;
+    TerritoryFiles *tree = (*walk).tree;
     fprintf(file, "{\n  \"root\": ");
     escape(file, root);
-    fprintf(file, ",\n  \"units\": [");
-    for (size_t index = 0; index < unitCount; ++index) {
-        TerritoryUnit *unit = &units[index];
-        fprintf(file, "%s\n    { \"dir\": ", index == 0 ? "" : ",");
-        escape(file, (*unit).directory);
-        const Adapter *adapter = nullptr;
-        const char *kind = "ambiguous";
-        if (classify(unit, &adapter) == UNIT_OK && adapter != nullptr) {
-            char *absolute = absoluteOf(root, (*unit).directory);
-            char *entry = entryOf(adapter, absolute);
-            kind = entry != nullptr ? "app" : "library";
-            free(entry);
-            free(absolute);
-        }
-        fprintf(file, ", \"kind\": \"%s\"", kind);
-        fprintf(file, ", \"sources\": [");
-        for (size_t source = 0; source < (*unit).count; ++source) {
-            if (source != 0)
+    fprintf(file, ",\n  \"directories\": {");
+    for (size_t index = 0; index < treeCount; ++index) {
+        fprintf(file, "%s\n    ", index == 0 ? "" : ",");
+        escape(file, tree[index].directory);
+        fputs(": [", file);
+        for (size_t name = 0; name < tree[index].count; ++name) {
+            if (name != 0)
                 fputs(", ", file);
-            escape(file, (*unit).names[source]);
+            escape(file, tree[index].names[name]);
         }
-        fputs("] }", file);
+        fputc(']', file);
     }
-    fprintf(file, "%s]\n}\n", unitCount == 0 ? "" : "\n  ");
+    fprintf(file, "%s}\n}\n", treeCount == 0 ? "" : "\n  ");
     bool ok = fflush(file) == 0 && ferror(file) == 0;
     if (fclose(file) != 0)
         ok = false;
@@ -336,9 +388,12 @@ char *Territory_find(const char *startDirectory) {
     }
     normalize(current);
     while (true) {
-        char *marker = Util_combine(current, "/.b");
+        // A claimed territory is a directory holding a generated inventory, not
+        // merely a .b/ output directory: a build writes .b/obj wherever it runs,
+        // and that must never be mistaken for a workspace root.
+        char *marker = Util_combine(current, "/.b/workspace.json");
         struct stat information;
-        bool present = stat(marker, &information) == 0 && S_ISDIR(information.st_mode);
+        bool present = stat(marker, &information) == 0 && S_ISREG(information.st_mode);
         free(marker);
         if (present)
             return current;
@@ -357,6 +412,29 @@ char *Territory_find(const char *startDirectory) {
 // Name the generated file inside a claimed root.
 char *Territory_workspacePath(const char *root) {
     return Util_combine(root, "/.b/workspace.json");
+}
+
+// Release every slot of a walk; the caller owns the walk until this runs.
+static void releaseWalk(TerritoryWalk *walk) {
+    for (size_t index = 0; index < (*walk).unitCount; ++index) {
+        TerritoryUnit *unit = &(*walk).units[index];
+        for (size_t source = 0; source < (*unit).count; ++source)
+            free((*unit).names[source]);
+        free((*unit).names);
+        free((*unit).directory);
+    }
+    for (size_t index = 0; index < (*walk).directoryCount; ++index)
+        free((*walk).directories[index]);
+    for (size_t index = 0; index < (*walk).treeCount; ++index) {
+        TerritoryFiles *entry = &(*walk).tree[index];
+        for (size_t name = 0; name < (*entry).count; ++name)
+            free((*entry).names[name]);
+        free((*entry).names);
+        free((*entry).directory);
+    }
+    free((*walk).units);
+    free((*walk).directories);
+    free((*walk).tree);
 }
 
 // Claim a directory: create the marker, walk it once, write the inventory.
@@ -404,44 +482,19 @@ bool Territory_claim(const char *directory) {
             return false;
         }
     }
-    TerritoryWalk walk = { nullptr, 0, 0, nullptr, 0, 0, 0, 0 };
+    TerritoryWalk walk = { nullptr, 0, 0, nullptr, 0, 0, nullptr, 0, 0, 0, 0, 0 };
     bool ok = inventory(root, &walk);
     char *workspace = Territory_workspacePath(root);
     if (ok)
         ok = emit(workspace, root, &walk);
     if (ok)
-        printf("b: claimed %s\n   %zu units, %zu sources, %zu excluded\n   %s\n",
-               root, walk.unitCount, walk.sources, walk.excluded, workspace);
-    for (size_t index = 0; index < walk.unitCount; ++index) {
-        TerritoryUnit *unit = &walk.units[index];
-        for (size_t source = 0; source < (*unit).count; ++source)
-            free((*unit).names[source]);
-        free((*unit).names);
-        free((*unit).directory);
-    }
-    for (size_t index = 0; index < walk.directoryCount; ++index)
-        free(walk.directories[index]);
-    free(walk.units);
-    free(walk.directories);
+        printf("b.sh: claimed %s\n   %zu files in %zu directories, %zu sources, %zu excluded\n   %s\n",
+               root, walk.files, walk.treeCount, walk.sources, walk.excluded, workspace);
+    releaseWalk(&walk);
     free(workspace);
     free(marker);
     free(root);
     return ok;
-}
-
-// Release every slot of a walk; the caller owns the walk until this runs.
-static void releaseWalk(TerritoryWalk *walk) {
-    for (size_t index = 0; index < (*walk).unitCount; ++index) {
-        TerritoryUnit *unit = &(*walk).units[index];
-        for (size_t source = 0; source < (*unit).count; ++source)
-            free((*unit).names[source]);
-        free((*unit).names);
-        free((*unit).directory);
-    }
-    for (size_t index = 0; index < (*walk).directoryCount; ++index)
-        free((*walk).directories[index]);
-    free((*walk).units);
-    free((*walk).directories);
 }
 
 // Build every unit at or below the directory (default: the current directory).
@@ -456,12 +509,12 @@ bool Territory_buildAll(const char *startDirectory) {
     normalize(here);
     char *root = Territory_find(here);
     if (root == nullptr) {
-        THROW("build outside a territory; run b generate first");
+        THROW("build outside a territory; run b.sh generate first");
         free(here);
         return false;
     }
     char *scope = relative(root, here);
-    TerritoryWalk walk = { nullptr, 0, 0, nullptr, 0, 0, 0, 0 };
+    TerritoryWalk walk = { nullptr, 0, 0, nullptr, 0, 0, nullptr, 0, 0, 0, 0, 0 };
     bool ok = inventory(root, &walk);
     size_t scoped = 0, succeeded = 0, failed = 0, skipped = 0;
     for (size_t index = 0; ok && index < walk.unitCount; ++index) {
@@ -479,28 +532,33 @@ bool Territory_buildAll(const char *startDirectory) {
         char *entry = entryOf(adapter, absolute);
         bool app = entry != nullptr;
         free(entry);
-        if (!app) {
-            // Library artifacts are not built yet; reporting beats a failing link.
-            printf("  skip %s (library: library builds are not implemented yet)\n", absolute);
+        if (!app && (*adapter).archive == nullptr) {
+            printf("  skip %s (library: adapter %s has no archive step)\n", absolute, (*adapter).name);
             ++skipped;
             free(absolute);
             continue;
         }
         char *output = nullptr;
-        int status = (*adapter).build(absolute, &output);
+        int status = app ? (*adapter).build(absolute, &output)
+                         : (*adapter).archive(absolute, &output);
         if (status == 0)
             ++succeeded;
         else
             ++failed;
-        printf("  %s %s (%s, %s)\n", status == 0 ? "ok  " : "FAIL", absolute,
+        printf("  %s %s (%s, %s)", status == 0 ? "ok  " : "FAIL", absolute,
                app ? "app" : "library", (*adapter).name);
+
+        if (status == 0 && output != nullptr)
+            printf(" -> %s", output);
+
+        putchar('\n');
         free(output);
         free(absolute);
     }
     if (ok && scoped == 0)
-        printf("b build: no units under %s\n", scope);
+        printf("b.sh build: no units under %s\n", scope);
     else if (ok)
-        printf("b build: %zu succeeded, %zu failed, %zu libraries skipped\n", succeeded, failed, skipped);
+        printf("b.sh build: %zu succeeded, %zu failed, %zu libraries skipped\n", succeeded, failed, skipped);
     releaseWalk(&walk);
     free(scope);
     free(root);
@@ -540,7 +598,7 @@ static void keyText(FILE *file, const char *key) {
 
 // Write one unit's assembly declaration. Authored once: an existing file is refused
 // unless force is set. The version may be empty; only box refuses an empty one.
-bool Territory_writeAssembly(const char *directory, const char *version, const char *const *includes, size_t includeCount, bool force) {
+bool Territory_writeAssembly(const char *directory, const char *version, const char *const *includes, size_t includeCount, const char *const *dependencies, size_t dependencyCount, bool force) {
     char *here = realpath(directory, nullptr);
     if (here == nullptr) {
         THROW("cannot resolve directory: %s", directory);
@@ -549,12 +607,12 @@ bool Territory_writeAssembly(const char *directory, const char *version, const c
     normalize(here);
     char *root = Territory_find(here);
     if (root == nullptr) {
-        THROW("assembly outside a territory; run b generate first");
+        THROW("assembly outside a territory; run b.sh generate first");
         free(here);
         return false;
     }
     free(root);
-    char *path = Util_combine(here, "/b.assembly.json");
+    char *path = Util_combine(here, "/b.sh.assembly.json");
     struct stat information;
     if (stat(path, &information) == 0 && !force) {
         THROW("%s already exists; assemblies are authored once (pass --force to replace)", path);
@@ -653,6 +711,13 @@ bool Territory_writeAssembly(const char *directory, const char *version, const c
         escape(file, includes[index]);
     }
     fputs("],\n    ", file);
+    keyText(file, "dependencies"); fputs("[", file);
+    for (size_t index = 0; index < dependencyCount; ++index) {
+        if (index != 0)
+            fputs(", ", file);
+        escape(file, dependencies[index]);
+    }
+    fputs("],\n    ", file);
     keyText(file, "defines"); fputs("[],\n    ", file);
     keyText(file, "options"); fputs("[],\n    ", file);
     keyText(file, "link"); escape(file, app ? "executable" : "static"); fputs("\n  },\n  ", file);
@@ -664,7 +729,7 @@ bool Territory_writeAssembly(const char *directory, const char *version, const c
     if (fclose(file) != 0)
         ok = false;
     if (ok)
-        printf("b: assembly %s\n   %s, version %s\n", path, app ? "cli" : "library",
+        printf("b.sh: assembly %s\n   %s, version %s\n", path, app ? "cli" : "library",
                declared[0] != '\0' ? declared : "(undeclared: box refuses until set)");
     else
         THROW("cannot complete %s", path);

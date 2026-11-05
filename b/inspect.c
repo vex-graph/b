@@ -1,6 +1,6 @@
 #include "inspect.h"
 #include "b.h"
-#include "../adapters/adapter.h"
+#include "adapters/lang/adapter.h"
 
 ;;DEFINITION
 /* Standalone introspection enumerates the same immutable registry that dispatches
@@ -106,7 +106,7 @@ int Inspect_adapters(void) {
 
 // Inspect one named adapter or enumerate all tools without executing them.
 int Inspect_doctor(const char *adapter) {
-    puts("b doctor: executable discovery only; no version/SDK checks or tool execution");
+    puts("b.sh doctor: executable discovery only; no version/SDK checks or tool execution");
     if (adapter != nullptr) {
         const Adapter *record = Adapter_forName(adapter);
         if (record == nullptr) {

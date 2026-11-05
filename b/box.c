@@ -1,6 +1,6 @@
 // CLASS: BoxManifest — manifest creation, strict validation and portable export.
-// DEFINITION: box is b's packaging surface. `b create manifest <path>` writes a
-// starter JSON form that a human fills in; `b box <manifest> <destination>`
+// DEFINITION: box is b.sh's packaging surface. `b.sh create manifest <path>` writes a
+// starter JSON form that a human fills in; `b.sh box <manifest> <destination>`
 // parses that form, validates it against schema 1, and exports the declared
 // payload. Validation is cold and exhaustive because a manifest is untrusted
 // user input: malformed JSON, unsupported escapes, unknown or duplicate keys,
@@ -14,6 +14,7 @@
 // OVERVIEW: the annotation registry below names every function in this file.
 #include "box.h"
 #include "b.h"
+#include "annotation.h"
 
 ;;DEFINITION
 /* The parser is a schema walk, not a general JSON tree: the cursor advances

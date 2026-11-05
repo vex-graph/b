@@ -1,6 +1,6 @@
 // CLASS: BoxManifest — one user-authored packaging description.
-// DEFINITION: `b create manifest <path>` writes a starter form; the user fills
-// it in; `b box <manifest> <path-to-export>` reads it, validates it, and exports
+// DEFINITION: `b.sh create manifest <path>` writes a starter form; the user fills
+// it in; `b.sh box <manifest> <path-to-export>` reads it, validates it, and exports
 // the declared payload. This class owns that description: the declared
 // application metadata, the payload entry and files, and the requested export
 // formats. It is project/toolchain agnostic and has no vexgraph-ecosystem-gitrepo dependency.
@@ -26,9 +26,8 @@
 //   size_t formatCount   number of requested export formats
 #pragma once
 
-#include "../util/annotation.h"
 
-#include <stdbool.h>
+#include "annotation.h"
 #include <stddef.h>
 
 ;;DEFINITION

@@ -1,14 +1,15 @@
 // CLASS: Territory — the .b/ marker and the inventory it declares.
 // DEFINITION: A territory is a directory holding .b/. Its presence is the only
-// thing that makes the tree below b's: no .git sniffing, no cwd guess, no home
+// thing that makes the tree below b.sh's: no .git sniffing, no cwd guess, no home
 // sweep. This class answers where the territory is, where its workspace file
 // lives, and how to claim one.
 // OVERVIEW: find; workspacePath; claim; buildAll; writeAssembly. Claim writes .b/workspace.json, the one
 // disposable fact file, and refuses a nested claim. buildAll builds the units
-// under a directory; writeAssembly authors one unit's b.assembly.json once.
+// under a directory; writeAssembly authors one unit's b.sh.assembly.json once.
 #pragma once
 
-#include "../util/annotation.h"
+
+#include "annotation.h"
 
 ;;DEFINITION
 /* A territory is claimed, never inferred. Claiming creates .b/ and writes the
@@ -21,11 +22,12 @@
 /* CLASS: Territory.
  * PUBLIC: Territory_find — nearest ancestor holding .b/, caller-owned, or
  *     nullptr when the tree is unclaimed.
- * Territory_workspacePath — <root>/.b/workspace.json, caller-owned.
+ * Territory_workspacePath — <root>/.b/workspace.json, the flat file inventory,
+ *     caller-owned.
  * Territory_claim — create .b/, walk the tree once, write the inventory.
  * Territory_buildAll — build every unit at or below a directory, scoped by the
  *     caller's location; one line per unit and a summary.
- * Territory_writeAssembly — author one unit's b.assembly.json once, with its
+ * Territory_writeAssembly — author one unit's b.sh.assembly.json once, with its
  *     include roots; force replaces it.
  * Claim is idempotent at the same root and refuses a nested claim; a failed
  * claim leaves no workspace file behind.
@@ -38,5 +40,6 @@ char *Territory_workspacePath(const char *root);
 bool Territory_claim(const char *directory);
 // Build every unit at or below the directory (nullptr means the current directory).
 bool Territory_buildAll(const char *directory);
-// Write <unit>/b.assembly.json once; force replaces it. An empty version is allowed.
-bool Territory_writeAssembly(const char *directory, const char *version, const char *const *includes, size_t includeCount, bool force);
+// Write <unit>/b.sh.assembly.json once; force replaces it. An empty version is allowed.
+// includes are include roots; dependencies are libraries the unit links.
+bool Territory_writeAssembly(const char *directory, const char *version, const char *const *includes, size_t includeCount, const char *const *dependencies, size_t dependencyCount, bool force);

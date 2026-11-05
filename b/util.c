@@ -1,22 +1,27 @@
-// MODULE: b shared utilities. No owned class; argv and paths are borrowed.
+// MODULE: b.sh shared utilities. No owned class; argv and paths are borrowed.
 // DEFINITION: One place spawns children (never a shell), builds the per-project
 // output directory outside the source tree, and collects a directory's sources
 // with glob metacharacters treated literally. The environment helper exists so
 // an adapter can redirect a tool's cache (e.g. Python bytecode) out of source.
 #include "b.h"
+#include "territory.h"
+
+#include "annotation.h"
 
 ;;DEFINITION
 /* Utility services keep adapters focused on their language contracts. Dynamic
  * allocations belong to the caller; allocation failure terminates this CLI.
  * POSIX children inherit the environment, run without a shell, and are reaped
  * synchronously. Build stdout is redirected to stderr so only the result path
- * appears on suite stdout. Output storage is outside project sources and keyed
- * by project-path hash; source globs escape the directory portion literally.
+ * appears on suite stdout. Output storage lives inside the territory, under the
+ * marker, so the walk never sees it and the territory's ignore rule covers it;
+ * source globs escape the directory portion literally.
  */
 ;;OVERVIEW
-/* MODULE: shared utility implementation; public declarations: util/b.h.
+/* MODULE: shared utility implementation; public declarations: b.sh.h.
  * PUBLIC MEMORY/PATH: Util_allocate; Util_combine; Util_endsWith;
- * Util_makeDirectory; Util_outputDirectory; Util_parentDirectory;
+ * Util_makeDirectory; Util_outputDirectory (territory .b/obj/<unit>, else
+ * $B_HOME); Util_parentDirectory;
  * Util_projectDirectory; Util_createDirectory; Util_setFileMode.
  * PUBLIC PROCESS: Util_executeWithEnvironment; Util_execute; Util_executeBuild;
  * Util_runCommand — append borrowed program arguments without shell parsing.
@@ -151,7 +156,7 @@ int Util_lstat(const char *path, struct stat *information) {
     if ((attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
         if (stat(path, information) != 0)
             memset(information, 0, sizeof *information);
-        information->st_mode = S_IFLNK;
+        (*information).st_mode = S_IFLNK;
         return 0;
     }
     return stat(path, information);
@@ -161,7 +166,7 @@ int Util_lstat(const char *path, struct stat *information) {
 static int compareEntryPointers(const void *left, const void *right) {
     const struct dirent *const *leftEntry = left;
     const struct dirent *const *rightEntry = right;
-    return strcmp((*leftEntry)->d_name, (*rightEntry)->d_name);
+    return strcmp((*(*leftEntry)).d_name, (*(*rightEntry)).d_name);
 }
 
 // Enumerate directory entries into separately owned records in name order.
@@ -243,7 +248,7 @@ int Util_scandir(const char *directory, struct dirent ***entries,
 
 // Compare directory names in byte order for deterministic inventory results.
 int Util_alphasort(const struct dirent **left, const struct dirent **right) {
-    return strcmp((*left)->d_name, (*right)->d_name);
+    return strcmp((*(*left)).d_name, (*(*right)).d_name);
 }
 #endif
 
@@ -542,6 +547,36 @@ bool Util_makeDirectory(char *path) {
 
 // Create and return the project's hashed output directory under B_HOME or the user cache.
 char *Util_outputDirectory(const char *project) {
+    // Artifacts live in their territory: .b/obj/<unit>, beside the marker. The
+    // walk excludes .b, and .b/* is ignored, so output never becomes inventory.
+    char *root = Territory_find(project);
+    if (root != nullptr) {
+        size_t length = strlen(root);
+        bool inside = strncmp(project, root, length) == 0 &&
+            (project[length] == '\0' || project[length] == '/' || project[length] == '\\');
+        if (inside) {
+            const char *relative = project + length;
+            while (*relative == '/' || *relative == '\\')
+                ++relative;
+            char *base = Util_combine(root, "/.b/obj");
+            char *directory;
+            if (*relative == '\0')
+                directory = Util_combine(base, "");
+            else {
+                char *prefix = Util_combine(base, "/");
+                directory = Util_combine(prefix, relative);
+                free(prefix);
+            }
+            free(base);
+            free(root);
+            if (!Util_makeDirectory(directory)) {
+                free(directory);
+                return nullptr;
+            }
+            return directory;
+        }
+        free(root);
+    }
     const char *state = getenv("B_HOME");
     char *defaultState = nullptr;
     if (state == nullptr || *state == '\0') {
@@ -560,11 +595,11 @@ char *Util_outputDirectory(const char *project) {
             THROW("LOCALAPPDATA/APPDATA/USERPROFILE must be set");
             return nullptr;
         }
-        defaultState = Util_combine(cache, "\\b");
+        defaultState = Util_combine(cache, "\\b.sh");
 #else
         const char *cache = getenv("XDG_CACHE_HOME");
         defaultState = Util_combine(cache != nullptr && *cache != '\0' ? cache : home,
-                                    cache != nullptr && *cache != '\0' ? "/b" : "/.cache/b");
+                                    cache != nullptr && *cache != '\0' ? "/b.sh" : "/.cache/b.sh");
 #endif
         state = defaultState;
     }

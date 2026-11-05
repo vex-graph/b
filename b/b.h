@@ -1,4 +1,4 @@
-// MODULE: b shared seam — process launch, path and output helpers.
+// MODULE: b.sh shared seam — process launch, path and output helpers.
 // DEFINITION: Language adapters must not each re-implement spawning, safe path
 // joining, or the out-of-tree output directory. This header declares that one
 // shared surface; util.c owns the implementation. THROW is the cold rejection
@@ -13,7 +13,8 @@
 // Util_freeEnvironment).
 #pragma once
 
-#include "../util/annotation.h"
+
+#include "annotation.h"
 
 ;;DEFINITION
 /* Shared standalone services for every adapter. Arguments and inherited
@@ -21,7 +22,7 @@
  * Children run without a shell. Build output is separated from diagnostics.
  */
 ;;OVERVIEW
-/* MODULE: shared utility API (implementation: util/util.c).
+/* MODULE: shared utility API (implementation: src/util.c).
  * PUBLIC: Util_allocate; Util_combine; Util_endsWith; Util_makeDirectory;
  * Util_createDirectory; Util_setFileMode;
  * Util_outputDirectory; Util_parentDirectory; Util_projectDirectory;
