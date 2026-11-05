@@ -4,8 +4,8 @@
 // Build parses each top-level .R/.r file without evaluating it and returns the
 // checked directory, not a fabricated binary. Package installation is not owned.
 // OVERVIEW: buildR; runR; R_ADAPTER and R_LOWER_ADAPTER (.R/.r aliases).
-#include "r.h"
-#include "../util/b.h"
+#include "adapters/r.h"
+#include "b.h"
 
 ;;DEFINITION
 /* Rscript --vanilla supplies a clean startup without saved workspaces/profiles.
@@ -63,6 +63,6 @@ static int runR(const char *file, int argc, char **argv, bool buildArtifact) {
 }
 
 const Adapter R_ADAPTER = { "r", ".R", buildR, runR,
-    "Rscript", "parse-check; instance/exec runtime", nullptr };
+    "Rscript", "parse-check; instance/exec runtime", nullptr, nullptr };
 const Adapter R_LOWER_ADAPTER = { "R", ".r", buildR, runR,
-    "Rscript", "parse-check; instance/exec runtime", nullptr };
+    "Rscript", "parse-check; instance/exec runtime", nullptr, nullptr };

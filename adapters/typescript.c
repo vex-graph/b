@@ -1,5 +1,5 @@
-#include "typescript.h"
-#include "../util/b.h"
+#include "adapters/typescript.h"
+#include "b.h"
 
 ;;DEFINITION
 /* Recent Node versions execute erasable TypeScript through native type stripping.
@@ -35,8 +35,8 @@ static int runTypescript(const char *file, int argc, char **argv, bool buildArti
 }
 
 const Adapter TYPESCRIPT_ADAPTER = { "typescript", ".ts", buildTypescript, runTypescript,
-    "node", "native type-strip check/runtime; NOT type-checking", nullptr };
+    "node", "native type-strip check/runtime; NOT type-checking", nullptr, nullptr };
 const Adapter TS_ADAPTER = { "ts", ".mts", buildTypescript, runTypescript,
-    "node", "native type-strip check/runtime; NOT type-checking", nullptr };
+    "node", "native type-strip check/runtime; NOT type-checking", nullptr, nullptr };
 const Adapter CTS_ADAPTER = { "node-ts", ".cts", buildTypescript, runTypescript,
-    "node", "native type-strip check/runtime; NOT type-checking", nullptr };
+    "node", "native type-strip check/runtime; NOT type-checking", nullptr, nullptr };

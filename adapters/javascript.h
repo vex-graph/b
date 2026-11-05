@@ -1,6 +1,6 @@
 #pragma once
-#include "../util/annotation.h"
-#include "adapter.h"
+#include "annotation.h"
+#include "adapters/lang/adapter.h"
 ;;DEFINITION
 /* Node.js script/check adapter records. Node owns modules and runtime semantics. */
 ;;OVERVIEW

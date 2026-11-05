@@ -1,5 +1,5 @@
-#include "lua.h"
-#include "../util/b.h"
+#include "adapters/lua.h"
+#include "b.h"
 
 ;;DEFINITION
 /* Lua source runs through Lua in both modes. Build uses luac -p independently
@@ -46,4 +46,4 @@ static int runLua(const char *file, int argc, char **argv, bool buildArtifact) {
 }
 
 const Adapter LUA_ADAPTER = { "lua", ".lua", buildLua, runLua,
-    "LUA=lua,LUAC=luac", "parse-check; instance/exec runtime", nullptr };
+    "LUA=lua,LUAC=luac", "parse-check; instance/exec runtime", nullptr, nullptr };

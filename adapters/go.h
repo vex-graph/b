@@ -1,6 +1,6 @@
 #pragma once
-#include "../util/annotation.h"
-#include "adapter.h"
+#include "annotation.h"
+#include "adapters/lang/adapter.h"
 ;;DEFINITION
 /* Go source execution and native package builds through the installed Go tool. */
 ;;OVERVIEW

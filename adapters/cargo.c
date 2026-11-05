@@ -1,5 +1,5 @@
-#include "cargo.h"
-#include "../util/b.h"
+#include "adapters/cargo.h"
+#include "b.h"
 
 ;;DEFINITION
 /* Existing Cargo.toml owns the package graph and native target selection. Build
@@ -40,7 +40,7 @@ static char *manifest(const char *project) {
     return nullptr;
 }
 
-// Build the existing Cargo package offline into b's external target directory.
+// Build the existing Cargo package offline into b.sh's external target directory.
 static int buildCargo(const char *project, char **output) {
     char *path = manifest(project);
     if (path == nullptr)
@@ -53,7 +53,7 @@ static int buildCargo(const char *project, char **output) {
     char *target = Util_combine(directory, "/cargo-target");
     free(directory);
     char *arguments[] = { (char*) tool(), "build", "--offline", "--manifest-path", path,
-        "--target-dir", target, nullptr };
+        "--target-dir", target, nullptr, nullptr };
     int status = Util_executeBuild(arguments);
     if (status == 0)
         *output = target;
@@ -108,4 +108,4 @@ static int runCargo(const char *file, int argc, char **argv, bool buildArtifact)
 }
 
 const Adapter CARGO_ADAPTER = { "cargo", "Cargo.toml", buildCargo, runCargo,
-    "CARGO=cargo,rustc", "offline project build/run", nullptr };
+    "CARGO=cargo,rustc", "offline project build/run", nullptr, nullptr };

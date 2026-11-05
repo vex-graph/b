@@ -1,10 +1,10 @@
 #pragma once
-#include "../util/annotation.h"
+#include "annotation.h"
 ;;DEFINITION
 /* Immutable JDK source/class adapter contract; behavior lives in java.c. */
 ;;OVERVIEW
 /* PUBLIC RECORD: JAVA_ADAPTER; fields name="java", extension=".java",
  * build=buildJava, run=runJava. No functions or owned state in this header.
  */
-#include "adapter.h"
+#include "adapters/lang/adapter.h"
 extern const Adapter JAVA_ADAPTER;

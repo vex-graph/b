@@ -1,10 +1,10 @@
-#include "shell.h"
-#include "../util/b.h"
+#include "adapters/shell.h"
+#include "b.h"
 
 ;;DEFINITION
 /* POSIX shell scripts run through /bin/sh in either mode. Build checks each
  * top-level .sh with -n without executing it. Arguments are passed as argv,
- * never interpolated into a command string by b; the script's own shell syntax
+ * never interpolated into a command string by b.sh; the script's own shell syntax
  * is intentionally executable and trusted. Bash/zsh dialects are not inferred.
  */
 ;;OVERVIEW
@@ -29,4 +29,4 @@ static int runShell(const char *file, int argc, char **argv, bool buildArtifact)
 }
 
 const Adapter SHELL_ADAPTER = { "shell", ".sh", buildShell, runShell,
-    "/bin/sh", "POSIX syntax-check; instance/exec runtime", nullptr };
+    "/bin/sh", "POSIX syntax-check; instance/exec runtime", nullptr, nullptr };

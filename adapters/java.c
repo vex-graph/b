@@ -3,8 +3,8 @@
 // `run exec` and `build` compile classes with javac into out-of-tree /classes,
 // then launch the default-package main class named by the file. Project/dependency
 // tooling is out of scope; this is the plain JDK path.
-#include "java.h"
-#include "../util/b.h"
+#include "adapters/java.h"
+#include "b.h"
 
 ;;DEFINITION
 /* The Java adapter preserves the difference between JDK source launching and
@@ -109,4 +109,4 @@ static int runJava(const char *file, int argc, char **argv, bool buildArtifact) 
 }
 
 const Adapter JAVA_ADAPTER = { "java", ".java", buildJava, runJava,
-    "java,javac", "class build/exec; source instance", nullptr };
+    "java,javac", "class build/exec; source instance", nullptr, nullptr };

@@ -1,5 +1,5 @@
-#include "php.h"
-#include "../util/b.h"
+#include "adapters/php.h"
+#include "b.h"
 
 ;;DEFINITION
 /* PHP uses the installed CLI in both modes. Build checks each top-level .php
@@ -29,4 +29,4 @@ static int runPhp(const char *file, int argc, char **argv, bool buildArtifact) {
 }
 
 const Adapter PHP_ADAPTER = { "php", ".php", buildPhp, runPhp,
-    "php", "parse-check; instance/exec CLI runtime", nullptr };
+    "php", "parse-check; instance/exec CLI runtime", nullptr, nullptr };

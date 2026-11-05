@@ -1,5 +1,5 @@
-#include "swift.h"
-#include "../util/b.h"
+#include "adapters/swift.h"
+#include "b.h"
 
 ;;DEFINITION
 /* Swift instance delegates a single script to swift; exec uses swiftc then
@@ -79,4 +79,4 @@ static int runSwift(const char *file, int argc, char **argv, bool buildArtifact)
 }
 
 const Adapter SWIFT_ADAPTER = { "swift", ".swift", buildSwift, runSwift,
-    "swift,swiftc", "native build/exec; script instance", nullptr };
+    "swift,swiftc", "native build/exec; script instance", nullptr, nullptr };

@@ -1,5 +1,5 @@
-#include "metal.h"
-#include "../util/b.h"
+#include "adapters/metal.h"
+#include "b.h"
 
 ;;DEFINITION
 /* Apple Metal sources compile through xcrun metal to AIR and then metallib.
@@ -59,8 +59,8 @@ static int buildMetal(const char *project, char **output) {
         char *air = Util_combine(stem, ".air");
         char *library = Util_combine(stem, ".metallib");
         char *compile[] = { (char*) tool, "-sdk", "macosx", "metal", "-Werror",
-            "-mmacosx-version-min=14.0", "-c", sources[i], "-o", air, nullptr };
-        char *link[] = { (char*) tool, "-sdk", "macosx", "metallib", air, "-o", library, nullptr };
+            "-mmacosx-version-min=14.0", "-c", sources[i], "-o", air, nullptr, nullptr };
+        char *link[] = { (char*) tool, "-sdk", "macosx", "metallib", air, "-o", library, nullptr, nullptr };
         status = Util_executeBuild(compile);
         if (status == 0)
             status = Util_executeBuild(link);
@@ -91,8 +91,8 @@ static int buildMetal(const char *project, char **output) {
 // A metallib requires a graphics consumer and cannot run as a CLI program.
 static int rejectRun(const char *file, int argc, char **argv, bool buildArtifact) {
     (void) file; (void) argc; (void) argv; (void) buildArtifact;
-    THROW("Metal is build-only; use b build metal <directory>");
+    THROW("Metal is build-only; use b.sh build metal <directory>");
     return EXIT_FAILURE;
 }
 const Adapter METAL_ADAPTER = { "metal", ".metal", buildMetal, rejectRun,
-    "XCRUN=xcrun", "macOS AIR/metallib build; no host run", nullptr };
+    "XCRUN=xcrun", "macOS AIR/metallib build; no host run", nullptr, nullptr };

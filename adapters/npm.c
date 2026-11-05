@@ -1,8 +1,8 @@
-#include "npm.h"
-#include "../util/b.h"
+#include "adapters/npm.h"
+#include "b.h"
 
 ;;DEFINITION
-/* b delegates to the scripts declared in package.json, never invents a bundler.
+/* b.sh delegates to the scripts declared in package.json, never invents a bundler.
  * Build invokes npm run build and returns the project directory, since output
  * layout belongs to the script. Instance invokes npm run start; exec runs build
  * first and starts only if it succeeds. npm owns package semantics and script
@@ -36,7 +36,7 @@ static bool hasManifest(const char *project) {
 static int buildNpm(const char *project, char **output) {
     if (!hasManifest(project))
         return EXIT_FAILURE;
-    char *arguments[] = { "npm", "--prefix", (char*) project, "run", "build", nullptr };
+    char *arguments[] = { "npm", "--prefix", (char*) project, "run", "build", nullptr, nullptr };
     int status = Util_executeBuild(arguments);
     if (status == 0)
         *output = Util_combine(project, "");
@@ -70,4 +70,4 @@ static int runNpm(const char *file, int argc, char **argv, bool buildArtifact) {
 }
 
 const Adapter NPM_ADAPTER = { "npm", "package.json", buildNpm, runNpm,
-    "npm,node", "build/start scripts; exec builds then starts", nullptr };
+    "npm,node", "build/start scripts; exec builds then starts", nullptr, nullptr };

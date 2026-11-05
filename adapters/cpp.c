@@ -1,5 +1,5 @@
-#include "cpp.h"
-#include "../util/b.h"
+#include "adapters/cpp.h"
+#include "b.h"
 
 ;;DEFINITION
 /* C++23 uses CXX or c++ to compile native programs with strict warnings. Exec
@@ -71,7 +71,7 @@ static int buildCpp(const char *project, char **output) {
 // Compile one source entry for exec mode, then launch with forwarded arguments.
 static int runCpp(const char *file, int argc, char **argv, bool buildArtifact) {
     if (!buildArtifact) {
-        THROW("C++ has no source runtime; use b run exec");
+        THROW("C++ has no source runtime; use b.sh run exec");
         return EXIT_FAILURE;
     }
     char *project = Util_projectDirectory(file);
@@ -88,8 +88,8 @@ static int runCpp(const char *file, int argc, char **argv, bool buildArtifact) {
 }
 
 const Adapter CPP_ADAPTER = { "cpp", ".cpp", buildCpp, runCpp,
-    "CXX=c++", "native build/exec; source instance rejects", nullptr };
+    "CXX=c++", "native build/exec; source instance rejects", nullptr, nullptr };
 const Adapter CXX_ADAPTER = { "cxx", ".cc", buildCpp, runCpp,
-    "CXX=c++", "native build/exec; source instance rejects", nullptr };
+    "CXX=c++", "native build/exec; source instance rejects", nullptr, nullptr };
 const Adapter CPP_LONG_ADAPTER = { "c++", ".cxx", buildCpp, runCpp,
-    "CXX=c++", "native build/exec; source instance rejects", nullptr };
+    "CXX=c++", "native build/exec; source instance rejects", nullptr, nullptr };

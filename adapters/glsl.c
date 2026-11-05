@@ -1,5 +1,5 @@
-#include "glsl.h"
-#include "../util/b.h"
+#include "adapters/glsl.h"
+#include "b.h"
 
 ;;DEFINITION
 /* GLSL compilation defaults to shaderc's glslc, targeting Vulkan SPIR-V;
@@ -67,9 +67,9 @@ static int buildGlsl(const char *project, char **output) {
         char *artifact = Util_combine(stem, ".spv");
         free(stem);
         char *arguments[] = { (char*) tool, "--target-env=vulkan1.0", "-Werror",
-            sources[i], "-o", artifact, nullptr };
+            sources[i], "-o", artifact, nullptr, nullptr };
         char *fallback[] = { (char*) tool, "-V", "--target-env", "vulkan1.0",
-            sources[i], "-o", artifact, nullptr };
+            sources[i], "-o", artifact, nullptr, nullptr };
         status = Util_executeBuild(glslang ? fallback : arguments);
         if (status == 0 && (stat(artifact, &info) != 0 || !S_ISREG(info.st_mode) || info.st_size == 0)) {
             THROW("GLSL compiler produced no artifact");
@@ -97,11 +97,11 @@ static int buildGlsl(const char *project, char **output) {
 // Shader execution belongs to a graphics pipeline, never the CLI run seam.
 static int rejectRun(const char *file, int argc, char **argv, bool buildArtifact) {
     (void) file; (void) argc; (void) argv; (void) buildArtifact;
-    THROW("GLSL is build-only; use b build glsl <directory>");
+    THROW("GLSL is build-only; use b.sh build glsl <directory>");
     return EXIT_FAILURE;
 }
 
-#define GLSL_RECORD(name, suffix) { name, suffix, buildGlsl, rejectRun, "GLSLC=glslc", "Vulkan SPIR-V build; no host run", nullptr }
+#define GLSL_RECORD(name, suffix) { name, suffix, buildGlsl, rejectRun, "GLSLC=glslc", "Vulkan SPIR-V build; no host run", nullptr, nullptr }
 const Adapter GLSL_ADAPTER = GLSL_RECORD("glsl", ".glsl");
 const Adapter GLSL_VERT_ADAPTER = GLSL_RECORD("glsl-vert", ".vert");
 const Adapter GLSL_FRAG_ADAPTER = GLSL_RECORD("glsl-frag", ".frag");

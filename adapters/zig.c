@@ -1,12 +1,12 @@
-#include "zig.h"
-#include "../util/b.h"
+#include "adapters/zig.h"
+#include "b.h"
 
 ;;DEFINITION
 /* Zig compiles one explicit source root with ReleaseSafe; sibling imports belong
  * to Zig. Both run modes compile because Zig has no source interpreter. Directory
  * build delegates existing build.zig when present, otherwise chooses main.zig
  * or exactly one .zig source. Native project outputs use an external --prefix;
- * project steps/dependency fetching remain build.zig policy, not b's invention.
+ * project steps/dependency fetching remain build.zig policy, not b.sh's invention.
  * No executable is guessed for a project build. ZIG selects one executable.
  */
 ;;OVERVIEW
@@ -35,7 +35,7 @@ static int compileZig(const char *project, const char *file, char **output) {
     char *artifact = Util_combine(directory, "/zig-program");
     free(directory);
     char *emit = Util_combine("-femit-bin=", artifact);
-    char *arguments[] = { (char*) tool(), "build-exe", "-O", "ReleaseSafe", emit, (char*) file, nullptr };
+    char *arguments[] = { (char*) tool(), "build-exe", "-O", "ReleaseSafe", emit, (char*) file, nullptr, nullptr };
     int status = Util_executeBuild(arguments);
     free(emit);
     if (status == 0)
@@ -57,7 +57,7 @@ static int buildZig(const char *project, char **output) {
         }
         char *prefix = Util_combine(directory, "/zig-out");
         free(directory);
-        char *arguments[] = { (char*) tool(), "build", "--build-file", script, "--prefix", prefix, nullptr };
+        char *arguments[] = { (char*) tool(), "build", "--build-file", script, "--prefix", prefix, nullptr, nullptr };
         int status = Util_executeBuild(arguments);
         if (status == 0)
             *output = prefix;
@@ -110,4 +110,4 @@ static int runZig(const char *file, int argc, char **argv, bool buildArtifact) {
 }
 
 const Adapter ZIG_ADAPTER = { "zig", ".zig", buildZig, runZig,
-    "ZIG=zig", "source/project build; compile-then-run", nullptr };
+    "ZIG=zig", "source/project build; compile-then-run", nullptr, nullptr };

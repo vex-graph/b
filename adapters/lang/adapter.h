@@ -14,7 +14,7 @@
 //   const char *capabilities   human-readable supported operations
 #pragma once
 
-#include "../util/annotation.h"
+#include "annotation.h"
 
 ;;DEFINITION
 /* Adapter is the immutable native-tool contract, not a claim that every target
@@ -36,6 +36,9 @@
  * const char *capabilities — adapter-owned operation/scope description.
  * char *(*entry)(const char *project) — owned path of the source file holding the
  *     program entry point; nullptr means none (library or interpreted units).
+ * int (*archive)(const char *project, char **output) — build a library unit into
+ *     its archive; output is allocated on success, nullptr means the adapter has
+ *     no library form and the unit is reported as skipped.
  * PUBLIC: Adapter_forName; Adapter_forFile; Adapter_count; Adapter_at
  * (implemented in adapter.c). at rejects out-of-range; records are immutable.
  * Null lookup input rejects loudly; unknown/empty names or paths return nullptr.
@@ -54,6 +57,7 @@ typedef struct Adapter {
     const char *tools;
     const char *capabilities;
     char *(*entry)(const char *project);
+    int (*archive)(const char *project, char **output);
 } Adapter;
 
 const Adapter *Adapter_forName(const char *name);

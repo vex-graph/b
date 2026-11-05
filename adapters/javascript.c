@@ -1,5 +1,5 @@
-#include "javascript.h"
-#include "../util/b.h"
+#include "adapters/javascript.h"
+#include "b.h"
 
 ;;DEFINITION
 /* Node runs JavaScript source in either mode; build syntax-checks top-level .js/.mjs/.cjs
@@ -31,8 +31,8 @@ static int runJavascript(const char *file, int argc, char **argv, bool buildArti
 }
 
 const Adapter JAVASCRIPT_ADAPTER = { "javascript", ".js", buildJavascript, runJavascript,
-    "node", "syntax-check; instance/exec runtime", nullptr };
+    "node", "syntax-check; instance/exec runtime", nullptr, nullptr };
 const Adapter NODE_ADAPTER = { "node", ".mjs", buildJavascript, runJavascript,
-    "node", "syntax-check; instance/exec runtime", nullptr };
+    "node", "syntax-check; instance/exec runtime", nullptr, nullptr };
 const Adapter JS_ADAPTER = { "js", ".cjs", buildJavascript, runJavascript,
-    "node", "syntax-check; instance/exec runtime", nullptr };
+    "node", "syntax-check; instance/exec runtime", nullptr, nullptr };

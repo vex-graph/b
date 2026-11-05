@@ -5,8 +5,8 @@
 // artifact, its output and the generator argv that produces it. The reader
 // walks that schema directly; it builds no general JSON tree.
 // OVERVIEW: Graph_command; parseGraph; plan; buildTarget; readFile; hashing.
-#include "graph.h"
-#include "../util/b.h"
+#include "adapters/lang/graph.h"
+#include "b.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -15,7 +15,7 @@
 #include <unistd.h>
 
 ;;DEFINITION
-/* The graph is the only project knowledge b accepts, and it arrives as data:
+/* The graph is the only project knowledge b.sh accepts, and it arrives as data:
  * target names, kinds, source paths, flag words and dependency names. Nothing
  * here knows a repository, a tier, a language or a layout. Objects are keyed by
  * a hash of the source bytes plus the exact flag words, so a cache hit is
@@ -857,7 +857,7 @@ static bool runGenerated(Graph *graph) {
             return false;
         }
         writeSignature(name, hash);
-        fprintf(stderr, "b: generated %s\n", (*step).output);
+        fprintf(stderr, "b.sh: generated %s\n", (*step).output);
     }
     return true;
 }
@@ -870,7 +870,7 @@ static bool buildTarget(Graph *graph, GraphTarget *target) {
     if (strcmp(kind, "ext") == 0) {
         bool ok = generateExternal(target, output);
         if (ok)
-            fprintf(stderr, "b: artifact %s\n", output);
+            fprintf(stderr, "b.sh: artifact %s\n", output);
         Util_release(output);
         return ok;
     }
@@ -890,7 +890,7 @@ static bool buildTarget(Graph *graph, GraphTarget *target) {
     if (ok) {
         uint64_t signature = linkSignature(graph, target, &objects);
         if (artifactFresh((*target).name, output, signature)) {
-            fprintf(stderr, "b: up to date %s\n", (*target).name);
+            fprintf(stderr, "b.sh: up to date %s\n", (*target).name);
             rowsFree(&objects);
             Util_release(output);
             return true;
@@ -900,7 +900,7 @@ static bool buildTarget(Graph *graph, GraphTarget *target) {
         ok = linkTarget(graph, target, &objects, output);
     if (ok) {
         writeSignature((*target).name, linkSignature(graph, target, &objects));
-        fprintf(stderr, "b: built %s -> %s\n", (*target).name, output);
+        fprintf(stderr, "b.sh: built %s -> %s\n", (*target).name, output);
     } else {
         THROW("build failed for %s", (*target).name);
     }
@@ -1006,7 +1006,7 @@ static int buildCommand(Graph *graph, int argc, char **argv) {
 
 // Build then run one target, forwarding program arguments to it.
 static int runCommand(Graph *graph, const char *name, const Rows *program) {
-    char *requested[1] = {(char *) name};
+    char *requested[1] = {(char*) name};
     int status = buildCommand(graph, 1, requested);
     if (status != EXIT_SUCCESS)
         return status;
@@ -1063,7 +1063,7 @@ static int testCommand(Graph *graph, const char *filter) {
         } else if (code == 77) {
             skipped++;
         } else {
-            fprintf(stderr, "b: FAIL %s (%d)\n", names.items[i], code);
+            fprintf(stderr, "b.sh: FAIL %s (%d)\n", names.items[i], code);
             failed++;
         }
         Util_release(binary);
@@ -1073,7 +1073,7 @@ static int testCommand(Graph *graph, const char *filter) {
     return failed == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
-// Run a graph command: `b graph list|build|test|run [target...] [--file <path>]`.
+// Run a graph command: `b.sh graph list|build|test|run [target...] [--file <path>]`.
 int Graph_command(int argc, char **argv) {
     const char *path = ".b/graph.json";
     const char *command = "list";
@@ -1089,7 +1089,7 @@ int Graph_command(int argc, char **argv) {
             path = argv[++i];
             continue;
         }
-        // Everything after `run <target>` belongs to the program, not to b.
+        // Everything after `run <target>` belongs to the program, not to b.sh.
         if (strcmp(command, "run") == 0 && names.count >= 1) {
             rowsPush(&program, argv[i]);
             continue;
@@ -1118,7 +1118,7 @@ int Graph_command(int argc, char **argv) {
         status = testCommand(&graph, names.count ? names.items[0] : nullptr);
     } else if (strcmp(command, "run") == 0) {
         if (names.count == 0) {
-            THROW("usage: b graph run <target> [arguments...]");
+            THROW("usage: b.sh graph run <target> [arguments...]");
             status = EXIT_FAILURE;
         } else {
             status = runCommand(&graph, names.items[0], &program);

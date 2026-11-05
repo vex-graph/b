@@ -1,6 +1,6 @@
 // R adapter records; borrowed by the suite registry.
 #pragma once
-#include "../util/annotation.h"
+#include "annotation.h"
 
 ;;DEFINITION
 /* Two immutable Rscript records share one parse/run implementation in r.c. */
@@ -9,6 +9,6 @@
  * R_LOWER_ADAPTER {name="R", extension=".r"}; both build=buildR, run=runR.
  * No functions or owned state in this header.
  */
-#include "adapter.h"
+#include "adapters/lang/adapter.h"
 extern const Adapter R_ADAPTER;
 extern const Adapter R_LOWER_ADAPTER;

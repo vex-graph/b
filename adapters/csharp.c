@@ -4,8 +4,8 @@
 // Instance delegates to dotnet's file runner (which internally compiles); it
 // does not publish an application. Multi-file/project discovery is not guessed.
 // OVERVIEW: compileCsharp; buildCsharp (one entry); runCsharp; CSHARP_ADAPTER.
-#include "csharp.h"
-#include "../util/b.h"
+#include "adapters/csharp.h"
+#include "b.h"
 
 ;;DEFINITION
 /* .NET 10+ provides file-based C# applications without a hand-written project.
@@ -37,7 +37,7 @@ static int compileCsharp(const char *project, const char *file, char **output) {
     *output = Util_combine(target, "/program.dll");
     char *arguments[] = { "dotnet", "build", (char*) file, "--output", target,
         "--nologo", "--verbosity", "quiet", "-p:AssemblyName=program",
-        "-p:UseAppHost=false", nullptr };
+        "-p:UseAppHost=false", nullptr, nullptr };
     int status = Util_executeBuild(arguments);
     free(target);
     free(directory);
@@ -89,4 +89,4 @@ static int runCsharp(const char *file, int argc, char **argv, bool buildArtifact
 }
 
 const Adapter CSHARP_ADAPTER = { "csharp", ".cs", buildCsharp, runCsharp,
-    "dotnet", "SDK 10+ file build/exec; native file-run instance", nullptr };
+    "dotnet", "SDK 10+ file build/exec; native file-run instance", nullptr, nullptr };

@@ -1,5 +1,5 @@
-#include "sql.h"
-#include "../util/b.h"
+#include "adapters/sql.h"
+#include "b.h"
 
 ;;DEFINITION
 /* SQL scripts execute through psql only when B_SQL_DATABASE explicitly names a
@@ -53,9 +53,9 @@ static int runSql(const char *file, int argc, char **argv, bool buildArtifact) {
         }
     }
     char *arguments[] = { "psql", "-X", "--no-password", "--set=ON_ERROR_STOP=1",
-        "--single-transaction", "--dbname", (char*) database, "--file", (char*) file, nullptr };
+        "--single-transaction", "--dbname", (char*) database, "--file", (char*) file, nullptr, nullptr };
     return Util_execute(arguments);
 }
 
 const Adapter SQL_ADAPTER = { "sql", ".sql", buildSql, runSql,
-    "psql", "explicit PostgreSQL run; no standalone build", nullptr };
+    "psql", "explicit PostgreSQL run; no standalone build", nullptr, nullptr };

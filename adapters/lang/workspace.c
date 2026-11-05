@@ -1,6 +1,6 @@
-#include "workspace.h"
-#include "adapter.h"
-#include "../util/b.h"
+#include "adapters/lang/workspace.h"
+#include "adapters/lang/adapter.h"
+#include "b.h"
 
 ;;DEFINITION
 /* The standalone workspace command borrows the assess/build separation from
@@ -102,6 +102,16 @@ static bool addUnit(char *path, const Adapter *adapter, BuildSlot **units, size_
         bool priorNative = strcmp((*prior).name, "c") == 0 || strcmp((*prior).name, "objc") == 0 ||
             strcmp((*prior).name, "cpp") == 0 || strcmp((*prior).name, "cxx") == 0 || strcmp((*prior).name, "c++") == 0;
         if (native && priorNative) {
+            // A directory that carries b's OWN manifest is explicit: the author
+            // has named the unit, so the C/ObjC split is a decision, not an
+            // accident. External manifests (Cargo.toml, CMakeLists.txt, ...)
+            // still own their directories through the scan above.
+            char *manifest = Util_combine(path, "/b.assembly.json");
+            struct stat info;
+            bool explicitUnit = lstat(manifest, &info) == 0 && S_ISREG(info.st_mode);
+            free(manifest);
+            if (explicitUnit)
+                return true;
             THROW("mixed C-family sources need an explicit project manifest: %s", path);
             return false;
         }
@@ -231,7 +241,7 @@ static bool assess(ScanSlot **dirs, size_t *dirCount, size_t *dirCapacity,
 int Workspace_command(int argc, char **argv) {
     if (argc < 1 || argc > 2 || argv == nullptr || argv[0] == nullptr ||
         (argc == 2 && (argv[1] == nullptr || (strcmp(argv[1], "--plan") != 0 && strcmp(argv[1], "--confirm") != 0)))) {
-        THROW("usage: b build workspace <directory> [--plan|--confirm]");
+        THROW("usage: b.sh build workspace <directory> [--plan|--confirm]");
         return EXIT_FAILURE;
     }
     char *root = realpath(argv[0], nullptr);

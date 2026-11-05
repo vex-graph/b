@@ -2,9 +2,9 @@
 // DEFINITION: Compiles a directory's single crate root with rustc (edition
 // 2021) into one native executable; `run exec` compiles a single file on demand.
 // Rust has no source runtime, so `run instance` rejects. Requires rustc on PATH;
-// b does not download it. Cargo projects use the separate cargo adapter.
-#include "rust.h"
-#include "../util/b.h"
+// b.sh does not download it. Cargo projects use the separate cargo adapter.
+#include "adapters/rust.h"
+#include "b.h"
 
 ;;DEFINITION
 /* Rust uses one rustc crate root, never treats every module as a separate root.
@@ -75,7 +75,7 @@ static int buildRust(const char *project, char **output) {
 // Compile one Rust entry source for exec mode and run it with forwarded arguments.
 static int runRust(const char *file, int argc, char **argv, bool buildArtifact) {
     if (!buildArtifact) {
-        THROW("Rust has no source runtime; use b run exec to compile then launch");
+        THROW("Rust has no source runtime; use b.sh run exec to compile then launch");
         return EXIT_FAILURE;
     }
     char *project = Util_projectDirectory(file);
@@ -109,4 +109,4 @@ static char *entryRust(const char *project) {
 }
 
 const Adapter RUST_ADAPTER = { "rust", ".rs", buildRust, runRust,
-    "rustc", "native build/exec; source instance rejects", entryRust };
+    "rustc", "native build/exec; source instance rejects", entryRust, nullptr };

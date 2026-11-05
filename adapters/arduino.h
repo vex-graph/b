@@ -1,6 +1,6 @@
 // Arduino sketch builds and explicit compile-before-upload command.
 #pragma once
-#include "../util/annotation.h"
+#include "annotation.h"
 
 ;;DEFINITION
 /* Arduino contract separates host build/check from explicit hardware upload.
@@ -12,6 +12,6 @@
  * PUBLIC FUNCTION: Arduino_upload — validate argv and compile before flashing.
  * No owned state in this header; behavior lives in arduino.c.
  */
-#include "adapter.h"
+#include "adapters/lang/adapter.h"
 extern const Adapter ARDUINO_ADAPTER;
 int Arduino_upload(int argc, char **argv);

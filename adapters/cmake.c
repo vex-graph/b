@@ -1,8 +1,8 @@
-#include "cmake.h"
-#include "../util/b.h"
+#include "adapters/cmake.h"
+#include "b.h"
 
 ;;DEFINITION
-/* b orchestrates an installed CMake rather than translating its project.
+/* b.sh orchestrates an installed CMake rather than translating its project.
  * Configuration uses the original source tree and an external build directory;
  * CMake owns targets, dependencies, flags, generators and incremental work.
  * Only a successful configure proceeds to build. The returned path is a build
@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
-// Configure and build a declared CMake project in b's external build directory.
+// Configure and build a declared CMake project in b.sh's external build directory.
 static int buildCmake(const char *project, char **output) {
     char *manifest = Util_combine(project, "/CMakeLists.txt");
     struct stat info;
@@ -37,10 +37,10 @@ static int buildCmake(const char *project, char **output) {
         return EXIT_FAILURE;
     *output = Util_combine(directory, "/cmake");
     free(directory);
-    char *configure[] = { "cmake", "-S", (char*) project, "-B", *output, nullptr };
+    char *configure[] = { "cmake", "-S", (char*) project, "-B", *output, nullptr, nullptr };
     int status = Util_executeBuild(configure);
     if (status == 0) {
-        char *build[] = { "cmake", "--build", *output, nullptr };
+        char *build[] = { "cmake", "--build", *output, nullptr, nullptr };
         status = Util_executeBuild(build);
     }
     return status;
@@ -52,9 +52,9 @@ static int runCmake(const char *file, int argc, char **argv, bool buildArtifact)
     (void) argc;
     (void) argv;
     (void) buildArtifact;
-    THROW("CMake builds projects; use b build cmake <directory>, then run the chosen artifact");
+    THROW("CMake builds projects; use b.sh build cmake <directory>, then run the chosen artifact");
     return EXIT_FAILURE;
 }
 
 const Adapter CMAKE_ADAPTER = { "cmake", nullptr, buildCmake, runCmake,
-    "cmake", "project configure/build; no source run", nullptr };
+    "cmake", "project configure/build; no source run", nullptr, nullptr };

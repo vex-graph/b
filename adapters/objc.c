@@ -1,5 +1,5 @@
-#include "objc.h"
-#include "../util/b.h"
+#include "adapters/objc.h"
+#include "b.h"
 
 ;;DEFINITION
 /* Objective-C uses clang, ARC and Foundation on Apple Silicon/macOS 14+.
@@ -83,7 +83,7 @@ static int buildObjc(const char *project, char **output) {
 // Compile one Objective-C source for exec mode and launch it with caller arguments.
 static int runObjc(const char *file, int argc, char **argv, bool buildArtifact) {
     if (!buildArtifact) {
-        THROW("Objective-C has no source runtime; use b run exec");
+        THROW("Objective-C has no source runtime; use b.sh run exec");
         return EXIT_FAILURE;
     }
     char *project = Util_projectDirectory(file);
@@ -100,4 +100,4 @@ static int runObjc(const char *file, int argc, char **argv, bool buildArtifact) 
 }
 
 const Adapter OBJC_ADAPTER = { "objc", ".m", buildObjc, runObjc,
-    "CC=clang", "macOS Foundation build/exec; source instance rejects", nullptr };
+    "CC=clang", "macOS Foundation build/exec; source instance rejects", nullptr, nullptr };

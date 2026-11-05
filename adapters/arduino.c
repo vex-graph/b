@@ -9,7 +9,7 @@
 // or edits are made to the user's source.
 // OVERVIEW: cli; stageFile; sketchDirectory; boardFromHeader; compileSketch; buildArduino; runArduino rejects
 // host execution; Arduino_upload validates flags; ARDUINO_ADAPTER.
-#include "../util/annotation.h"
+#include "annotation.h"
 
 ;;DEFINITION
 /* Arduino firmware runs on a board, not the host. This adapter reads the
@@ -43,8 +43,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "../util/b.h"
-#include "adapter.h"
+#include "b.h"
+#include "adapters/lang/adapter.h"
 
 // Resolve the Arduino CLI override, PATH executable, or macOS IDE-bundled tool.
 static const char *cli(void) {
@@ -228,7 +228,7 @@ static int compileSketch(const char *sketch, const char *fqbn, char **output, ch
     *output = Util_combine(directory, "/arduino");
     char *build = Util_combine(directory, "/arduino-build");
     char *arguments[] = { (char*) cli(), "compile", "--fqbn", board,
-        "--build-path", build, "--output-dir", *output, (char*) sketch, nullptr };
+        "--build-path", build, "--output-dir", *output, (char*) sketch, nullptr, nullptr };
     int status = Util_executeBuild(arguments);
     free(build);
     free(directory);
@@ -251,7 +251,7 @@ static int runArduino(const char *file, int argc, char **argv, bool buildArtifac
     (void) argc;
     (void) argv;
     (void) buildArtifact;
-    THROW("Arduino sketches run on hardware; use b upload arduino <sketch> --port <port> with a b_build header");
+    THROW("Arduino sketches run on hardware; use b.sh upload arduino <sketch> --port <port> with a b_build header");
     return EXIT_FAILURE;
 }
 
@@ -289,7 +289,7 @@ int Arduino_upload(int argc, char **argv) {
     int status = compileSketch(sketch, fqbn, &output, &board);
     if (status == 0) {
         char *arguments[] = { (char*) cli(), "upload", "--fqbn", board,
-            "--port", (char*) port, "--input-dir", output, sketch, nullptr };
+            "--port", (char*) port, "--input-dir", output, sketch, nullptr, nullptr };
         status = Util_execute(arguments);
     }
     free(board);
@@ -299,4 +299,4 @@ int Arduino_upload(int argc, char **argv) {
 }
 
 const Adapter ARDUINO_ADAPTER = { "arduino", ".ino", buildArduino, runArduino,
-    "ARDUINO_CLI=arduino-cli", "firmware build/upload; no host run", nullptr };
+    "ARDUINO_CLI=arduino-cli", "firmware build/upload; no host run", nullptr, nullptr };

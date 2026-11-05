@@ -1,5 +1,5 @@
-#include "html.h"
-#include "../util/b.h"
+#include "adapters/html.h"
+#include "b.h"
 
 ;;DEFINITION
 /* HTML runs by opening the original local document in a browser; index.html is
@@ -25,7 +25,7 @@
 static int buildHtml(const char *project, char **output) {
     (void) project;
     (void) output;
-    THROW("HTML has no guessed build pipeline; use b build npm for a declared web build script");
+    THROW("HTML has no guessed build pipeline; use b.sh build npm for a declared web build script");
     return EXIT_FAILURE;
 }
 
@@ -62,6 +62,6 @@ static int runHtml(const char *file, int argc, char **argv, bool buildArtifact) 
 #define HTML_TOOLS "B_BROWSER=xdg-open"
 #endif
 const Adapter HTML_ADAPTER = { "html", ".html", buildHtml, runHtml,
-    HTML_TOOLS, "local browser launch; no standalone build/rendering proof", nullptr };
+    HTML_TOOLS, "local browser launch; no standalone build/rendering proof", nullptr, nullptr };
 const Adapter HTM_ADAPTER = { "web", ".htm", buildHtml, runHtml,
-    HTML_TOOLS, "local browser launch; no standalone build/rendering proof", nullptr };
+    HTML_TOOLS, "local browser launch; no standalone build/rendering proof", nullptr, nullptr };
