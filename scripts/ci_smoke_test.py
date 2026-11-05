@@ -58,11 +58,11 @@ class CiSmokeTest(unittest.TestCase):
             workspace = root / ".b" / "workspace.json"
             self.assertTrue(workspace.is_file(), "generate did not write .b/workspace.json")
             document = json.loads(workspace.read_text())
-            self.assertEqual(document["schemaVersion"], 1)
+            self.assertEqual(set(document), {"root", "directories"})
             self.assertEqual(document["root"], str(root.resolve()))
-            units = {entry["dir"]: entry["sources"] for entry in document["units"]}
-            self.assertEqual(list(units), ["src/hello"])
-            self.assertEqual(units["src/hello"], ["main.c"])
+            directories = document["directories"]
+            self.assertEqual(directories["src/hello"], ["main.c"])
+            self.assertIn("README.md", directories.get(".", []))
 
             # Claiming the same root again regenerates the same facts.
             self.invoke("generate", root)
@@ -112,12 +112,9 @@ class CiSmokeTest(unittest.TestCase):
             )
 
             help_text = self.invoke("--help")
-            self.assertIn("b breeze <file>", help_text)
-            self.assertIn("b run <file>", help_text)
+            self.assertIn("b breeze [exec|instance] <file>", help_text)
+            self.assertIn("b run [exec|instance] <file>", help_text)
             self.assertIn("b generate", help_text)
-            self.assertNotIn("breeze exec", help_text)
-            self.assertNotIn("instance", help_text)
-            self.assertNotIn("--in", help_text)
 
             # Claim a territory for standalone file execution.
             self.invoke("generate", temp, cwd=temp)
@@ -226,7 +223,7 @@ class CiSmokeTest(unittest.TestCase):
                                         env=self.environment, capture_output=True,
                                         text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertIn("b breeze <file>", result.stdout)
+            self.assertIn("b breeze [exec|instance] <file>", result.stdout)
 
             install_dir = temp / "installed-bin"
             install_state = temp / "installed-state"
@@ -279,7 +276,7 @@ class CiSmokeTest(unittest.TestCase):
             )
             self.assertEqual(installed_help.returncode, 0,
                              installed_help.stdout + installed_help.stderr)
-            self.assertIn("b breeze <file>", installed_help.stdout)
+            self.assertIn("b breeze [exec|instance] <file>", installed_help.stdout)
 
 
 if __name__ == "__main__":
