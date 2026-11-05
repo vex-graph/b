@@ -109,7 +109,7 @@ jobs:
       - name: Upload target assets
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: b-${{ matrix.target }}
+          name: b.sh-${{ matrix.target }}
           path: dist/*
           if-no-files-found: error
 
@@ -122,14 +122,14 @@ jobs:
       - name: Download target assets
         uses: actions/download-artifact@v8.0.2
         with:
-          pattern: b-*
+          pattern: b.sh-*
           path: release-assets
           merge-multiple: true
 
       - name: Upload complete target bundle
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: b-all-targets
+          name: b.sh-all-targets
           path: release-assets/*
           if-no-files-found: error
 
@@ -137,7 +137,7 @@ jobs:
     name: Publish public curl downloads
     needs: [build, collect-assets]
     if: >-
-      github.repository == 'vex-graph/b' &&
+      github.repository == 'vex-graph/b.sh' &&
       needs.build.result == 'success' &&
       needs.collect-assets.result == 'success' &&
       github.ref == 'refs/heads/main'
@@ -150,7 +150,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     concurrency:
-      group: b-github-pages
+      group: b.sh-github-pages
       cancel-in-progress: false
     steps:
       - name: Check out B
@@ -159,7 +159,7 @@ jobs:
       - name: Download complete target bundle
         uses: actions/download-artifact@v8.0.2
         with:
-          name: b-all-targets
+          name: b.sh-all-targets
           path: release-assets
 
       - name: Configure GitHub Pages
