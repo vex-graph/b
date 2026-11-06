@@ -774,10 +774,6 @@ static bool validateDestinations(const BoxManifest *self) {
 
 // Validate the parsed manifest and report the first defect loudly.
 static bool validateManifest(BoxManifest *manifest) {
-    if ((*manifest).schemaVersion != 1) {
-        THROW("manifest: schemaVersion must be 1, not %d", (*manifest).schemaVersion);
-        return false;
-    }
     if (!validateIdentifier((*manifest).identifier))
         return false;
     if ((*manifest).name == nullptr) {
@@ -1132,7 +1128,6 @@ static char *readManifestText(const char *path) {
 int BoxManifest_writeTemplate(const char *path) {
     static const char template[] =
         "{\n"
-        "  \"schemaVersion\": 1,\n"
         "  \"application\": {\n"
         "    \"id\": \"com.example.myapp\",\n"
         "    \"name\": \"My Application\",\n"
@@ -1191,6 +1186,7 @@ BoxManifest *BoxManifest_load(const char *path) {
         return nullptr;
     }
     memset(manifest, 0, sizeof(BoxManifest));
+    (*manifest).schemaVersion = 1;   // locked: there is only one schema
     (*manifest).baseDirectory = parentOf(path);
     const char *cursor = text;
     bool valid = (*manifest).baseDirectory != nullptr && parseRoot(&cursor, manifest);
@@ -1393,8 +1389,6 @@ void BoxManifest_toStringStruct(const BoxManifest *self, char *dest, size_t capa
     }
     emitText(dest, capacity, &used, outTruncated, "{baseDirectory: ");
     emitQuoted(dest, capacity, &used, outTruncated, (*self).baseDirectory != nullptr ? (*self).baseDirectory : "");
-    emitText(dest, capacity, &used, outTruncated, ", schemaVersion: ");
-    emitCount(dest, capacity, &used, outTruncated, (size_t) (*self).schemaVersion);
     emitText(dest, capacity, &used, outTruncated, ", identifier: ");
     emitQuoted(dest, capacity, &used, outTruncated, (*self).identifier != nullptr ? (*self).identifier : "");
     emitText(dest, capacity, &used, outTruncated, ", name: ");
