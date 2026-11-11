@@ -3,6 +3,15 @@
 # Cross-platform: portable flags, no macOS-specific arch/cpu pins.
 set -eu
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+workspace="${B_WORKSPACE_ROOT:-}"
+if [ -z "$workspace" ]; then
+    workspace=$(CDPATH= cd -- "$here/../.." && pwd)
+fi
+floor="$workspace/lib"
+if [ ! -d "$floor" ]; then
+    echo "b.sh: error: vex-c floor not found at $floor (set B_WORKSPACE_ROOT to the workspace root)" >&2
+    exit 1
+fi
 case "$(uname -s)" in
     Darwin) state="${B_HOME:-$HOME/Library/Application Support/b}" ;;
     Linux)  state="${B_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/b}" ;;
@@ -11,6 +20,8 @@ case "$(uname -s)" in
 esac
 mkdir -p "$state"
 export B_HOME="$state"
+export B_WORKSPACE_ROOT="$workspace"
+export B_INCLUDE="$floor"
 
 # Suite mode: src/b.sh.c dispatches to the verbs; adapters/ are native-tool edges.
 bin="$state/cli"
@@ -46,7 +57,7 @@ if [ "$stale" = 1 ]; then
         extra_flags="-Dnullptr=0"
     fi
 
-    "${CC:-cc}" -std="$std_flag" -O2 -Wall -Wextra -Werror -I"$here" -I"$here/.." -I"$here/b" $extra_flags -o "$temp" "$here"/b/*.c "$here"/adapters/*.c "$here"/adapters/lang/*.c
+    "${CC:-cc}" -std="$std_flag" -O2 -Wall -Wextra -Werror -I"$here" -I"$here/.." -I"$here/b" -I"$floor" $extra_flags -o "$temp" "$here"/b/*.c "$here"/adapters/*.c "$here"/adapters/lang/*.c
     mv "$temp" "$bin"
     trap - EXIT HUP INT TERM
 fi

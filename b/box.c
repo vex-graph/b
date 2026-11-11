@@ -14,7 +14,7 @@
 // OVERVIEW: the annotation registry below names every function in this file.
 #include "box.h"
 #include "b.h"
-#include "annotation.h"
+#include "vex.h"
 
 ;;DEFINITION
 /* The parser is a schema walk, not a general JSON tree: the cursor advances
@@ -36,9 +36,9 @@
  * char *license — license family. char *homepage — project URL.
  * char *icon — relative icon path. char *entry — relative payload entry.
  * char *statePolicy — only "clean" is accepted.
- * char **authors, size_t authorCount — declared authors.
- * char **sources, char **destinations, size_t fileCount — payload files.
- * char **formats, size_t formatCount — requested export formats.
+ * char **authors, bytes authorCount — declared authors.
+ * char **sources, char **destinations, bytes fileCount — payload files.
+ * char **formats, bytes formatCount — requested export formats.
  * PUBLIC: BoxManifest_writeTemplate; BoxManifest_load; BoxManifest_free;
  * BoxManifest_export; BoxManifest_toString; BoxManifest_toStringStruct.
  * PRIVATE STATIC: allocateText; copyText; appendText; skipSpace;
@@ -89,7 +89,7 @@ static const char *const BOX_KNOWN_FORMATS[] = {
 };
 
 // Allocate plain storage for owned text; report and fail without terminating.
-static char *allocateText(size_t size) {
+static char *allocateText(bytes size) {
     char *text = malloc(size);
     if (text == nullptr)
         THROW("out of memory while reading a manifest");
@@ -100,7 +100,7 @@ static char *allocateText(size_t size) {
 static char *copyText(const char *text) {
     if (text == nullptr)
         return nullptr;
-    size_t length = strlen(text);
+    bytes length = strlen(text);
     char *copy = allocateText(length + 1);
     if (copy == nullptr)
         return nullptr;
@@ -109,12 +109,12 @@ static char *copyText(const char *text) {
 }
 
 // Append one owned string to a growable list bounded by BOX_ITEM_MAX.
-static bool appendText(char ***items, size_t *count, char *value) {
+static bool appendText(char ***items, bytes *count, char *value) {
     if (*count >= BOX_ITEM_MAX) {
         THROW("manifest declares more than %u entries", BOX_ITEM_MAX);
         return false;
     }
-    size_t next = *count + 1;
+    bytes next = *count + 1;
     char **grown = realloc(*items, next * sizeof(char*));
     if (grown == nullptr) {
         THROW("out of memory while reading a manifest");
@@ -152,11 +152,11 @@ static bool parseString(const char **cursor, const char *field, char **out) {
         return false;
     }
     ++position;
-    size_t capacity = strlen(position) + 1;
+    bytes capacity = strlen(position) + 1;
     char *text = allocateText(capacity);
     if (text == nullptr)
         return false;
-    size_t length = 0;
+    bytes length = 0;
     while (*position != '\0' && *position != '"') {
         unsigned char character = (unsigned char) *position;
         if (character < 0x20) {
@@ -207,7 +207,7 @@ static bool parseString(const char **cursor, const char *field, char **out) {
 }
 
 // Parse an array of strings; an empty array yields a null list.
-static bool parseStringArray(const char **cursor, const char *field, char ***items, size_t *count) {
+static bool parseStringArray(const char **cursor, const char *field, char ***items, bytes *count) {
     if (!expectCharacter(cursor, '[', field))
         return false;
     const char *position = skipSpace(*cursor);
@@ -470,8 +470,8 @@ static bool parsePayload(const char **cursor, BoxManifest *manifest) {
                     } else {
                         // sources and destinations are parallel lists: keep separate
                         // counters so each entry lands at the same index.
-                        size_t sourceCount = (*manifest).fileCount;
-                        size_t destinationCount = (*manifest).fileCount;
+                        bytes sourceCount = (*manifest).fileCount;
+                        bytes destinationCount = (*manifest).fileCount;
                         while (true) {
                             char *source = nullptr, *destination = nullptr;
                             if (!parseFileEntry(cursor, &source, &destination)) {
@@ -651,7 +651,7 @@ static bool validateIdentifier(const char *text) {
         THROW("manifest: application.id is required");
         return false;
     }
-    size_t length = strlen(text);
+    bytes length = strlen(text);
     if (length == 0 || length > BOX_IDENTIFIER_MAX) {
         THROW("manifest: application.id must be 1..%u characters", BOX_IDENTIFIER_MAX);
         return false;
@@ -669,7 +669,7 @@ static bool validateVersion(const char *text) {
         THROW("manifest: application.version is required");
         return false;
     }
-    size_t length = strlen(text);
+    bytes length = strlen(text);
     if (length == 0 || length > BOX_VERSION_MAX) {
         THROW("manifest: application.version must be 1..%u characters", BOX_VERSION_MAX);
         return false;
@@ -698,7 +698,7 @@ static bool validateRelativePath(const char *text, const char *field) {
     const char *position = text;
     while (true) {
         const char *slash = strchr(position, '/');
-        size_t length = slash == nullptr ? strlen(position) : (size_t) (slash - position);
+        bytes length = slash == nullptr ? strlen(position) : (bytes) (slash - position);
         if (length == 0) {
             THROW("manifest: %s has an empty path component: %s", field, text);
             return false;
@@ -707,7 +707,7 @@ static bool validateRelativePath(const char *text, const char *field) {
             THROW("manifest: %s must not contain '.' or '..' components: %s", field, text);
             return false;
         }
-        for (size_t index = 0; index < length; ++index) {
+        for (bytes index = 0; index < length; ++index) {
             if ((unsigned char) position[index] < 0x20) {
                 THROW("manifest: %s has a control character: %s", field, text);
                 return false;
@@ -725,7 +725,7 @@ static bool validateFormats(const BoxManifest *self, const char *field) {
         THROW("manifest: formats must declare at least one export format");
         return false;
     }
-    for (size_t index = 0; index < (*self).formatCount; ++index) {
+    for (bytes index = 0; index < (*self).formatCount; ++index) {
         const char *format = (*self).formats[index];
         if (format == nullptr || *format == '\0' || strlen(format) > BOX_FORMAT_MAX) {
             THROW("manifest: formats contains an invalid entry");
@@ -734,7 +734,7 @@ static bool validateFormats(const BoxManifest *self, const char *field) {
         if (!validateCharacters(format, field, "abcdefghijklmnopqrstuvwxyz0123456789-"))
             return false;
         bool known = false;
-        for (size_t candidate = 0; candidate < sizeof BOX_KNOWN_FORMATS / sizeof BOX_KNOWN_FORMATS[0]; ++candidate)
+        for (bytes candidate = 0; candidate < sizeof BOX_KNOWN_FORMATS / sizeof BOX_KNOWN_FORMATS[0]; ++candidate)
             known = known || strcmp(BOX_KNOWN_FORMATS[candidate], format) == 0;
         if (!known) {
             THROW("manifest: formats has an unknown export format: %s", format);
@@ -753,14 +753,14 @@ static const char *baseNameOf(const char *path) {
 // Require every declared payload destination to be distinct before exporting.
 static bool validateDestinations(const BoxManifest *self) {
     const char *entryName = baseNameOf((*self).entry);
-    for (size_t index = 0; index < (*self).fileCount; ++index) {
+    for (bytes index = 0; index < (*self).fileCount; ++index) {
         const char *destination = (*self).destinations[index] != nullptr
             ? (*self).destinations[index] : baseNameOf((*self).sources[index]);
         if (strcmp(destination, entryName) == 0) {
             THROW("manifest: payload entry and %s share one export destination: %s", (*self).sources[index], destination);
             return false;
         }
-        for (size_t other = 0; other < index; ++other) {
+        for (bytes other = 0; other < index; ++other) {
             const char *earlier = (*self).destinations[other] != nullptr
                 ? (*self).destinations[other] : baseNameOf((*self).sources[other]);
             if (strcmp(earlier, destination) == 0) {
@@ -780,7 +780,7 @@ static bool validateManifest(BoxManifest *manifest) {
         THROW("manifest: application.name is required");
         return false;
     }
-    size_t nameLength = strlen((*manifest).name);
+    bytes nameLength = strlen((*manifest).name);
     if (nameLength == 0 || nameLength > BOX_TEXT_MAX) {
         THROW("manifest: application.name must be 1..%u characters", BOX_TEXT_MAX);
         return false;
@@ -795,14 +795,14 @@ static bool validateManifest(BoxManifest *manifest) {
         return false;
     if (!validateRelativePath((*manifest).entry, "payload.entry"))
         return false;
-    for (size_t index = 0; index < (*manifest).authorCount; ++index) {
+    for (bytes index = 0; index < (*manifest).authorCount; ++index) {
         const char *author = (*manifest).authors[index];
         if (author == nullptr || *author == '\0' || strlen(author) > BOX_TEXT_MAX) {
             THROW("manifest: application.authors entries must be 1..%u characters", BOX_TEXT_MAX);
             return false;
         }
     }
-    for (size_t index = 0; index < (*manifest).fileCount; ++index) {
+    for (bytes index = 0; index < (*manifest).fileCount; ++index) {
         const char *source = (*manifest).sources[index];
         if (!validateRelativePath(source, "payload.files source"))
             return false;
@@ -824,17 +824,17 @@ static bool validateManifest(BoxManifest *manifest) {
 }
 
 // Release an owned string list; the count is informational only.
-static void freeTextList(char **items, size_t count) {
-    for (size_t index = 0; index < count; ++index)
+static void freeTextList(char **items, bytes count) {
+    for (bytes index = 0; index < count; ++index)
         free(items[index]);
     free(items);
 }
 
 // Join a base path and a relative path with exactly one separator.
 static char *joinPath(const char *base, const char *relative) {
-    size_t baseLength = strlen(base);
+    bytes baseLength = strlen(base);
     bool separator = baseLength > 0 && base[baseLength - 1] != '/';
-    size_t relativeLength = strlen(relative);
+    bytes relativeLength = strlen(relative);
     char *path = allocateText(baseLength + (separator ? 1 : 0) + relativeLength + 1);
     if (path == nullptr)
         return nullptr;
@@ -936,7 +936,7 @@ static bool copyRegularFile(const char *source, const char *target, mode_t mode)
             break;
         ssize_t offset = 0;
         while (offset < count) {
-            ssize_t written = write(output, buffer + offset, (size_t) (count - offset));
+            ssize_t written = write(output, buffer + offset, (bytes) (count - offset));
             if (written < 0) {
                 if (errno == EINTR)
                     continue;
@@ -962,7 +962,7 @@ static bool copyRegularFile(const char *source, const char *target, mode_t mode)
 }
 
 // Copy a declared payload entry, refusing symlinks and unsupported types.
-static bool copyTree(const char *source, const char *target, size_t depth) {
+static bool copyTree(const char *source, const char *target, bytes depth) {
     if (depth > BOX_COPY_DEPTH_MAX) {
         THROW("payload tree is deeper than %u levels: %s", BOX_COPY_DEPTH_MAX, source);
         return false;
@@ -1025,10 +1025,10 @@ static bool copyTree(const char *source, const char *target, size_t depth) {
 }
 
 // Append literal text to a bounded projection, flagging any truncation.
-static void emitText(char *dest, size_t capacity, size_t *used, bool *outTruncated, const char *text) {
-    size_t length = strlen(text);
+static void emitText(char *dest, bytes capacity, bytes *used, bool *outTruncated, const char *text) {
+    bytes length = strlen(text);
     if (*used + length >= capacity) {
-        size_t room = capacity > 0 && *used < capacity - 1 ? capacity - 1 - *used : 0;
+        bytes room = capacity > 0 && *used < capacity - 1 ? capacity - 1 - *used : 0;
         if (room > 0)
             memcpy(dest + *used, text, room);
         *used += room;
@@ -1043,7 +1043,7 @@ static void emitText(char *dest, size_t capacity, size_t *used, bool *outTruncat
 }
 
 // Append one quoted, escaped string field.
-static void emitQuoted(char *dest, size_t capacity, size_t *used, bool *outTruncated, const char *text) {
+static void emitQuoted(char *dest, bytes capacity, bytes *used, bool *outTruncated, const char *text) {
     emitText(dest, capacity, used, outTruncated, "\"");
     for (const char *position = text; *position != '\0'; ++position) {
         char character = *position;
@@ -1065,16 +1065,16 @@ static void emitQuoted(char *dest, size_t capacity, size_t *used, bool *outTrunc
 }
 
 // Append one unsigned count.
-static void emitCount(char *dest, size_t capacity, size_t *used, bool *outTruncated, size_t value) {
+static void emitCount(char *dest, bytes capacity, bytes *used, bool *outTruncated, bytes value) {
     char text[32];
     snprintf(text, sizeof text, "%zu", value);
     emitText(dest, capacity, used, outTruncated, text);
 }
 
 // Append a bracketed list of quoted strings.
-static void emitList(char *dest, size_t capacity, size_t *used, bool *outTruncated, char **items, size_t count) {
+static void emitList(char *dest, bytes capacity, bytes *used, bool *outTruncated, char **items, bytes count) {
     emitText(dest, capacity, used, outTruncated, "[");
-    for (size_t index = 0; index < count; ++index) {
+    for (bytes index = 0; index < count; ++index) {
         if (index > 0)
             emitText(dest, capacity, used, outTruncated, ", ");
         emitQuoted(dest, capacity, used, outTruncated, items[index] != nullptr ? items[index] : "");
@@ -1089,7 +1089,7 @@ static char *readManifestText(const char *path) {
         THROW("manifest does not exist or is not a regular file: %s", path);
         return nullptr;
     }
-    if (info.st_size <= 0 || (size_t) info.st_size > BOX_MANIFEST_MAX_BYTES) {
+    if (info.st_size <= 0 || (bytes) info.st_size > BOX_MANIFEST_MAX_BYTES) {
         THROW("manifest must be 1..%u bytes: %s", BOX_MANIFEST_MAX_BYTES, path);
         return nullptr;
     }
@@ -1098,13 +1098,13 @@ static char *readManifestText(const char *path) {
         THROW("cannot read manifest %s: %s", path, strerror(errno));
         return nullptr;
     }
-    size_t size = (size_t) info.st_size;
+    bytes size = (bytes) info.st_size;
     char *text = allocateText(size + 1);
     if (text == nullptr) {
         close(file);
         return nullptr;
     }
-    size_t offset = 0;
+    bytes offset = 0;
     while (offset < size) {
         ssize_t count = read(file, text + offset, size - offset);
         if (count < 0) {
@@ -1117,7 +1117,7 @@ static char *readManifestText(const char *path) {
         }
         if (count == 0)
             break;
-        offset += (size_t) count;
+        offset += (bytes) count;
     }
     close(file);
     text[offset] = '\0';
@@ -1154,13 +1154,13 @@ int BoxManifest_writeTemplate(const char *path) {
         THROW("cannot create manifest without replacing an existing path: %s", path);
         return EXIT_FAILURE;
     }
-    size_t length = sizeof(template) - 1;
-    size_t offset = 0;
+    bytes length = sizeof(template) - 1;
+    bytes offset = 0;
     while (offset < length) {
         ssize_t written = write(file, template + offset, length - offset);
         if (written <= 0)
             break;
-        offset += (size_t) written;
+        offset += (bytes) written;
     }
     int closed = close(file);
     if (offset != length || closed != 0) {
@@ -1232,7 +1232,7 @@ int BoxManifest_export(const BoxManifest *self, const char *destination) {
         THROW("export requires a loaded manifest and a destination path");
         return EXIT_FAILURE;
     }
-    for (size_t index = 0; index < (*self).formatCount; ++index) {
+    for (bytes index = 0; index < (*self).formatCount; ++index) {
         if (strcmp((*self).formats[index], BOX_FORMAT_PORTABLE) != 0) {
             THROW("export format is not implemented yet: %s (only %s is available)", (*self).formats[index], BOX_FORMAT_PORTABLE);
             return EXIT_FAILURE;
@@ -1249,8 +1249,8 @@ int BoxManifest_export(const BoxManifest *self, const char *destination) {
     }
     if (S_ISDIR(info.st_mode)) {
         const char *entryName = baseNameOf((*self).entry);
-        size_t nameLength = strlen(entryName);
-        for (size_t index = 0; index < (*self).fileCount; ++index) {
+        bytes nameLength = strlen(entryName);
+        for (bytes index = 0; index < (*self).fileCount; ++index) {
             const char *destination = (*self).destinations[index] != nullptr
                 ? (*self).destinations[index] : baseNameOf((*self).sources[index]);
             if (strncmp(destination, entryName, nameLength) == 0 &&
@@ -1261,7 +1261,7 @@ int BoxManifest_export(const BoxManifest *self, const char *destination) {
             }
         }
     }
-    for (size_t index = 0; index < (*self).fileCount; ++index) {
+    for (bytes index = 0; index < (*self).fileCount; ++index) {
         char *source = joinPath((*self).baseDirectory, (*self).sources[index]);
         bool available = source != nullptr && lstat(source, &info) == 0 && !S_ISLNK(info.st_mode);
         if (!available) {
@@ -1304,7 +1304,7 @@ int BoxManifest_export(const BoxManifest *self, const char *destination) {
         copied = false;
     else
         copied = copyTree(entrySource, entryTarget, 0);
-    for (size_t index = 0; index < (*self).fileCount && copied; ++index) {
+    for (bytes index = 0; index < (*self).fileCount && copied; ++index) {
         char *source = joinPath((*self).baseDirectory, (*self).sources[index]);
         if (source == nullptr) {
             copied = false;
@@ -1341,7 +1341,7 @@ int BoxManifest_export(const BoxManifest *self, const char *destination) {
 }
 
 // Project the manifest's value state; a null record writes "nullptr".
-void BoxManifest_toString(const BoxManifest *self, char *dest, size_t capacity, bool *outTruncated) {
+void BoxManifest_toString(const BoxManifest *self, char *dest, bytes capacity, bool *outTruncated) {
     if (dest == nullptr)
         return;
     if (capacity == 0) {
@@ -1350,7 +1350,7 @@ void BoxManifest_toString(const BoxManifest *self, char *dest, size_t capacity, 
     }
     dest[0] = '\0';
     *outTruncated = false;
-    size_t used = 0;
+    bytes used = 0;
     if (self == nullptr) {
         emitText(dest, capacity, &used, outTruncated, "nullptr");
         return;
@@ -1373,7 +1373,7 @@ void BoxManifest_toString(const BoxManifest *self, char *dest, size_t capacity, 
 }
 
 // Dump this class's own fields in declaration order; one layer, no recursion.
-void BoxManifest_toStringStruct(const BoxManifest *self, char *dest, size_t capacity, bool *outTruncated) {
+void BoxManifest_toStringStruct(const BoxManifest *self, char *dest, bytes capacity, bool *outTruncated) {
     if (dest == nullptr)
         return;
     if (capacity == 0) {
@@ -1382,7 +1382,7 @@ void BoxManifest_toStringStruct(const BoxManifest *self, char *dest, size_t capa
     }
     dest[0] = '\0';
     *outTruncated = false;
-    size_t used = 0;
+    bytes used = 0;
     if (self == nullptr) {
         emitText(dest, capacity, &used, outTruncated, "nullptr");
         return;

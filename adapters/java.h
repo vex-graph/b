@@ -1,5 +1,5 @@
 #pragma once
-#include "annotation.h"
+#include "vex.h"
 ;;DEFINITION
 /* Immutable JDK source/class adapter contract; behavior lives in java.c. */
 ;;OVERVIEW

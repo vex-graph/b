@@ -21,7 +21,7 @@
 #include <stdlib.h>
 
 // Compile the provided C++23 sources into one external native executable.
-static int compileCpp(const char *project, char **sources, size_t count, char **output) {
+static int compileCpp(const char *project, char **sources, bytes count, char **output) {
     if (count > SIZE_MAX / sizeof(char*) - 16) {
         THROW("C++ source count overflow");
         return EXIT_FAILURE;
@@ -32,7 +32,7 @@ static int compileCpp(const char *project, char **sources, size_t count, char **
     *output = Util_combine(directory, "/cpp-program");
     free(directory);
     char **arguments = Util_allocate((count + 16) * sizeof(char*));
-    size_t n = 0;
+    bytes n = 0;
     const char *compiler = getenv("CXX");
     arguments[n++] = (char*) (compiler != nullptr && *compiler ? compiler : "c++");
     arguments[n++] = "-std=c++23";
@@ -49,7 +49,7 @@ static int compileCpp(const char *project, char **sources, size_t count, char **
     arguments[n++] = (char*) project;
     arguments[n++] = "-o";
     arguments[n++] = *output;
-    for (size_t i = 0; i < count; ++i)
+    for (bytes i = 0; i < count; ++i)
         arguments[n++] = sources[i];
     int status = Util_executeBuild(arguments);
     free(arguments);
@@ -58,7 +58,7 @@ static int compileCpp(const char *project, char **sources, size_t count, char **
 
 // Collect supported top-level C++ extensions and compile the project together.
 static int buildCpp(const char *project, char **output) {
-    size_t count = 0;
+    bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.{cpp,cc,cxx}", &count, &ok);
     if (!ok)

@@ -3,7 +3,7 @@
 // it in; `b.sh box <manifest> <path-to-export>` reads it, validates it, and exports
 // the declared payload. This class owns that description: the declared
 // application metadata, the payload entry and files, and the requested export
-// formats. It is project/toolchain agnostic and has no vexgraph-ecosystem-gitrepo dependency.
+// formats. It is project/toolchain agnostic and has no ecosystem dependency.
 // STRUCT FIELDS:
 //   char *baseDirectory  manifest directory; payload paths resolve against it
 //   int schemaVersion    declared schema number (only 1 is accepted)
@@ -18,16 +18,16 @@
 //   char *entry          relative payload entry
 //   char *statePolicy    machine/user state policy ("clean" only)
 //   char **authors       declared author names
-//   size_t authorCount   number of declared authors
+//   bytes authorCount   number of declared authors
 //   char **sources       payload file sources, relative to baseDirectory
 //   char **destinations  export-relative destinations, parallel to sources
-//   size_t fileCount     number of declared payload files
+//   bytes fileCount     number of declared payload files
 //   char **formats       requested export formats
-//   size_t formatCount   number of requested export formats
+//   bytes formatCount   number of requested export formats
 #pragma once
 
 
-#include "annotation.h"
+#include "vex.h"
 #include <stddef.h>
 
 ;;DEFINITION
@@ -53,9 +53,9 @@
  * char *icon — relative icon path when declared.
  * char *entry — relative payload entry.
  * char *statePolicy — state policy; only "clean" is accepted.
- * char **authors, size_t authorCount — declared authors.
- * char **sources, char **destinations, size_t fileCount — payload files.
- * char **formats, size_t formatCount — requested export formats.
+ * char **authors, bytes authorCount — declared authors.
+ * char **sources, char **destinations, bytes fileCount — payload files.
+ * char **formats, bytes formatCount — requested export formats.
  * PUBLIC: BoxManifest_writeTemplate (starter JSON form);
  * BoxManifest_load (parse + validate, nullptr + THROW on rejection);
  * BoxManifest_free; BoxManifest_export (portable payload export; the
@@ -84,12 +84,12 @@ typedef struct BoxManifest {
     char *entry;
     char *statePolicy;
     char **authors;
-    size_t authorCount;
+    bytes authorCount;
     char **sources;
     char **destinations;
-    size_t fileCount;
+    bytes fileCount;
     char **formats;
-    size_t formatCount;
+    bytes formatCount;
 } BoxManifest;
 
 // Write the starter schema-1 JSON form; never replaces an existing path.
@@ -101,6 +101,6 @@ void BoxManifest_free(BoxManifest *self);
 // Export declared payload into destination (which must not exist yet).
 int BoxManifest_export(const BoxManifest *self, const char *destination);
 // Bounded value projection; dest-last with a truncation flag.
-void BoxManifest_toString(const BoxManifest *self, char *dest, size_t capacity, bool *outTruncated);
+void BoxManifest_toString(const BoxManifest *self, char *dest, bytes capacity, bool *outTruncated);
 // Bounded field projection mirroring STRUCT FIELDS; one layer only.
-void BoxManifest_toStringStruct(const BoxManifest *self, char *dest, size_t capacity, bool *outTruncated);
+void BoxManifest_toStringStruct(const BoxManifest *self, char *dest, bytes capacity, bool *outTruncated);

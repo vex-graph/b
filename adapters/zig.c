@@ -74,7 +74,7 @@ static int buildZig(const char *project, char **output) {
         return status;
     }
     free(main);
-    size_t count = 0;
+    bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.zig", &count, &ok);
     if (!ok)

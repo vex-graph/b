@@ -6,7 +6,7 @@
 #include "b.h"
 #include "territory.h"
 
-#include "annotation.h"
+#include "vex.h"
 
 ;;DEFINITION
 /* Utility services keep adapters focused on their language contracts. Dynamic
@@ -68,7 +68,7 @@ static char **processEnvironment(void) {
 #endif
 
 // Allocate zero-initialized storage; report and terminate the CLI if allocation fails.
-void *Util_allocate(size_t size) {
+void *Util_allocate(bytes size) {
     void *memory = calloc(1, size);
     if (memory == nullptr) {
         THROW("out of memory");
@@ -85,7 +85,7 @@ void Util_release(void *block) {
 
 // Allocate and return the concatenation of two strings, rejecting size overflow.
 char *Util_combine(const char *left, const char *right) {
-    size_t a = strlen(left), b = strlen(right);
+    bytes a = strlen(left), b = strlen(right);
     if (a > SIZE_MAX - b - 1) {
         THROW("path size overflow");
         exit(EXIT_FAILURE);
@@ -120,7 +120,7 @@ char *Util_realPath(const char *path, char *resolved) {
         errno = ENOENT;
         return nullptr;
     }
-    char *canonical = Util_allocate((size_t) length + 1);
+    char *canonical = Util_allocate((bytes) length + 1);
     DWORD written = GetFinalPathNameByHandleA(handle, canonical, length + 1, flags);
     CloseHandle(handle);
     if (written == 0 || written > length) {
@@ -182,20 +182,20 @@ int Util_scandir(const char *directory, struct dirent ***entries,
     if (stream == nullptr)
         return -1;
     struct dirent **items = nullptr;
-    size_t count = 0, capacity = 0;
+    bytes count = 0, capacity = 0;
     bool ok = true;
     errno = 0;
     struct dirent *entry;
     while (ok && (entry = readdir(stream)) != nullptr) {
         if (filter != nullptr && filter(entry) == 0)
             continue;
-        if (count == (size_t) INT_MAX || count == SIZE_MAX / sizeof *items) {
+        if (count == (bytes) INT_MAX || count == SIZE_MAX / sizeof *items) {
             errno = EOVERFLOW;
             ok = false;
             break;
         }
         if (count == capacity) {
-            size_t next = capacity == 0 ? 16 : capacity * 2;
+            bytes next = capacity == 0 ? 16 : capacity * 2;
             if (next < capacity || next > SIZE_MAX / sizeof *items) {
                 errno = EOVERFLOW;
                 ok = false;
@@ -223,7 +223,7 @@ int Util_scandir(const char *directory, struct dirent ***entries,
     if (closedir(stream) != 0)
         ok = false;
     if (!ok) {
-        for (size_t index = 0; index < count; ++index)
+        for (bytes index = 0; index < count; ++index)
             free(items[index]);
         free(items);
         return -1;
@@ -231,9 +231,9 @@ int Util_scandir(const char *directory, struct dirent ***entries,
     if (count > 1 && compare == Util_alphasort)
         qsort(items, count, sizeof *items, compareEntryPointers);
     else if (count > 1 && compare != nullptr) {
-        for (size_t index = 1; index < count; ++index) {
+        for (bytes index = 1; index < count; ++index) {
             struct dirent *entryToInsert = items[index];
-            size_t position = index;
+            bytes position = index;
             while (position > 0 && compare((const struct dirent **) &items[position - 1],
                                            (const struct dirent **) &entryToInsert) > 0) {
                 items[position] = items[position - 1];
@@ -283,9 +283,9 @@ bool Util_fileContains(const char *path, const char *needle) {
     if (fseek(input, 0, SEEK_END) == 0) {
         long size = ftell(input);
         if (size >= 0 && fseek(input, 0, SEEK_SET) == 0) {
-            char *text = Util_allocate((size_t) size + 1);
-            size_t bytes = fread(text, 1, (size_t) size, input);
-            found = bytes == (size_t) size && strstr(text, needle) != nullptr;
+            char *text = Util_allocate((bytes) size + 1);
+            bytes bytes = fread(text, 1, (bytes) size, input);
+            found = bytes == (bytes) size && strstr(text, needle) != nullptr;
             free(text);
         }
     }
@@ -302,8 +302,8 @@ char *Util_readText(const char *path) {
     if (fseek(input, 0, SEEK_END) == 0) {
         long size = ftell(input);
         if (size >= 0 && fseek(input, 0, SEEK_SET) == 0) {
-            text = Util_allocate((size_t) size + 1);
-            if (fread(text, 1, (size_t) size, input) != (size_t) size) {
+            text = Util_allocate((bytes) size + 1);
+            if (fread(text, 1, (bytes) size, input) != (bytes) size) {
                 free(text);
                 text = nullptr;
             }
@@ -315,7 +315,7 @@ char *Util_readText(const char *path) {
 
 // Test whether text ends with the complete suffix string.
 bool Util_endsWith(const char *text, const char *suffix) {
-    size_t a = strlen(text), b = strlen(suffix);
+    bytes a = strlen(text), b = strlen(suffix);
     return a >= b && strcmp(text + a - b, suffix) == 0;
 }
 
@@ -354,13 +354,13 @@ static int reap(int child) {
 static char *buildCommandLine(char **arguments) {
     if (arguments == nullptr || arguments[0] == nullptr)
         return nullptr;
-    size_t total = 0;
-    for (size_t i = 0; arguments[i] != nullptr; ++i)
+    bytes total = 0;
+    for (bytes i = 0; arguments[i] != nullptr; ++i)
         total += strlen(arguments[i]) * 2 + 4;
 
     char *line = (char*) Util_allocate(total + 1);
     char *p = line;
-    for (size_t i = 0; arguments[i] != nullptr; ++i) {
+    for (bytes i = 0; arguments[i] != nullptr; ++i) {
         if (i > 0)
             *p++ = ' ';
         const char *arg = arguments[i];
@@ -468,41 +468,41 @@ int Util_executeBuild(char **arguments) {
 }
 
 // Append caller arguments to a fixed argv prefix and execute without a shell.
-int Util_runCommand(char **prefix, size_t prefixCount, int argc, char **argv) {
-    size_t limit = SIZE_MAX / sizeof(char*);
+int Util_runCommand(char **prefix, bytes prefixCount, int argc, char **argv) {
+    bytes limit = SIZE_MAX / sizeof(char*);
     if (prefix == nullptr || prefixCount == 0 || argc < 0 ||
-        (size_t) argc >= limit || prefixCount > limit - (size_t) argc - 1 ||
+        (bytes) argc >= limit || prefixCount > limit - (bytes) argc - 1 ||
         prefix[0] == nullptr || (argc > 0 && argv == nullptr)) {
         THROW("invalid command prefix or argument count");
         return EXIT_FAILURE;
     }
-    char **arguments = Util_allocate((prefixCount + (size_t) argc + 1) * sizeof(char*));
-    for (size_t i = 0; i < prefixCount; ++i)
+    char **arguments = Util_allocate((prefixCount + (bytes) argc + 1) * sizeof(char*));
+    for (bytes i = 0; i < prefixCount; ++i)
         arguments[i] = prefix[i];
     for (int i = 0; i < argc; ++i)
-        arguments[prefixCount + (size_t) i] = argv[i];
+        arguments[prefixCount + (bytes) i] = argv[i];
     int status = Util_execute(arguments);
     free(arguments);
     return status;
 }
 
 // Run a checker once per matched source and return the project path on success.
-int Util_checkSources(const char *project, const char *pattern, char **prefix, size_t prefixCount, char **output) {
+int Util_checkSources(const char *project, const char *pattern, char **prefix, bytes prefixCount, char **output) {
     if (project == nullptr || pattern == nullptr || output == nullptr || prefix == nullptr ||
         prefixCount == 0 || prefixCount > SIZE_MAX / sizeof(char*) - 2 || prefix[0] == nullptr) {
         THROW("invalid source checker input or argument count");
         return EXIT_FAILURE;
     }
-    size_t count = 0;
+    bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, pattern, &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
     char **arguments = Util_allocate((prefixCount + 2) * sizeof(char*));
-    for (size_t i = 0; i < prefixCount; ++i)
+    for (bytes i = 0; i < prefixCount; ++i)
         arguments[i] = prefix[i];
     int status = 0;
-    for (size_t i = 0; i < count && status == 0; ++i) {
+    for (bytes i = 0; i < count && status == 0; ++i) {
         arguments[prefixCount] = sources[i];
         status = Util_executeBuild(arguments);
     }
@@ -551,7 +551,7 @@ char *Util_outputDirectory(const char *project) {
     // walk excludes .b, and .b/* is ignored, so output never becomes inventory.
     char *root = Territory_find(project);
     if (root != nullptr) {
-        size_t length = strlen(root);
+        bytes length = strlen(root);
         bool inside = strncmp(project, root, length) == 0 &&
             (project[length] == '\0' || project[length] == '/' || project[length] == '\\');
         if (inside) {
@@ -604,10 +604,10 @@ char *Util_outputDirectory(const char *project) {
         state = defaultState;
     }
     // FNV-1a constants define the path-identity hash, not configurable limits.
-    uint64_t hash = UINT64_C(14695981039346656037);
+    u64 hash = UINT64_C(14695981039346656037);
     for (const unsigned char *p = (const unsigned char*) project; *p; ++p)
         hash = (hash ^ *p) * UINT64_C(1099511628211);
-    char suffix[sizeof "/out/" + sizeof(uint64_t) * 2];
+    char suffix[sizeof "/out/" + sizeof(u64) * 2];
     snprintf(suffix, sizeof suffix, "/out/%016" PRIx64, hash);
     char *directory = Util_combine(state, suffix);
     free(defaultState);
@@ -641,7 +641,7 @@ char *Util_projectDirectory(const char *file) {
 }
 
 // Glob an extension under a literal project path and return owned copies of matching paths.
-char **Util_collectSources(const char *project, const char *extension, size_t *count, bool *ok) {
+char **Util_collectSources(const char *project, const char *extension, bytes *count, bool *ok) {
     *ok = false;
     *count = 0;
 #ifdef _WIN32
@@ -658,7 +658,7 @@ char **Util_collectSources(const char *project, const char *extension, size_t *c
         return nullptr;
     }
     char **sources = nullptr;
-    size_t total = 0, capacity = 0;
+    bytes total = 0, capacity = 0;
     bool valid = true;
     for (int index = 0; index < entryCount; ++index) {
         const char *name = (*entries[index]).d_name;
@@ -669,15 +669,15 @@ char **Util_collectSources(const char *project, const char *extension, size_t *c
             if (end != nullptr && end[1] == '\0') {
                 const char *part = selector + 1;
                 while (part < end && !matches) {
-                    const char *separator = memchr(part, ',', (size_t) (end - part));
+                    const char *separator = memchr(part, ',', (bytes) (end - part));
                     const char *stop = separator != nullptr ? separator : end;
-                    size_t length = (size_t) (stop - part);
+                    bytes length = (bytes) (stop - part);
                     if (length > 0 && length <= SIZE_MAX - 2) {
                         char *suffix = Util_allocate(length + 2);
                         suffix[0] = '.';
                         memcpy(suffix + 1, part, length);
                         suffix[length + 1] = '\0';
-                        size_t nameLength = strlen(name), suffixLength = length + 1;
+                        bytes nameLength = strlen(name), suffixLength = length + 1;
                         matches = nameLength >= suffixLength &&
                             strcmp(name + nameLength - suffixLength, suffix) == 0;
                         free(suffix);
@@ -690,10 +690,10 @@ char **Util_collectSources(const char *project, const char *extension, size_t *c
             const char *dot = strrchr(name, '.');
             matches = end != nullptr && end[1] == '\0' && dot != nullptr &&
                 dot[1] != '\0' && dot[2] == '\0' &&
-                memchr(selector + 1, dot[1], (size_t) (end - selector - 1)) != nullptr;
+                memchr(selector + 1, dot[1], (bytes) (end - selector - 1)) != nullptr;
         } else {
             const char *suffix = pattern + 1;
-            size_t nameLength = strlen(name), suffixLength = strlen(suffix);
+            bytes nameLength = strlen(name), suffixLength = strlen(suffix);
             matches = nameLength >= suffixLength &&
                 strcmp(name + nameLength - suffixLength, suffix) == 0;
         }
@@ -708,7 +708,7 @@ char **Util_collectSources(const char *project, const char *extension, size_t *c
             continue;
         }
         if (total == capacity) {
-            size_t next = capacity == 0 ? 16 : capacity * 2;
+            bytes next = capacity == 0 ? 16 : capacity * 2;
             if (next < capacity || next > SIZE_MAX / sizeof *sources) {
                 free(path);
                 THROW("source inventory overflow in %s", project);
@@ -741,14 +741,14 @@ char **Util_collectSources(const char *project, const char *extension, size_t *c
     return sources;
 #else
     // The directory is literal input, not part of the glob expression.
-    size_t length = strlen(project);
+    bytes length = strlen(project);
     if (length > (SIZE_MAX - 1) / 2) {
         THROW("source directory length overflow");
         return nullptr;
     }
     char *escaped = Util_allocate(length * 2 + 1);
-    size_t position = 0;
-    for (size_t i = 0; i < length; ++i) {
+    bytes position = 0;
+    for (bytes i = 0; i < length; ++i) {
         if (strchr("*?[\\{}", project[i]) != nullptr)
             escaped[position++] = '\\';
         escaped[position++] = project[i];
@@ -769,9 +769,9 @@ char **Util_collectSources(const char *project, const char *extension, size_t *c
         globfree(&files);
         return nullptr;
     }
-    size_t total = files.gl_pathc;
+    bytes total = files.gl_pathc;
     char **sources = Util_allocate((total ? total : 1) * sizeof(char*));
-    for (size_t i = 0; i < total; ++i)
+    for (bytes i = 0; i < total; ++i)
         sources[i] = Util_combine(files.gl_pathv[i], "");
     globfree(&files);
     *count = total;
@@ -781,18 +781,18 @@ char **Util_collectSources(const char *project, const char *extension, size_t *c
 }
 
 // Release the copied source paths and their containing array.
-void Util_freeSources(char **sources, size_t count) {
+void Util_freeSources(char **sources, bytes count) {
     if (sources == nullptr)
         return;
-    for (size_t i = 0; i < count; ++i)
+    for (bytes i = 0; i < count; ++i)
         free(sources[i]);
     free(sources);
 }
 
 // Build an environment vector replacing any inherited binding with the supplied name/value.
 char **Util_environmentWith(const char *name, const char *value) {
-    size_t prefix = strlen(name);
-    size_t count = 0;
+    bytes prefix = strlen(name);
+    bytes count = 0;
     char **inheritedEnvironment = processEnvironment();
     if (inheritedEnvironment == nullptr) {
         THROW("cannot read the process environment");
@@ -801,8 +801,8 @@ char **Util_environmentWith(const char *name, const char *value) {
     while (inheritedEnvironment[count] != nullptr)
         ++count;
     char **result = Util_allocate((count + 2) * sizeof(char*));
-    size_t out = 0;
-    for (size_t i = 0; i < count; ++i) {
+    bytes out = 0;
+    for (bytes i = 0; i < count; ++i) {
         if (strncmp(inheritedEnvironment[i], name, prefix) == 0 && inheritedEnvironment[i][prefix] == '=')
             continue; // drop the previous binding so ours wins
         result[out++] = inheritedEnvironment[i];
@@ -821,9 +821,9 @@ void Util_freeEnvironment(char **environment) {
     if (environment == nullptr)
         return;
     char **inheritedEnvironment = processEnvironment();
-    for (size_t i = 0; environment[i] != nullptr; ++i) {
+    for (bytes i = 0; environment[i] != nullptr; ++i) {
         bool inherited = false;
-        for (size_t j = 0; inheritedEnvironment != nullptr && inheritedEnvironment[j] != nullptr; ++j)
+        for (bytes j = 0; inheritedEnvironment != nullptr && inheritedEnvironment[j] != nullptr; ++j)
             if (environment[i] == inheritedEnvironment[j]) {
                 inherited = true;
                 break;

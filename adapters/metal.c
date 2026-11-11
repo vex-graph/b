@@ -30,7 +30,7 @@ static int buildMetal(const char *project, char **output) {
         THROW("invalid Metal build input");
         return EXIT_FAILURE;
     }
-    size_t count = 0;
+    bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.metal", &count, &ok);
     if (!ok)
@@ -48,7 +48,7 @@ static int buildMetal(const char *project, char **output) {
     if (tool == nullptr || *tool == '\0')
         tool = "xcrun";
     int status = 0;
-    for (size_t i = 0; i < count && status == 0; ++i) {
+    for (bytes i = 0; i < count && status == 0; ++i) {
         struct stat info;
         if (lstat(sources[i], &info) != 0 || !S_ISREG(info.st_mode)) {
             THROW("Metal input must be a regular non-symlink file: %s", sources[i]);
@@ -74,7 +74,7 @@ static int buildMetal(const char *project, char **output) {
     if (status == 0)
         *output = directory;
     else {
-        for (size_t i = 0; i < count; ++i) {
+        for (bytes i = 0; i < count; ++i) {
             char *stem = Util_combine(directory, strrchr(sources[i], '/'));
             char *library = Util_combine(stem, ".metallib");
             unlink(library);

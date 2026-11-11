@@ -38,7 +38,7 @@ typedef struct {
 } Rows;
 
 static char *copyText(const char *text) {
-    size_t size = strlen(text);
+    bytes size = strlen(text);
     char *copy = Util_allocate(size + 1);
     memcpy(copy, text, size + 1);
     return copy;
@@ -47,9 +47,9 @@ static char *copyText(const char *text) {
 static void rowsPush(Rows *rows, const char *text) {
     if ((*rows).count == (*rows).cap) {
         int cap = (*rows).cap ? (*rows).cap * 2 : 8;
-        char **grown = Util_allocate((size_t) cap * sizeof *grown);
+        char **grown = Util_allocate((bytes) cap * sizeof *grown);
         if ((*rows).count)
-            memcpy(grown, (*rows).items, (size_t) (*rows).count * sizeof *grown);
+            memcpy(grown, (*rows).items, (bytes) (*rows).count * sizeof *grown);
         Util_release((*rows).items);
         (*rows).items = grown;
         (*rows).cap = cap;
@@ -58,7 +58,7 @@ static void rowsPush(Rows *rows, const char *text) {
 }
 
 static void rowsPushf(Rows *rows, const char *format, const char *value) {
-    size_t size = strlen(format) + strlen(value) + 1;
+    bytes size = strlen(format) + strlen(value) + 1;
     char *text = Util_allocate(size);
     snprintf(text, size, format, value);
     rowsPush(rows, text);
@@ -76,7 +76,7 @@ static void rowsFree(Rows *rows) {
 
 // A NUL-terminated view of the rows; the rows still own the strings.
 static char **rowsArgv(Rows *rows) {
-    char **argv = Util_allocate(((size_t) (*rows).count + 1) * sizeof *argv);
+    char **argv = Util_allocate(((bytes) (*rows).count + 1) * sizeof *argv);
     for (int i = 0; i < (*rows).count; i++)
         argv[i] = (*rows).items[i];
     return argv;
@@ -125,9 +125,9 @@ typedef struct {
 static GraphTarget *targetAdd(Graph *graph) {
     if ((*graph).count == (*graph).cap) {
         int cap = (*graph).cap ? (*graph).cap * 2 : 32;
-        GraphTarget *grown = Util_allocate((size_t) cap * sizeof *grown);
+        GraphTarget *grown = Util_allocate((bytes) cap * sizeof *grown);
         if ((*graph).count)
-            memcpy(grown, (*graph).items, (size_t) (*graph).count * sizeof *grown);
+            memcpy(grown, (*graph).items, (bytes) (*graph).count * sizeof *grown);
         Util_release((*graph).items);
         (*graph).items = grown;
         (*graph).cap = cap;
@@ -138,9 +138,9 @@ static GraphTarget *targetAdd(Graph *graph) {
 static GenStep *genAdd(Graph *graph) {
     if ((*graph).genCount == (*graph).genCap) {
         int cap = (*graph).genCap ? (*graph).genCap * 2 : 16;
-        GenStep *grown = Util_allocate((size_t) cap * sizeof *grown);
+        GenStep *grown = Util_allocate((bytes) cap * sizeof *grown);
         if ((*graph).genCount)
-            memcpy(grown, (*graph).gens, (size_t) (*graph).genCount * sizeof *grown);
+            memcpy(grown, (*graph).gens, (bytes) (*graph).genCount * sizeof *grown);
         Util_release((*graph).gens);
         (*graph).gens = grown;
         (*graph).genCap = cap;
@@ -183,8 +183,8 @@ static char *parseString(Cursor *cursor) {
     }
     if (*p != '"')
         return nullptr;
-    char *text = Util_allocate((size_t) (p - start) + 1);
-    size_t used = 0;
+    char *text = Util_allocate((bytes) (p - start) + 1);
+    bytes used = 0;
     for (const char *q = start; q < p; q++) {
         if (*q == '\\' && q + 1 < p) {
             q++;
@@ -498,7 +498,7 @@ static void graphFree(Graph *graph) {
 // ── file access ────────────────────────────────────────────────────────────
 
 // Read a whole file; return a NUL-terminated buffer or nullptr after THROW.
-static char *readFile(const char *path, size_t *length) {
+static char *readFile(const char *path, bytes *length) {
     FILE *file = fopen(path, "rb");
     if (file == nullptr) {
         THROW("cannot open graph file: %s", path);
@@ -516,10 +516,10 @@ static char *readFile(const char *path, size_t *length) {
         return nullptr;
     }
     rewind(file);
-    char *text = Util_allocate((size_t) size + 1);
-    size_t got = fread(text, 1, (size_t) size, file);
+    char *text = Util_allocate((bytes) size + 1);
+    bytes got = fread(text, 1, (bytes) size, file);
     fclose(file);
-    if (got != (size_t) size) {
+    if (got != (bytes) size) {
         THROW("short read on graph file: %s", path);
         Util_release(text);
         return nullptr;
@@ -530,7 +530,7 @@ static char *readFile(const char *path, size_t *length) {
 }
 
 static bool loadGraph(const char *path, Graph *graph) {
-    size_t length = 0;
+    bytes length = 0;
     char *json = readFile(path, &length);
     if (json == nullptr)
         return false;
@@ -541,27 +541,27 @@ static bool loadGraph(const char *path, Graph *graph) {
 
 // ── content hashing ────────────────────────────────────────────────────────
 
-static uint64_t hashBytes(uint64_t hash, const void *bytes, size_t count) {
+static u64 hashBytes(u64 hash, const void *bytes, bytes count) {
     const unsigned char *p = bytes;
-    for (size_t i = 0; i < count; i++) {
+    for (bytes i = 0; i < count; i++) {
         hash ^= p[i];
         hash *= 1099511628211ull;
     }
     return hash;
 }
 
-static uint64_t hashText(uint64_t hash, const char *text) {
+static u64 hashText(u64 hash, const char *text) {
     hash = hashBytes(hash, text, strlen(text));
     unsigned char end = 0;
     return hashBytes(hash, &end, 1);
 }
 
-static bool hashFile(uint64_t *hash, const char *path) {
+static bool hashFile(u64 *hash, const char *path) {
     FILE *file = fopen(path, "rb");
     if (file == nullptr)
         return false;
     unsigned char buffer[8192];
-    size_t got;
+    bytes got;
     while ((got = fread(buffer, 1, sizeof buffer, file)) > 0)
         *hash = hashBytes(*hash, buffer, got);
     fclose(file);
@@ -595,7 +595,7 @@ static char *targetOutput(const GraphTarget *target) {
 // Object path: a hash of the source bytes and the exact flag words decides the
 // name, so a hit means the inputs are identical and no depfile is needed.
 static char *objectPath(const GraphTarget *target, const char *source) {
-    uint64_t hash = 1469598103934665603ull;
+    u64 hash = 1469598103934665603ull;
     hash = hashText(hash, source);
     if (!hashFile(&hash, source)) {
         THROW("cannot read source: %s", source);
@@ -616,7 +616,7 @@ static char *objectPath(const GraphTarget *target, const char *source) {
         *dot = 0;
     char hex[24];
     snprintf(hex, sizeof hex, "%016llx", (unsigned long long) hash);
-    size_t size = strlen((*target).name) + strlen(label) + sizeof hex + 32;
+    bytes size = strlen((*target).name) + strlen(label) + sizeof hex + 32;
     char *path = Util_allocate(size);
     snprintf(path, size, ".b/objects/%s/%s-%s.o", (*target).name, label, hex);
     return path;
@@ -729,18 +729,18 @@ static bool linkTarget(Graph *graph, GraphTarget *target, const Rows *objects, c
 }
 
 // Read a small text file into a caller buffer; false when it is absent.
-static bool readSmallText(const char *path, char *text, size_t size) {
+static bool readSmallText(const char *path, char *text, bytes size) {
     FILE *file = fopen(path, "rb");
     if (file == nullptr)
         return false;
-    size_t got = fread(text, 1, size - 1, file);
+    bytes got = fread(text, 1, size - 1, file);
     fclose(file);
     text[got] = 0;
     return true;
 }
 
 static char *signaturePath(const char *name) {
-    size_t size = strlen(name) + 32;
+    bytes size = strlen(name) + 32;
     char *path = Util_allocate(size);
     snprintf(path, size, ".b/meta/%s.sig", name);
     return path;
@@ -749,8 +749,8 @@ static char *signaturePath(const char *name) {
 // A link signature is the object names (already content-derived), the link
 // words, and every dependency's own signature. The values chain, so freshness
 // is decided by content, never by a clock and never by an equal timestamp.
-static uint64_t linkSignature(Graph *graph, GraphTarget *target, const Rows *objects) {
-    uint64_t hash = 1469598103934665603ull;
+static u64 linkSignature(Graph *graph, GraphTarget *target, const Rows *objects) {
+    u64 hash = 1469598103934665603ull;
     for (int i = 0; i < (*objects).count; i++)
         hash = hashText(hash, (*objects).items[i]);
     for (int i = 0; i < (*target).linkFlags.count; i++)
@@ -783,7 +783,7 @@ static uint64_t linkSignature(Graph *graph, GraphTarget *target, const Rows *obj
     return hash;
 }
 
-static void writeSignature(const char *name, uint64_t signature) {
+static void writeSignature(const char *name, u64 signature) {
     char *path = signaturePath(name);
     char *directory = Util_parentDirectory(path);
     if (Util_makeDirectory(directory)) {
@@ -800,7 +800,7 @@ static void writeSignature(const char *name, uint64_t signature) {
 }
 
 // True when the artifact exists and its recorded signature still matches.
-static bool artifactFresh(const char *name, const char *output, uint64_t signature) {
+static bool artifactFresh(const char *name, const char *output, u64 signature) {
     if (access(output, F_OK) != 0)
         return false;
     char *path = signaturePath(name);
@@ -819,7 +819,7 @@ static bool artifactFresh(const char *name, const char *output, uint64_t signatu
 static bool runGenerated(Graph *graph) {
     for (int i = 0; i < (*graph).genCount; i++) {
         GenStep *step = &(*graph).gens[i];
-        uint64_t hash = 1469598103934665603ull;
+        u64 hash = 1469598103934665603ull;
         for (int s = 0; s < (*step).sources.count; s++) {
             hash = hashText(hash, (*step).sources.items[s]);
             if (!hashFile(&hash, (*step).sources.items[s])) {
@@ -829,7 +829,7 @@ static bool runGenerated(Graph *graph) {
         }
         for (int g = 0; g < (*step).generator.count; g++)
             hash = hashText(hash, (*step).generator.items[g]);
-        uint64_t key = hashText(1469598103934665603ull, (*step).output);
+        u64 key = hashText(1469598103934665603ull, (*step).output);
         char name[64];
         snprintf(name, sizeof name, "gen-%016llx", (unsigned long long) key);
         char expected[32];
@@ -888,7 +888,7 @@ static bool buildTarget(Graph *graph, GraphTarget *target) {
         ok = false;
     }
     if (ok) {
-        uint64_t signature = linkSignature(graph, target, &objects);
+        u64 signature = linkSignature(graph, target, &objects);
         if (artifactFresh((*target).name, output, signature)) {
             fprintf(stderr, "b.sh: up to date %s\n", (*target).name);
             rowsFree(&objects);
@@ -967,8 +967,8 @@ static int listCommand(Graph *graph, const char *path) {
 
 static int buildCommand(Graph *graph, int argc, char **argv) {
     Plan plan = {graph, nullptr, nullptr, 0};
-    plan.state = Util_allocate((size_t) (*graph).count);
-    plan.order = Util_allocate(((size_t) (*graph).count + 1) * sizeof(int));
+    plan.state = Util_allocate((bytes) (*graph).count);
+    plan.order = Util_allocate(((bytes) (*graph).count + 1) * sizeof(int));
     int status = EXIT_SUCCESS;
     bool all = argc == 0;
     for (int i = 0; i < argc; i++) {

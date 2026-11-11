@@ -27,18 +27,18 @@
 
 // Parse every top-level R source without evaluating it.
 static int buildR(const char *project, char **output) {
-    size_t count = 0;
+    bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.[Rr]", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
     char **arguments = Util_allocate((count + 6) * sizeof(char*));
-    size_t n = 0;
+    bytes n = 0;
     arguments[n++] = "Rscript";
     arguments[n++] = "--vanilla";
     arguments[n++] = "-e";
     arguments[n++] = "for (f in commandArgs(trailingOnly=TRUE)) invisible(parse(file=f))";
-    for (size_t i = 0; i < count; ++i)
+    for (bytes i = 0; i < count; ++i)
         arguments[n++] = sources[i];
     int status = Util_executeBuild(arguments);
     if (status == 0)
@@ -51,7 +51,7 @@ static int buildR(const char *project, char **output) {
 // Run an R script with a clean startup and forward its trailing arguments.
 static int runR(const char *file, int argc, char **argv, bool buildArtifact) {
     (void) buildArtifact; // Interpreter execution in both modes; no packaging.
-    char **arguments = Util_allocate(((size_t) argc + 4) * sizeof(char*));
+    char **arguments = Util_allocate(((bytes) argc + 4) * sizeof(char*));
     arguments[0] = "Rscript";
     arguments[1] = "--vanilla";
     arguments[2] = (char*) file;

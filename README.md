@@ -24,8 +24,8 @@ box.**
 The contract below is the target, and the gap is stated instead of implied.
 
 Working today: `b generate` and `.b/workspace.json`, `b assembly`, per-file and
-per-directory adapter builds, `b box` exporting a declared payload as a portable
-directory, and `b adapter list`.
+per-directory adapter builds, the self-build (`b build .`), `b box` exporting a
+declared payload as a portable directory, and `b adapter list`.
 
 In progress: downward linking between units, the `exec` / `instance`
 argument under `run`, the default manifest derived from a unit, and tier refusal.
@@ -35,8 +35,10 @@ library unit as skipped.
 Not implemented: platform bundles (`.app`, `.msi`, `.pkg`, `.dmg`, `.iso`), ZIP
 and TAR export, icons, signing, and cross-compilation. None of them are claimed.
 
-The tree is mid-move, so treat this paragraph as the honest line: the CLI does
-not build itself at this commit until the include paths follow `adapters/lang/`.
+The tree is mid-move. The bootstrap (`b.sh`) and the self-build (`b build .`)
+both build the CLI and consume the vex-c floor. The workspace launcher supplies
+the floor through b's `B_INCLUDE` external-include seam, so the manifest names
+only the unit's own roots. The older tests still reference pre-flatten paths.
 
 ## The command set
 

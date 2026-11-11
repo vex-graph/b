@@ -29,7 +29,7 @@
 
 // Byte-compile project Python sources with the cache redirected out of source.
 static int buildPython(const char *project, char **output) {
-    size_t count = 0;
+    bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.py", &count, &ok);
     if (!ok)
@@ -46,11 +46,11 @@ static int buildPython(const char *project, char **output) {
         return EXIT_FAILURE;
     }
     char **arguments = Util_allocate((count + 4) * sizeof(char*));
-    size_t n = 0;
+    bytes n = 0;
     arguments[n++] = "python3";
     arguments[n++] = "-m";
     arguments[n++] = "py_compile";
-    for (size_t i = 0; i < count; ++i)
+    for (bytes i = 0; i < count; ++i)
         arguments[n++] = sources[i];
     char **environment = Util_environmentWith("PYTHONPYCACHEPREFIX", *output);
     int status = Util_executeWithEnvironment(arguments, environment);
@@ -64,8 +64,8 @@ static int buildPython(const char *project, char **output) {
 // Execute the source file with Python and forward the remaining arguments.
 static int runPython(const char *file, int argc, char **argv, bool buildArtifact) {
     (void) buildArtifact; // interpreted: instance and exec both run the source
-    char **arguments = Util_allocate(((size_t) argc + 3) * sizeof(char*));
-    size_t n = 0;
+    char **arguments = Util_allocate(((bytes) argc + 3) * sizeof(char*));
+    bytes n = 0;
     arguments[n++] = "python3";
     arguments[n++] = (char*) file;
     for (int i = 0; i < argc; ++i)

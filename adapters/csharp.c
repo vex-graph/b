@@ -46,7 +46,7 @@ static int compileCsharp(const char *project, const char *file, char **output) {
 
 // Require exactly one top-level C# source and build it as a file application.
 static int buildCsharp(const char *project, char **output) {
-    size_t count = 0;
+    bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.cs", &count, &ok);
     if (!ok)
@@ -66,8 +66,8 @@ static int runCsharp(const char *file, int argc, char **argv, bool buildArtifact
     char *output = nullptr;
     int status = buildArtifact ? compileCsharp(project, file, &output) : 0;
     if (status == 0) {
-        char **arguments = Util_allocate(((size_t) argc + 7) * sizeof(char*));
-        size_t n = 0;
+        char **arguments = Util_allocate(((bytes) argc + 7) * sizeof(char*));
+        bytes n = 0;
         arguments[n++] = "dotnet";
         if (buildArtifact)
             arguments[n++] = output;

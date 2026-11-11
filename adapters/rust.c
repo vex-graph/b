@@ -29,7 +29,7 @@
 #include <unistd.h>
 
 // Compile the chosen Rust crate root with rustc edition 2021.
-static int compileRust(const char *project, char **sources, size_t count, char **output) {
+static int compileRust(const char *project, char **sources, bytes count, char **output) {
     if (count > SIZE_MAX / sizeof(char*) - 8) {
         THROW("source argument count overflow");
         return EXIT_FAILURE;
@@ -39,10 +39,10 @@ static int compileRust(const char *project, char **sources, size_t count, char *
         return EXIT_FAILURE;
     *output = Util_combine(directory, "/program");
     char **arguments = Util_allocate((count + 8) * sizeof(char*));
-    size_t n = 0;
+    bytes n = 0;
     arguments[n++] = "rustc";
     arguments[n++] = "--edition=2021";
-    for (size_t i = 0; i < count; ++i)
+    for (bytes i = 0; i < count; ++i)
         arguments[n++] = sources[i];
     arguments[n++] = "-o";
     arguments[n++] = *output;
@@ -54,7 +54,7 @@ static int compileRust(const char *project, char **sources, size_t count, char *
 
 // Choose main.rs or the sole Rust source as crate root and compile it.
 static int buildRust(const char *project, char **output) {
-    size_t count = 0;
+    bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.rs", &count, &ok);
     if (!ok)
@@ -83,7 +83,7 @@ static int runRust(const char *file, int argc, char **argv, bool buildArtifact) 
     char *sources[1] = { (char*) file };
     int status = compileRust(project, sources, 1, &output);
     if (status == 0) {
-        char **arguments = Util_allocate(((size_t) argc + 2) * sizeof(char*));
+        char **arguments = Util_allocate(((bytes) argc + 2) * sizeof(char*));
         arguments[0] = output;
         for (int i = 0; i < argc; ++i)
             arguments[i + 1] = argv[i];
@@ -97,11 +97,11 @@ static int runRust(const char *file, int argc, char **argv, bool buildArtifact) 
 
 // Return an owned path to the top-level Rust source that defines main(), or nullptr.
 static char *entryRust(const char *project) {
-    size_t count = 0;
+    bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.rs", &count, &ok);
     char *found = nullptr;
-    for (size_t i = 0; ok && i < count && found == nullptr; ++i)
+    for (bytes i = 0; ok && i < count && found == nullptr; ++i)
         if (Util_fileContains(sources[i], "fn main("))
             found = Util_combine(sources[i], "");
     Util_freeSources(sources, count);

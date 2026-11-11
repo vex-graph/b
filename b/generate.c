@@ -18,7 +18,7 @@ static bool is_compilable(const char *name)
     if (dot == nullptr || dot == name)
         return false;
     const char *ext = dot + 1;
-    for (size_t i = 0; COMPILABLE_EXTS[i] != nullptr; i++)
+    for (bytes i = 0; COMPILABLE_EXTS[i] != nullptr; i++)
         if (strcmp(COMPILABLE_EXTS[i], ext) == 0)
             return true;
     return false;
@@ -44,13 +44,13 @@ static void indent(FILE *out, int depth)
 }
 
 /* Collect sorted entry names for a directory; caller frees. Returns count. */
-static size_t collect(const char *path, char ***out_names)
+static bytes collect(const char *path, char ***out_names)
 {
     DIR *d = opendir(path);
     if (d == nullptr)
         return 0;
     char **names = nullptr;
-    size_t count = 0, cap = 0;
+    bytes count = 0, cap = 0;
     struct dirent *e;
     while ((e = readdir(d)) != nullptr)
     {
@@ -73,7 +73,7 @@ static size_t collect(const char *path, char ***out_names)
 
         if (count == cap)
         {
-            size_t next = cap == 0 ? 16 : cap * 2;
+            bytes next = cap == 0 ? 16 : cap * 2;
             char **tmp = realloc(names, next * sizeof(char*));
             if (tmp == nullptr)
                 break;
@@ -85,10 +85,10 @@ static size_t collect(const char *path, char ***out_names)
     }
     closedir(d);
 
-    for (size_t i = 1; i < count; i++)
+    for (bytes i = 1; i < count; i++)
     {
         char *key = names[i];
-        size_t j = i;
+        bytes j = i;
         while (j > 0 && strcmp(names[j - 1], key) > 0)
         {
             names[j] = names[j - 1];
@@ -104,9 +104,9 @@ static size_t collect(const char *path, char ***out_names)
 static bool has_compilable(const char *path)
 {
     char **names = nullptr;
-    size_t count = collect(path, &names);
+    bytes count = collect(path, &names);
     bool found = false;
-    for (size_t i = 0; i < count; i++)
+    for (bytes i = 0; i < count; i++)
     {
         char full[4096];
         snprintf(full, sizeof(full), "%s/%s", path, names[i]);
@@ -123,7 +123,7 @@ static bool has_compilable(const char *path)
         if (found && !S_ISDIR(st.st_mode))
             break;
     }
-    for (size_t i = 0; i < count; i++)
+    for (bytes i = 0; i < count; i++)
         free(names[i]);
     free(names);
     return found;
@@ -133,12 +133,12 @@ static bool has_compilable(const char *path)
 static bool emit(FILE *out, const char *path, int depth)
 {
     char **names = nullptr;
-    size_t count = collect(path, &names);
+    bytes count = collect(path, &names);
     bool first = true;
     bool any = false;
     fputc('{', out);
     fputc('\n', out);
-    for (size_t i = 0; i < count; i++)
+    for (bytes i = 0; i < count; i++)
     {
         char full[4096];
         snprintf(full, sizeof(full), "%s/%s", path, names[i]);

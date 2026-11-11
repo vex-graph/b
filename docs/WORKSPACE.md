@@ -133,7 +133,7 @@ is invoked in.
 Subdirectories are separate units, never merged upward.
 
 ```text
-src/lang/vec3/     one unit: vec3.c, vec3d.c, vec3_int_float.c
+src/lang/vec3/     one unit: vec3.c, vec3d.c, vec3_int_f32.c
 src/lang/          not a unit; a container
 ```
 
@@ -576,7 +576,7 @@ There is no `b test`. A test is a program with an entry point in a directory,
 which makes it a unit like any other: `b run exec tests/lang/vec3/vec3_test.c`
 builds that program and runs it. `tools/orchestrator test` is the workspace
 runner, not an engine verb: it reads `.b/workspace.json`, picks the programs
-under `vexgraph-ecosystem/tests`, runs each through the engine, and reports the
+under `vex/tests`, runs each through the engine, and reports the
 exit codes. That is exactly the aggregator `b` refuses to grow.
 
 What `b` will not grow is an aggregator. "Run every matching test, collect exit
@@ -635,12 +635,13 @@ Implemented and exercised on scratch units and on the repository's own tree:
 - [x] unit discovery, kind classification (`app`, `library`, `ambiguous`) and
       entry detection for C (`int main(`) and Rust (`fn main(`)
 - [x] include-root derivation from `build.includes` in each unit's assembly,
-      passed to the C compiler as `-I`
+      passed to the C compiler as `-I`; the workspace launcher also supplies the
+      vex-c floor through `B_INCLUDE`
 - [x] `b build` over units, scoped to the current directory, with a summary line
 - [x] `b assembly` writing a complete declaration once; `--force`, `--version`
       and repeated `--include` work
-- [x] `vexgraph-hobby-projects/b/b.assembly.json` written (first consumer)
-- [x] `test.sh` discovers `app` units under `vexgraph-ecosystem/tests` and runs
+- [x] `vex-graph/b/b.assembly.json` written (first consumer)
+- [x] `test.sh` discovers `app` units under `vex/tests` and runs
       each through `b run`
 
 Partly implemented:

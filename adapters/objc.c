@@ -22,7 +22,7 @@
 #include <stdlib.h>
 
 // Compile Objective-C sources with ARC/Foundation on the supported Apple host.
-static int compileObjc(const char *project, char **sources, size_t count, char **output) {
+static int compileObjc(const char *project, char **sources, bytes count, char **output) {
 #ifndef __APPLE__
     (void) project;
     (void) sources;
@@ -41,7 +41,7 @@ static int compileObjc(const char *project, char **sources, size_t count, char *
     *output = Util_combine(directory, "/objc-program");
     free(directory);
     char **arguments = Util_allocate((count + 20) * sizeof(char*));
-    size_t n = 0;
+    bytes n = 0;
     const char *compiler = getenv("CC");
     arguments[n++] = (char*) (compiler != nullptr && *compiler ? compiler : "clang");
     arguments[n++] = "-x";
@@ -60,7 +60,7 @@ static int compileObjc(const char *project, char **sources, size_t count, char *
     arguments[n++] = (char*) project;
     arguments[n++] = "-o";
     arguments[n++] = *output;
-    for (size_t i = 0; i < count; ++i)
+    for (bytes i = 0; i < count; ++i)
         arguments[n++] = sources[i];
     int status = Util_executeBuild(arguments);
     free(arguments);
@@ -70,7 +70,7 @@ static int compileObjc(const char *project, char **sources, size_t count, char *
 
 // Discover top-level Objective-C files and compile them into one program.
 static int buildObjc(const char *project, char **output) {
-    size_t count = 0;
+    bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.m", &count, &ok);
     if (!ok)

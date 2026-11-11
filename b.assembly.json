@@ -14,9 +14,16 @@
     "homepage": "https://vex-graph.github.io/b"
   },
   "build": {
-    "entry": "src/b.c",
-    "sources": [],
-    "includes": [],
+    "entry": "b/b.c",
+    "sources": [
+      "b/*.c",
+      "adapters/*.c",
+      "adapters/lang/*.c"
+    ],
+    "includes": [
+      "b",
+      "b/b"
+    ],
     "defines": [],
     "options": [
       "-Wall",

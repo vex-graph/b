@@ -18,13 +18,13 @@ static char *read_file(const char *path)
         fclose(f);
         return nullptr;
     }
-    char *buf = malloc((size_t)sz + 1);
+    char *buf = malloc((bytes)sz + 1);
     if (buf == nullptr)
     {
         fclose(f);
         return nullptr;
     }
-    size_t rd = fread(buf, 1, (size_t)sz, f);
+    bytes rd = fread(buf, 1, (bytes)sz, f);
     buf[rd] = '\0';
     fclose(f);
     return buf;

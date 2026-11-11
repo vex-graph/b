@@ -17,9 +17,9 @@ class RegistryTest(AdapterCase):
 #include <stdint.h>
 #include <string.h>
 int main(void) {
-    size_t count = Adapter_count();
+    bytes count = Adapter_count();
     assert(count > 0);
-    for (size_t i = 0; i < count; ++i) {
+    for (bytes i = 0; i < count; ++i) {
         const Adapter *a = Adapter_at(i);
         assert(a != nullptr);
         assert((*a).name != nullptr && *(*a).name != '\0');
@@ -28,7 +28,7 @@ int main(void) {
         assert(Adapter_forName((*a).name) == a);
         if ((*a).extension != nullptr)
             assert(Adapter_forFile((*a).extension) == a);
-        for (size_t j = 0; j < i; ++j) {
+        for (bytes j = 0; j < i; ++j) {
             const Adapter *b = Adapter_at(j);
             assert(strcmp((*a).name, (*b).name) != 0);
         }

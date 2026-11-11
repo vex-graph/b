@@ -1,5 +1,5 @@
 #pragma once
-#include "annotation.h"
+#include "vex.h"
 ;;DEFINITION
 /* Immutable C adapter contract; compilation and execution live in c.c. */
 ;;OVERVIEW

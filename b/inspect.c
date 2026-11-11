@@ -95,7 +95,7 @@ static bool inspectAdapter(const Adapter *adapter) {
 
 // List registered adapter names, selectors, capabilities, and tool requirements.
 int Inspect_adapters(void) {
-    for (size_t i = 0; i < Adapter_count(); ++i) {
+    for (bytes i = 0; i < Adapter_count(); ++i) {
         const Adapter *adapter = Adapter_at(i);
         printf("%-12s %-14s %s [tools: %s]\n", (*adapter).name,
             (*adapter).extension != nullptr ? (*adapter).extension : "(project)",
@@ -118,7 +118,7 @@ int Inspect_doctor(const char *adapter) {
             return EXIT_FAILURE;
         }
     } else {
-        for (size_t i = 0; i < Adapter_count(); ++i)
+        for (bytes i = 0; i < Adapter_count(); ++i)
             inspectAdapter(Adapter_at(i));
     }
     return EXIT_SUCCESS;

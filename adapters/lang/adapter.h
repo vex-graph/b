@@ -14,7 +14,7 @@
 //   const char *capabilities   human-readable supported operations
 #pragma once
 
-#include "annotation.h"
+#include "vex.h"
 
 ;;DEFINITION
 /* Adapter is the immutable native-tool contract, not a claim that every target
@@ -62,5 +62,5 @@ typedef struct Adapter {
 
 const Adapter *Adapter_forName(const char *name);
 const Adapter *Adapter_forFile(const char *path);
-size_t Adapter_count(void);
-const Adapter *Adapter_at(size_t index);
+bytes Adapter_count(void);
+const Adapter *Adapter_at(bytes index);

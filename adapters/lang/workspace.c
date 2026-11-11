@@ -4,7 +4,7 @@
 
 ;;DEFINITION
 /* The standalone workspace command borrows the assess/build separation from
- * Vexgraph tools/workspace.c without importing its vexgraph-ecosystem-gitrepo target graph.
+ * Vexgraph tools/workspace.c without importing its ecosystem target graph.
  * An iterative, sorted walk inventories first, then runs build-only units.
  * Manifests own their subtrees; loose sources group by directory/build callback.
  * Multiple project manifests or mixed C-family source groups reject rather than
@@ -42,10 +42,10 @@ typedef struct BuildSlot { char *path; const Adapter *adapter; } BuildSlot;
 #define WORKSPACE_INITIAL_CAPACITY 16u
 
 // Grow the cold slot directory with overflow checks, preserving old storage on error.
-static bool grow(size_t count, size_t size, size_t *capacity, void **storage) {
+static bool grow(bytes count, bytes size, bytes *capacity, void **storage) {
     if (count < *capacity)
         return true;
-    size_t next = *capacity == 0 ? WORKSPACE_INITIAL_CAPACITY : *capacity;
+    bytes next = *capacity == 0 ? WORKSPACE_INITIAL_CAPACITY : *capacity;
     if (next > SIZE_MAX / 2 || next * 2 > SIZE_MAX / size) {
         THROW("workspace inventory overflow");
         return false;
@@ -65,7 +65,7 @@ static bool grow(size_t count, size_t size, size_t *capacity, void **storage) {
 static bool ignored(const char *name) {
     const char *names[] = { ".", "..", ".git", ".hg", ".svn", "node_modules",
         "target", "build", "dist", "out", ".cache", "__pycache__", ".venv", "venv" };
-    for (size_t i = 0; i < sizeof names / sizeof names[0]; ++i)
+    for (bytes i = 0; i < sizeof names / sizeof names[0]; ++i)
         if (strcmp(name, names[i]) == 0)
             return true;
     return false;
@@ -81,7 +81,7 @@ static bool broad(const char *root) {
         return true;
     const char *home = getenv("HOME");
     char *resolved = home == nullptr ? nullptr : realpath(home, nullptr);
-    size_t length = strlen(root);
+    bytes length = strlen(root);
     bool result = resolved != nullptr && strncmp(root, resolved, length) == 0 &&
         (resolved[length] == '\0' || resolved[length] == '/');
     free(resolved);
@@ -89,8 +89,8 @@ static bool broad(const char *root) {
 }
 
 // Add one build unit per callback and directory, rejecting ambiguous native groups.
-static bool addUnit(char *path, const Adapter *adapter, BuildSlot **units, size_t *count, size_t *capacity) {
-    for (size_t i = 0; i < *count; ++i) {
+static bool addUnit(char *path, const Adapter *adapter, BuildSlot **units, bytes *count, bytes *capacity) {
+    for (bytes i = 0; i < *count; ++i) {
         BuildSlot *unit = &(*units)[i];
         if (strcmp((*unit).path, path) != 0)
             continue;
@@ -127,13 +127,13 @@ static bool addUnit(char *path, const Adapter *adapter, BuildSlot **units, size_
 }
 
 // Inventory every eligible directory before invoking any native tool.
-static bool assess(ScanSlot **dirs, size_t *dirCount, size_t *dirCapacity,
-                   BuildSlot **units, size_t *unitCount, size_t *unitCapacity,
-                   size_t *files, size_t *unassigned, size_t *skipped) {
+static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
+                   BuildSlot **units, bytes *unitCount, bytes *unitCapacity,
+                   bytes *files, bytes *unassigned, bytes *skipped) {
     const char *state = getenv("B_HOME");
     char *cache = state == nullptr ? nullptr : realpath(state, nullptr);
     bool ok = true;
-    for (size_t index = 0; index < *dirCount && ok; ++index) {
+    for (bytes index = 0; index < *dirCount && ok; ++index) {
         ScanSlot current = (*dirs)[index];
         struct dirent **entries = nullptr;
         int total = scandir(current.path, &entries, nullptr, alphasort);
@@ -257,11 +257,11 @@ int Workspace_command(int argc, char **argv) {
             free(root);
             return EXIT_FAILURE;
         }
-    size_t dirCount = 1, dirCapacity = WORKSPACE_INITIAL_CAPACITY;
+    bytes dirCount = 1, dirCapacity = WORKSPACE_INITIAL_CAPACITY;
     ScanSlot *dirs = Util_allocate(dirCapacity * sizeof(ScanSlot));
     (*dirs).path = root;
     BuildSlot *units = nullptr;
-    size_t unitCount = 0, unitCapacity = 0, files = 0, unassigned = 0, skipped = 0;
+    bytes unitCount = 0, unitCapacity = 0, files = 0, unassigned = 0, skipped = 0;
     bool ok = assess(&dirs, &dirCount, &dirCapacity, &units, &unitCount, &unitCapacity,
                      &files, &unassigned, &skipped);
     bool plan = argc == 2 && strcmp(argv[1], "--plan") == 0;
@@ -269,7 +269,7 @@ int Workspace_command(int argc, char **argv) {
     if (ok) {
         printf("Assessment: %zu files, %zu directories, %zu build units; %zu unassigned, %zu excluded entries\n",
                files, dirCount, unitCount, unassigned, skipped);
-        for (size_t i = 0; i < unitCount; ++i) {
+        for (bytes i = 0; i < unitCount; ++i) {
             BuildSlot *unit = &units[i];
             const Adapter *adapter = (*unit).adapter;
             printf("  %s: %s [tools: %s]\n", (*adapter).name, (*unit).path, (*adapter).tools);
@@ -280,8 +280,8 @@ int Workspace_command(int argc, char **argv) {
         }
     }
     if (ok && !plan) {
-        size_t failed = 0;
-        for (size_t i = 0; i < unitCount; ++i) {
+        bytes failed = 0;
+        for (bytes i = 0; i < unitCount; ++i) {
             BuildSlot *unit = &units[i];
             const Adapter *adapter = (*unit).adapter;
             printf("[%zu/%zu] Building %s: %s\n", i + 1, unitCount, (*adapter).name, (*unit).path);
@@ -289,7 +289,7 @@ int Workspace_command(int argc, char **argv) {
             char *output = nullptr;
             int status = (*adapter).build((*unit).path, &output);
             failed += status != 0;
-            printf("Building %.0f%% — %s%s%s\n", 100.0 * (double) (i + 1) / (double) unitCount,
+            printf("Building %.0f%% — %s%s%s\n", 100.0 * (d64) (i + 1) / (d64) unitCount,
                    status == 0 ? "OK" : "FAIL", output == nullptr ? "" : ": ", output == nullptr ? "" : output);
             free(output);
         }
@@ -298,7 +298,7 @@ int Workspace_command(int argc, char **argv) {
         ok = failed == 0;
     }
     free(units);
-    for (size_t i = 0; i < dirCount; ++i)
+    for (bytes i = 0; i < dirCount; ++i)
         free(dirs[i].path);
     free(dirs);
     return ok ? EXIT_SUCCESS : EXIT_FAILURE;

@@ -14,7 +14,7 @@
 #include <unistd.h>
 
 
-#include "annotation.h"
+#include "vex.h"
 
 ;;DEFINITION
 /* The mode word is the verb's whole decision. exec builds the artifact first;
@@ -68,7 +68,7 @@ static int runFile(const char *input, bool buildArtifact, int argc, char **argv)
         free(file);
         return EXIT_FAILURE;
     }
-    char **arguments = Util_allocate(((size_t) argc + 2) * sizeof(char*));
+    char **arguments = Util_allocate(((bytes) argc + 2) * sizeof(char*));
     arguments[0] = file;
     for (int i = 0; i < argc; ++i)
         arguments[i + 1] = argv[i];
@@ -97,7 +97,7 @@ static int runUnit(int argc, char **argv) {
         return EXIT_FAILURE;
     }
     static char text[1 << 16];
-    size_t length = fread(text, 1, sizeof(text) - 1, manifest);
+    bytes length = fread(text, 1, sizeof(text) - 1, manifest);
     text[length] = '\0';
     fclose(manifest);
 
@@ -111,7 +111,7 @@ static int runUnit(int argc, char **argv) {
             quote = strchr(quote, '"');
             if (quote != nullptr) {
                 ++quote;
-                size_t used = 0;
+                bytes used = 0;
                 while (*quote != '"' && *quote != '\0' && used + 1 < sizeof(unit))
                     unit[used++] = *quote++;
                 unit[used] = '\0';
@@ -136,7 +136,7 @@ static int runUnit(int argc, char **argv) {
         THROW("build reported success but %s is not executable", binary);
         return EXIT_FAILURE;
     }
-    char **arguments = Util_allocate(((size_t) argc + 2) * sizeof(char*));
+    char **arguments = Util_allocate(((bytes) argc + 2) * sizeof(char*));
     arguments[0] = binary;
     for (int index = 0; index < argc; ++index)
         arguments[index + 1] = argv[index];

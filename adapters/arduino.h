@@ -1,6 +1,6 @@
 // Arduino sketch builds and explicit compile-before-upload command.
 #pragma once
-#include "annotation.h"
+#include "vex.h"
 
 ;;DEFINITION
 /* Arduino contract separates host build/check from explicit hardware upload.

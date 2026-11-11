@@ -28,7 +28,7 @@
 #include <string.h>
 
 // Compile Java sources into the project's external classes directory.
-static int compileJava(const char *project, char **sources, size_t count, char **output) {
+static int compileJava(const char *project, char **sources, bytes count, char **output) {
     char *directory = Util_outputDirectory(project);
     if (directory == nullptr)
         return EXIT_FAILURE;
@@ -38,11 +38,11 @@ static int compileJava(const char *project, char **sources, size_t count, char *
         return EXIT_FAILURE;
     }
     char **arguments = Util_allocate((count + 4) * sizeof(char*));
-    size_t n = 0;
+    bytes n = 0;
     arguments[n++] = "javac";
     arguments[n++] = "-d";
     arguments[n++] = *output;
-    for (size_t i = 0; i < count; ++i)
+    for (bytes i = 0; i < count; ++i)
         arguments[n++] = sources[i];
     int status = Util_execute(arguments);
     free(arguments);
@@ -62,7 +62,7 @@ static char *mainClass(const char *file) {
 
 // Discover top-level Java sources and compile them into the shared classes output.
 static int buildJava(const char *project, char **output) {
-    size_t count = 0;
+    bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.java", &count, &ok);
     if (!ok)
@@ -75,8 +75,8 @@ static int buildJava(const char *project, char **output) {
 // Launch via the JDK source runner or compile then execute the filename class.
 static int runJava(const char *file, int argc, char **argv, bool buildArtifact) {
     if (!buildArtifact) {
-        char **arguments = Util_allocate(((size_t) argc + 3) * sizeof(char*));
-        size_t n = 0;
+        char **arguments = Util_allocate(((bytes) argc + 3) * sizeof(char*));
+        bytes n = 0;
         arguments[n++] = "java";
         arguments[n++] = (char*) file;
         for (int i = 0; i < argc; ++i)
@@ -91,8 +91,8 @@ static int runJava(const char *file, int argc, char **argv, bool buildArtifact) 
     int status = compileJava(project, sources, 1, &output);
     if (status == 0) {
         char *main = mainClass(file);
-        char **arguments = Util_allocate(((size_t) argc + 5) * sizeof(char*));
-        size_t n = 0;
+        char **arguments = Util_allocate(((bytes) argc + 5) * sizeof(char*));
+        bytes n = 0;
         arguments[n++] = "java";
         arguments[n++] = "-cp";
         arguments[n++] = output;

@@ -2,7 +2,7 @@
 #include "territory.h"
 
 /* Defined below; used by both the unit and the dependency compiles. */
-static void appendExternalIncludes(char *command, size_t capacity, size_t *length);
+static void appendExternalIncludes(char *command, bytes capacity, bytes *length);
 
 #include <dirent.h>
 #include <stdbool.h>
@@ -25,13 +25,13 @@ static char *read_file(const char *path)
         fclose(f);
         return nullptr;
     }
-    char *buf = malloc((size_t)sz + 1);
+    char *buf = malloc((bytes)sz + 1);
     if (buf == nullptr)
     {
         fclose(f);
         return nullptr;
     }
-    size_t rd = fread(buf, 1, (size_t)sz, f);
+    bytes rd = fread(buf, 1, (bytes)sz, f);
     buf[rd] = '\0';
     fclose(f);
     return buf;
@@ -92,7 +92,7 @@ static bool glob_match(const char *pattern, const char *str)
 
 /* Recursive directory walk collecting files matching glob pattern. */
 static void walk_glob(const char *dir, const char *pattern, const char *prefix,
-                      char items[][512], size_t *n, size_t max)
+                      char items[][512], bytes *n, bytes max)
 {
     DIR *d = opendir(dir);
     if (d == nullptr)
@@ -131,7 +131,7 @@ static void walk_glob(const char *dir, const char *pattern, const char *prefix,
 }
 
 /* Expand a source spec (literal or glob) into file list. */
-static void expand_source(const char *spec, char items[][512], size_t *n, size_t max)
+static void expand_source(const char *spec, char items[][512], bytes *n, bytes max)
 {
     if (strchr(spec, '*') || strchr(spec, '?'))
     {
@@ -151,7 +151,7 @@ static void expand_source(const char *spec, char items[][512], size_t *n, size_t
 
 /* Find unit name containing source_path (or matching unit_name if source is a unit name). */
 static bool find_unit_name(const char *assembly, const char *key,
-                          char *unit_name, size_t name_sz)
+                          char *unit_name, bytes name_sz)
 {
     /* If key is a unit name directly, check it exists. */
     char quoted[512];
@@ -199,7 +199,7 @@ static bool find_unit_name(const char *assembly, const char *key,
         const char *kstart = p;
         while (*p && *p != '"')
             p++;
-        size_t klen = (size_t)(p - kstart);
+        bytes klen = (bytes)(p - kstart);
         if (*p == '"')
             p++;
         while (*p && *p != ':')
@@ -238,7 +238,7 @@ static bool find_unit_name(const char *assembly, const char *key,
             }
             q++;
         }
-        size_t blen = (size_t)(q - ustart + 1);
+        bytes blen = (bytes)(q - ustart + 1);
         char *block = malloc(blen + 1);
         memcpy(block, ustart, blen);
         block[blen] = '\0';
@@ -301,7 +301,7 @@ static bool find_unit_block(const char *assembly, const char *unit_name,
 }
 
 static void collect_strings(const char *block, const char *field,
-                           char items[][512], size_t *n, size_t max)
+                           char items[][512], bytes *n, bytes max)
 {
     char key[128];
     snprintf(key, sizeof(key), "\"%s\"", field);
@@ -319,7 +319,7 @@ static void collect_strings(const char *block, const char *field,
         if (*p == '"')
         {
             p++;
-            size_t i = 0;
+            bytes i = 0;
             while (*p && *p != '"' && i < 511)
             {
                 items[*n][i++] = *p;
@@ -343,10 +343,10 @@ static void collect_strings(const char *block, const char *field,
  * names). Those sources are compiled into .b/obj/deps/<path>/ and linked into
  * the unit, so a test links the R0 and R2 code it exercises. A source that
  * defines main() is skipped: the unit owns the entry point. */
-static void appendDependencyObjects(char *objects, size_t capacity, size_t *used,
+static void appendDependencyObjects(char *objects, bytes capacity, bytes *used,
                                     const char *territory, const char *dependency,
                                     const char *objectBase, const char *includeFlags,
-                                    char amalgamatedList[][256], size_t amalgamatedCount)
+                                    char amalgamatedList[][256], bytes amalgamatedCount)
 {
     char listing[1024];
     snprintf(listing, sizeof(listing), "%s/deps.list", objectBase);
@@ -359,7 +359,7 @@ static void appendDependencyObjects(char *objects, size_t capacity, size_t *used
     // The unit already compiles its own directory; the dependency sweep must
     // stop at it or every symbol in a shared source is defined twice.
     char here[4096];
-    size_t hereLength = 0;
+    bytes hereLength = 0;
     if (getcwd(here, sizeof(here)) != nullptr)
         hereLength = strlen(here);
 
@@ -369,7 +369,7 @@ static void appendDependencyObjects(char *objects, size_t capacity, size_t *used
     char line[4096];
     while (fgets(line, sizeof(line), file) != nullptr)
     {
-        size_t length = strlen(line);
+        bytes length = strlen(line);
         while (length > 0 && (line[length - 1] == '\n' || line[length - 1] == '\r'))
             line[--length] = '\0';
         if (length == 0)
@@ -382,14 +382,14 @@ static void appendDependencyObjects(char *objects, size_t capacity, size_t *used
         if (source == nullptr)
             continue;
         static char contents[1 << 16];
-        size_t read = fread(contents, 1, sizeof(contents) - 1, source);
+        bytes read = fread(contents, 1, sizeof(contents) - 1, source);
         contents[read] = '\0';
         fclose(source);
         if (strstr(contents, "int main(") != nullptr)
             continue;
 
         const char *relative = line;
-        size_t prefix = strlen(territory);
+        bytes prefix = strlen(territory);
         if (strncmp(line, territory, prefix) == 0)
             relative = line + prefix + 1;
 
@@ -399,7 +399,7 @@ static void appendDependencyObjects(char *objects, size_t capacity, size_t *used
         // A unit source may paste this file in with #include "x.c". Compiling
         // it again beside the unit would define every symbol twice.
         bool alreadyPasted = false;
-        for (size_t a = 0; a < amalgamatedCount; ++a)
+        for (bytes a = 0; a < amalgamatedCount; ++a)
             if (strcmp(leaf, amalgamatedList[a]) == 0)
                 alreadyPasted = true;
         if (alreadyPasted)
@@ -421,7 +421,7 @@ static void appendDependencyObjects(char *objects, size_t capacity, size_t *used
         if (manifest != nullptr)
         {
             static char manifestText[1 << 16];
-            size_t manifestLength = fread(manifestText, 1, sizeof(manifestText) - 1, manifest);
+            bytes manifestLength = fread(manifestText, 1, sizeof(manifestText) - 1, manifest);
             manifestText[manifestLength] = '\0';
             fclose(manifest);
             const char *sourcesKey = strstr(manifestText, "\"sources\"");
@@ -437,7 +437,7 @@ static void appendDependencyObjects(char *objects, size_t capacity, size_t *used
             {
                 static const char *shims[] = { "_cocoa.m", "_apple.m", "_macos.m", "_cocoa.c" };
                 bool replaced = false;
-                for (size_t s = 0; s < sizeof(shims) / sizeof(shims[0]) && !replaced; ++s)
+                for (bytes s = 0; s < sizeof(shims) / sizeof(shims[0]) && !replaced; ++s)
                 {
                     char candidate[4096];
                     snprintf(candidate, sizeof(candidate), "%s/%.*s%s", directoryOf,
@@ -477,7 +477,7 @@ static void appendDependencyObjects(char *objects, size_t capacity, size_t *used
                 continue;
         }
 
-        *used += (size_t) snprintf(objects + *used, capacity - *used, " '%s'", object);
+        *used += (bytes) snprintf(objects + *used, capacity - *used, " '%s'", object);
     }
     fclose(file);
     remove(listing);
@@ -491,13 +491,13 @@ static void appendDependencyObjects(char *objects, size_t capacity, size_t *used
  * share one scope. The pattern is legitimate, but the included file must not
  * ALSO be compiled into the unit or every symbol it defines is a duplicate.
  * Record the basenames here so the compile loop can skip them and say so. */
-static void noteAmalgamation(const char *path, char names[][256], size_t *count, size_t capacity)
+static void noteAmalgamation(const char *path, char names[][256], bytes *count, bytes capacity)
 {
     FILE *file = fopen(path, "rb");
     if (file == nullptr)
         return;
     static char text[1 << 18];
-    size_t length = fread(text, 1, sizeof(text) - 1, file);
+    bytes length = fread(text, 1, sizeof(text) - 1, file);
     text[length] = '\0';
     fclose(file);
     const char *cursor = text;
@@ -507,13 +507,13 @@ static void noteAmalgamation(const char *path, char names[][256], size_t *count,
         const char *end = strchr(cursor, '"');
         if (end == nullptr)
             break;
-        size_t span = (size_t) (end - cursor);
+        bytes span = (bytes) (end - cursor);
         if (span > 2 && (strncmp(end - 2, ".c", 2) == 0 || strncmp(end - 2, ".m", 2) == 0))
         {
             const char *leaf = end;
             while (leaf > cursor && *(leaf - 1) != '/')
                 --leaf;
-            size_t leafLength = (size_t) (end - leaf);
+            bytes leafLength = (bytes) (end - leaf);
             if (leafLength > 0 && leafLength < 256 && *count < capacity)
             {
                 memcpy(names[*count], leaf, leafLength);
@@ -570,7 +570,7 @@ bool Build_file(const char *source_path, const char *assembly_path,
         // use, so `b build <unit>` must read it, not only the legacy wrapper.
         const char *nameKey = strstr(asm_buf, "\"name\"");
         const char *nameValue = nameKey != nullptr ? strchr(nameKey, ':') : nullptr;
-        size_t written = 0;
+        bytes written = 0;
         if (nameValue != nullptr)
         {
             nameValue = strchr(nameValue, '"');
@@ -594,7 +594,7 @@ bool Build_file(const char *source_path, const char *assembly_path,
         free(asm_buf);
         return false;
     }
-    size_t blk_len = (size_t)(blk_end - blk_start);
+    bytes blk_len = (bytes)(blk_end - blk_start);
     char *block = malloc(blk_len + 1);
     memcpy(block, blk_start, blk_len);
     block[blk_len] = '\0';
@@ -615,7 +615,7 @@ bool Build_file(const char *source_path, const char *assembly_path,
             if (*tp == '"')
             {
                 tp++;
-                size_t ti = 0;
+                bytes ti = 0;
                 while (*tp && *tp != '"' && ti < sizeof(unit_type) - 1)
                     unit_type[ti++] = *tp++;
                 unit_type[ti] = '\0';
@@ -625,7 +625,7 @@ bool Build_file(const char *source_path, const char *assembly_path,
 
     /* Collect sources (with glob expansion). */
     char raw_sources[64][512];
-    size_t nraw = 0;
+    bytes nraw = 0;
     collect_strings(block, "sources", raw_sources, &nraw, 64);
     if (nraw == 0)
         collect_strings(block, "entry", raw_sources, &nraw, 64);
@@ -636,7 +636,7 @@ bool Build_file(const char *source_path, const char *assembly_path,
     char entry_name[512] = "";
     {
         char declared[4][512];
-        size_t declared_count = 0;
+        bytes declared_count = 0;
         collect_strings(block, "entry", declared, &declared_count, 4);
         if (declared_count > 0)
         {
@@ -647,8 +647,8 @@ bool Build_file(const char *source_path, const char *assembly_path,
     // "cli", "executable" and any other non-library type all link as programs.
     if (strcmp(unit_type, "lib") != 0 && strcmp(unit_type, "module") != 0 && entry_name[0] != '\0')
     {
-        size_t kept = 0;
-        for (size_t i = 0; i < nraw; ++i)
+        bytes kept = 0;
+        for (bytes i = 0; i < nraw; ++i)
         {
             const char *slash = strrchr(raw_sources[i], '/');
             const char *leaf = slash != nullptr ? slash + 1 : raw_sources[i];
@@ -658,7 +658,7 @@ bool Build_file(const char *source_path, const char *assembly_path,
             if (probe != nullptr)
             {
                 static char text[1 << 16];
-                size_t length = fread(text, 1, sizeof(text) - 1, probe);
+                bytes length = fread(text, 1, sizeof(text) - 1, probe);
                 text[length] = '\0';
                 fclose(probe);
                 definesMain = strstr(text, "int main(") != nullptr;
@@ -673,7 +673,7 @@ bool Build_file(const char *source_path, const char *assembly_path,
     }
     /* If unit has .rs sources, build via cargo. */
     bool has_rust = false;
-    for (size_t i = 0; i < nraw; i++)
+    for (bytes i = 0; i < nraw; i++)
     {
         const char *d = strrchr(raw_sources[i], '.');
         if (d && strcmp(d + 1, "rs") == 0)
@@ -682,7 +682,7 @@ bool Build_file(const char *source_path, const char *assembly_path,
     if (has_rust)
     {
         /* Find Cargo.toml from first .rs source. */
-        for (size_t i = 0; i < nraw; i++)
+        for (bytes i = 0; i < nraw; i++)
         {
             const char *d = strrchr(raw_sources[i], '.');
             if (d && strcmp(d + 1, "rs") == 0)
@@ -724,8 +724,8 @@ bool Build_file(const char *source_path, const char *assembly_path,
 
 
     char sources[256][512];
-    size_t nsrc = 0;
-    for (size_t i = 0; i < nraw; i++)
+    bytes nsrc = 0;
+    for (bytes i = 0; i < nraw; i++)
     {
         expand_source(raw_sources[i], sources, &nsrc, 256);
     }
@@ -739,62 +739,62 @@ bool Build_file(const char *source_path, const char *assembly_path,
 
     /* Amalgamated sources: #include "x.c" is legal, being compiled twice is not. */
     char amalgamated[32][256];
-    size_t namalgamated = 0;
-    for (size_t i = 0; i < nsrc; i++)
+    bytes namalgamated = 0;
+    for (bytes i = 0; i < nsrc; i++)
         noteAmalgamation(sources[i], amalgamated, &namalgamated, 32);
-    for (size_t i = 0; i < namalgamated; i++)
+    for (bytes i = 0; i < namalgamated; i++)
         fprintf(out, "build: amalgamating %s (included, not compiled separately)\n", amalgamated[i]);
 
     /* Collect include roots (unit + deps). */
     char include_flags[32768] = "";
-    size_t if_used = 0;
+    bytes if_used = 0;
 
-    // The territory root is always an include root: `annotation/annotation.h`
-    // and the repository directories themselves are spelled from there.
-    if_used += (size_t)snprintf(include_flags + if_used, sizeof(include_flags) - if_used,
+    // The territory root is always an include root: repository directories are
+    // spelled from there, and the floor adds `lib` for the `vex.h` door.
+    if_used += (bytes)snprintf(include_flags + if_used, sizeof(include_flags) - if_used,
                                 " -I%s", base);
     char roots[64][512];
-    size_t nroots = 0;
+    bytes nroots = 0;
     collect_strings(block, "include_roots", roots, &nroots, 64);
-    for (size_t i = 0; i < nroots; i++)
-        if_used += (size_t)snprintf(include_flags + if_used, sizeof(include_flags) - if_used,
+    for (bytes i = 0; i < nroots; i++)
+        if_used += (bytes)snprintf(include_flags + if_used, sizeof(include_flags) - if_used,
                                     " -I%s/%s", base, roots[i]);
     // A repository manifest spells include roots `includes`, and names its
     // sibling repositories in `dependencies`. Both are plain include roots
     // now that every repository is flat.
     collect_strings(block, "includes", roots, &nroots, 64);
-    for (size_t i = 0; i < nroots; i++)
-        if_used += (size_t)snprintf(include_flags + if_used, sizeof(include_flags) - if_used,
+    for (bytes i = 0; i < nroots; i++)
+        if_used += (bytes)snprintf(include_flags + if_used, sizeof(include_flags) - if_used,
                                     " -I%s/%s", base, roots[i]);
     if (singleUnit)
     {
         char declared[64][512];
-        size_t ndeclared = 0;
+        bytes ndeclared = 0;
         collect_strings(block, "dependencies", declared, &ndeclared, 64);
-        for (size_t i = 0; i < ndeclared; i++)
-            if_used += (size_t)snprintf(include_flags + if_used, sizeof(include_flags) - if_used,
+        for (bytes i = 0; i < ndeclared; i++)
+            if_used += (bytes)snprintf(include_flags + if_used, sizeof(include_flags) - if_used,
                                         " -I%s/%s", base, declared[i]);
     }
 
     char deps[64][512];
-    size_t ndeps = 0;
+    bytes ndeps = 0;
     collect_strings(block, "deps", deps, &ndeps, 64);
     if (singleUnit)
         collect_strings(block, "dependencies", deps, &ndeps, 64);
-    for (size_t d = 0; d < ndeps; d++)
+    for (bytes d = 0; d < ndeps; d++)
     {
         const char *ds = nullptr, *de = nullptr;
         if (find_unit_block(asm_buf, deps[d], &ds, &de))
         {
-            size_t dl = (size_t)(de - ds);
+            bytes dl = (bytes)(de - ds);
             char *dblock = malloc(dl + 1);
             memcpy(dblock, ds, dl);
             dblock[dl] = '\0';
             char droots[64][512];
-            size_t ndr = 0;
+            bytes ndr = 0;
             collect_strings(dblock, "include_roots", droots, &ndr, 64);
-            for (size_t r = 0; r < ndr; r++)
-                if_used += (size_t)snprintf(include_flags + if_used, sizeof(include_flags) - if_used,
+            for (bytes r = 0; r < ndr; r++)
+                if_used += (bytes)snprintf(include_flags + if_used, sizeof(include_flags) - if_used,
                                             " -I%s", droots[r]);
             free(dblock);
         }
@@ -806,7 +806,7 @@ bool Build_file(const char *source_path, const char *assembly_path,
 
     /* Shader codegen: if "shaders" declared, generate headers into .b/gen. */
     char shaders[64][512];
-    size_t nshaders = 0;
+    bytes nshaders = 0;
     collect_strings(block, "shaders", shaders, &nshaders, 64);
     if (nshaders > 0)
     {
@@ -823,13 +823,13 @@ bool Build_file(const char *source_path, const char *assembly_path,
         snprintf(mk, sizeof(mk), "mkdir -p %s", gen_dir);
         system(mk);
 
-        for (size_t i = 0; i < nshaders; i++)
+        for (bytes i = 0; i < nshaders; i++)
         {
             /* Expand glob if needed. */
             char shader_files[256][512];
-            size_t nsf = 0;
+            bytes nsf = 0;
             expand_source(shaders[i], shader_files, &nsf, 256);
-            for (size_t j = 0; j < nsf; j++)
+            for (bytes j = 0; j < nsf; j++)
             {
                 const char *src = shader_files[j];
                 const char *base = strrchr(src, '/');
@@ -871,7 +871,7 @@ bool Build_file(const char *source_path, const char *assembly_path,
             }
         }
         /* Add .b/gen to include roots. */
-        size_t gl = strlen(include_flags);
+        bytes gl = strlen(include_flags);
         snprintf(include_flags + gl, sizeof(include_flags) - gl, " -I%s", gen_dir);
     }
 
@@ -892,18 +892,18 @@ bool Build_file(const char *source_path, const char *assembly_path,
     // unit can relax a warning it knowingly carries (deprecations in a legacy
     // program file), instead of the build relaxing it for everyone.
     char options[64][512];
-    size_t noptions = 0;
+    bytes noptions = 0;
     collect_strings(block, "options", options, &noptions, 64);
     char option_flags[2048] = "";
-    size_t option_used = 0;
-    for (size_t i = 0; i < noptions; ++i)
-        option_used += (size_t)snprintf(option_flags + option_used, sizeof(option_flags) - option_used,
+    bytes option_used = 0;
+    for (bytes i = 0; i < noptions; ++i)
+        option_used += (bytes)snprintf(option_flags + option_used, sizeof(option_flags) - option_used,
                                         " %s", options[i]);
 
     /* Compile each source. */
     char obj_files[262144] = "";
-    size_t of_used = 0;
-    for (size_t i = 0; i < nsrc; i++)
+    bytes of_used = 0;
+    for (bytes i = 0; i < nsrc; i++)
     {
         const char *src = sources[i];
         const char *ed = strrchr(src, '.');
@@ -913,7 +913,7 @@ bool Build_file(const char *source_path, const char *assembly_path,
         const char *sourceLeaf = strrchr(src, '/');
         sourceLeaf = sourceLeaf != nullptr ? sourceLeaf + 1 : src;
         bool amalgamatedSource = false;
-        for (size_t a = 0; a < namalgamated; ++a)
+        for (bytes a = 0; a < namalgamated; ++a)
             if (strcmp(sourceLeaf, amalgamated[a]) == 0)
                 amalgamatedSource = true;
         if (amalgamatedSource)
@@ -968,14 +968,14 @@ bool Build_file(const char *source_path, const char *assembly_path,
             return false;
         }
         if (of_used > 0)
-            of_used += (size_t)snprintf(obj_files + of_used, sizeof(obj_files) - of_used, " ");
-        of_used += (size_t)snprintf(obj_files + of_used, sizeof(obj_files) - of_used, "%s", obj_path);
+            of_used += (bytes)snprintf(obj_files + of_used, sizeof(obj_files) - of_used, " ");
+        of_used += (bytes)snprintf(obj_files + of_used, sizeof(obj_files) - of_used, "%s", obj_path);
     }
 
     /* Link dependency objects for an executable unit. */
     if (strcmp(unit_type, "lib") != 0 && strcmp(unit_type, "module") != 0 && ndeps > 0)
     {
-        for (size_t d = 0; d < ndeps; d++)
+        for (bytes d = 0; d < ndeps; d++)
             appendDependencyObjects(obj_files, sizeof(obj_files), &of_used,
                                     territory, deps[d], obj_unit_dir, include_flags,
                                     amalgamated, namalgamated);
@@ -1011,15 +1011,15 @@ bool Build_file(const char *source_path, const char *assembly_path,
         snprintf(out_path, sizeof(out_path), "%s/%s", out_dir, unit_name);
         /* Build dep library link flags. */
         char dep_libs[4096] = "";
-        size_t dl_used = 0;
+        bytes dl_used = 0;
         // A single-application manifest names dependencies as source roots;
         // their objects are already on the link line. Asking for -l<name>
         // would look for archives this build never produces.
         if (!singleUnit)
         {
-            for (size_t d = 0; d < ndeps; d++)
+            for (bytes d = 0; d < ndeps; d++)
             {
-                dl_used += (size_t)snprintf(dep_libs + dl_used, sizeof(dep_libs) - dl_used,
+                dl_used += (bytes)snprintf(dep_libs + dl_used, sizeof(dep_libs) - dl_used,
                                             " -L%s -l%s", out_dir, deps[d]);
             }
         }
@@ -1111,9 +1111,9 @@ typedef struct
 {
     const char *root;
     char **headerDirectories;
-    size_t headerCount;
-    size_t compiled;
-    size_t failed;
+    bytes headerCount;
+    bytes compiled;
+    bytes failed;
 } WorkspaceBuild;
 
 /* Call fn(context, directory, name) for every file the inventory records. */
@@ -1134,7 +1134,7 @@ static bool walkWorkspace(const char *text, bool (*fn)(void *, const char *, con
             break;
         ++cursor;
         char directory[512];
-        size_t length = 0;
+        bytes length = 0;
         while (*cursor != '"' && *cursor != '\0' && length + 1 < sizeof(directory))
             directory[length++] = *cursor++;
         directory[length] = '\0';
@@ -1153,7 +1153,7 @@ static bool walkWorkspace(const char *text, bool (*fn)(void *, const char *, con
                 break;
             ++cursor;
             char name[256];
-            size_t nameLength = 0;
+            bytes nameLength = 0;
             while (*cursor != '"' && *cursor != '\0' && nameLength + 1 < sizeof(name))
                 name[nameLength++] = *cursor++;
             name[nameLength] = '\0';
@@ -1170,7 +1170,7 @@ static bool walkWorkspace(const char *text, bool (*fn)(void *, const char *, con
 
 static bool rememberHeaderDirectory(WorkspaceBuild *build, const char *directory)
 {
-    for (size_t index = 0; index < (*build).headerCount; ++index)
+    for (bytes index = 0; index < (*build).headerCount; ++index)
         if (strcmp((*build).headerDirectories[index], directory) == 0)
             return true;
     void *grown = realloc((*build).headerDirectories, ((*build).headerCount + 1) * sizeof(char*));
@@ -1232,9 +1232,9 @@ static bool scanHeaderDirectories(WorkspaceBuild *build, const char *absolute, c
 }
 
 /* Single-quote a path into a growing command line. */
-static void appendQuoted(char *command, size_t capacity, size_t *length, const char *path)
+static void appendQuoted(char *command, bytes capacity, bytes *length, const char *path)
 {
-    size_t pathLength = strlen(path);
+    bytes pathLength = strlen(path);
     if (*length + pathLength + 4 >= capacity)
         return;
     command[(*length)++] = '\'';
@@ -1252,11 +1252,11 @@ static void appendQuoted(char *command, size_t capacity, size_t *length, const c
  * ($VULKAN_SDK/include), then the two Homebrew prefixes. A directory that is
  * absent is skipped, never a failure — an image that needs Vulkan and cannot
  * find it fails at its own #include, with its own words. */
-static void appendExternalIncludes(char *command, size_t capacity, size_t *length)
+static void appendExternalIncludes(char *command, bytes capacity, bytes *length)
 {
     char sdkInclude[4096];
     const char *candidates[4];
-    size_t count = 0;
+    bytes count = 0;
     const char *extra = getenv("B_INCLUDE");
     if (extra != nullptr && *extra != '\0')
         candidates[count++] = extra;
@@ -1269,12 +1269,12 @@ static void appendExternalIncludes(char *command, size_t capacity, size_t *lengt
     candidates[count++] = "/opt/homebrew/include";
     candidates[count++] = "/usr/local/include";
 
-    for (size_t index = 0; index < count; ++index)
+    for (bytes index = 0; index < count; ++index)
     {
         struct stat information;
         if (stat(candidates[index], &information) != 0 || !S_ISDIR(information.st_mode))
             continue;
-        *length += (size_t) snprintf(command + *length, capacity - *length, " -I");
+        *length += (bytes) snprintf(command + *length, capacity - *length, " -I");
         appendQuoted(command, capacity, length, candidates[index]);
     }
 }
@@ -1297,9 +1297,9 @@ static bool compileSource(void *context, const char *directory, const char *name
              (int) (dot - name), name);
 
     char makeDirectory[8192];
-    size_t makeLength = 0;
+    bytes makeLength = 0;
     makeDirectory[0] = '\0';
-    size_t prefixLength = (size_t) snprintf(makeDirectory, sizeof(makeDirectory), "mkdir -p ");
+    bytes prefixLength = (bytes) snprintf(makeDirectory, sizeof(makeDirectory), "mkdir -p ");
     makeLength = prefixLength;
     appendQuoted(makeDirectory, sizeof(makeDirectory), &makeLength, objectDirectory);
     makeDirectory[makeLength] = '\0';
@@ -1307,13 +1307,13 @@ static bool compileSource(void *context, const char *directory, const char *name
         return true;
 
     static char command[262144];
-    size_t length = 0;
+    bytes length = 0;
     command[0] = '\0';
-    length = (size_t) snprintf(command, sizeof(command),
+    length = (bytes) snprintf(command, sizeof(command),
                                "%s -std=gnu23 -c -Wall -Wextra -o ",
                                getenv("CC") != nullptr ? getenv("CC") : "cc");
     appendQuoted(command, sizeof(command), &length, object);
-    length += (size_t) snprintf(command + length, sizeof(command) - length, " ");
+    length += (bytes) snprintf(command + length, sizeof(command) - length, " ");
     appendQuoted(command, sizeof(command), &length, source);
 
     appendExternalIncludes(command, sizeof(command), &length);
@@ -1328,7 +1328,7 @@ static bool compileSource(void *context, const char *directory, const char *name
     {
         char ancestor[4096];
         snprintf(ancestor, sizeof(ancestor), "%s/%s", (*build).root, walked);
-        length += (size_t) snprintf(command + length, sizeof(command) - length, " -I");
+        length += (bytes) snprintf(command + length, sizeof(command) - length, " -I");
         appendQuoted(command, sizeof(command), &length, ancestor);
         char *cut = strrchr(walked, '/');
         if (cut == nullptr)
@@ -1337,18 +1337,18 @@ static bool compileSource(void *context, const char *directory, const char *name
     }
     char localDirectory[4096];
     snprintf(localDirectory, sizeof(localDirectory), "%s", (*build).root);
-    length += (size_t) snprintf(command + length, sizeof(command) - length, " -I");
+    length += (bytes) snprintf(command + length, sizeof(command) - length, " -I");
     appendQuoted(command, sizeof(command), &length, localDirectory);
 
     char rootInclude[4096];
     snprintf(rootInclude, sizeof(rootInclude), "%s", (*build).root);
-    length += (size_t) snprintf(command + length, sizeof(command) - length, " -I");
+    length += (bytes) snprintf(command + length, sizeof(command) - length, " -I");
     appendQuoted(command, sizeof(command), &length, rootInclude);
-    for (size_t index = 0; index < (*build).headerCount; ++index)
+    for (bytes index = 0; index < (*build).headerCount; ++index)
     {
         char include[4096];
         snprintf(include, sizeof(include), "%s/%s", (*build).root, (*build).headerDirectories[index]);
-        length += (size_t) snprintf(command + length, sizeof(command) - length, " -I");
+        length += (bytes) snprintf(command + length, sizeof(command) - length, " -I");
         appendQuoted(command, sizeof(command), &length, include);
     }
 
@@ -1387,7 +1387,7 @@ bool Build_workspace(const char *workspacePath, FILE *out)
             if (cursor != nullptr)
             {
                 ++cursor;
-                size_t length = 0;
+                bytes length = 0;
                 while (*cursor != '"' && *cursor != '\0' && length + 1 < sizeof(root))
                     root[length++] = *cursor++;
                 root[length] = '\0';
@@ -1426,7 +1426,7 @@ bool Build_workspace(const char *workspacePath, FILE *out)
                 // (darkbase/engine). Its includes are rooted there, so that
                 // level is a root too. No repository keeps src/ any more.
                 static const char *nested[] = { "engine" };
-                for (size_t level = 0; level < sizeof(nested) / sizeof(nested[0]); ++level)
+                for (bytes level = 0; level < sizeof(nested) / sizeof(nested[0]); ++level)
                 {
                     char inner[4096];
                     snprintf(inner, sizeof(inner), "%s/%s/%s", root, name, nested[level]);
@@ -1452,7 +1452,7 @@ bool Build_workspace(const char *workspacePath, FILE *out)
     bool ok = walkWorkspace(text, compileSource, &build);
     fprintf(out, "build: %zu compiled, %zu failed (%zu include roots)\n",
             build.compiled, build.failed, build.headerCount);
-    for (size_t index = 0; index < build.headerCount; ++index)
+    for (bytes index = 0; index < build.headerCount; ++index)
         free(build.headerDirectories[index]);
     free(build.headerDirectories);
     free(text);

@@ -1,6 +1,6 @@
 // R adapter records; borrowed by the suite registry.
 #pragma once
-#include "annotation.h"
+#include "vex.h"
 
 ;;DEFINITION
 /* Two immutable Rscript records share one parse/run implementation in r.c. */

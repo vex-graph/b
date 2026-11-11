@@ -33,22 +33,22 @@
 static const char *const DIAGNOSTIC_LOG = "box-diagnostics.log";
 
 // Exactly one [vex] line per rejected cold case, plus the staged-export summary.
-static const size_t EXPECTED_DIAGNOSTICS = 33;
+static const bytes EXPECTED_DIAGNOSTICS = 33;
 
 // Write one fixture file with exact content.
 static void writeText(const char *path, const char *text) {
     FILE *file = fopen(path, "wb");
     assert(file != nullptr);
-    size_t length = strlen(text);
+    bytes length = strlen(text);
     assert(fwrite(text, 1, length, file) == length);
     assert(fclose(file) == 0);
 }
 
 // Write a fixture of repeated bytes (used for the size-limit case).
-static void writeRepetition(const char *path, char character, size_t count) {
+static void writeRepetition(const char *path, char character, bytes count) {
     FILE *file = fopen(path, "wb");
     assert(file != nullptr);
-    for (size_t index = 0; index < count; ++index)
+    for (bytes index = 0; index < count; ++index)
         assert(fputc(character, file) != EOF);
     assert(fclose(file) == 0);
 }
@@ -61,24 +61,24 @@ static char *readAll(const char *path) {
     long size = ftell(file);
     assert(size >= 0);
     assert(fseek(file, 0, SEEK_SET) == 0);
-    char *text = malloc((size_t) size + 1);
+    char *text = malloc((bytes) size + 1);
     assert(text != nullptr);
-    assert(fread(text, 1, (size_t) size, file) == (size_t) size);
+    assert(fread(text, 1, (bytes) size, file) == (bytes) size);
     text[size] = '\0';
     assert(fclose(file) == 0);
     return text;
 }
 
 // Count non-overlapping occurrences of a needle.
-static size_t countOf(const char *text, const char *needle) {
-    size_t found = 0;
+static bytes countOf(const char *text, const char *needle) {
+    bytes found = 0;
     for (const char *position = text; (position = strstr(position, needle)) != nullptr; ++found)
         position += strlen(needle);
     return found;
 }
 
 // Assert one expected diagnostic fragment is present in the captured log.
-static void checkText(const char *log, const char *needle, size_t expected) {
+static void checkText(const char *log, const char *needle, bytes expected) {
     assert(countOf(log, needle) == expected);
 }
 

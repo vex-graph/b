@@ -20,7 +20,7 @@
 #include <stdlib.h>
 
 // Compile the supplied Swift sources into an external native executable.
-static int compileSwift(const char *project, char **sources, size_t count, char **output) {
+static int compileSwift(const char *project, char **sources, bytes count, char **output) {
     if (count > SIZE_MAX / sizeof(char*) - 8) {
         THROW("Swift source count overflow");
         return EXIT_FAILURE;
@@ -31,7 +31,7 @@ static int compileSwift(const char *project, char **sources, size_t count, char 
     *output = Util_combine(directory, "/swift-program");
     free(directory);
     char **arguments = Util_allocate((count + 8) * sizeof(char*));
-    size_t n = 0;
+    bytes n = 0;
     arguments[n++] = "swiftc";
     arguments[n++] = "-warnings-as-errors";
 #ifdef __APPLE__
@@ -40,7 +40,7 @@ static int compileSwift(const char *project, char **sources, size_t count, char 
 #endif
     arguments[n++] = "-o";
     arguments[n++] = *output;
-    for (size_t i = 0; i < count; ++i)
+    for (bytes i = 0; i < count; ++i)
         arguments[n++] = sources[i];
     int status = Util_executeBuild(arguments);
     free(arguments);
@@ -49,7 +49,7 @@ static int compileSwift(const char *project, char **sources, size_t count, char 
 
 // Discover top-level Swift sources and compile them together.
 static int buildSwift(const char *project, char **output) {
-    size_t count = 0;
+    bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.swift", &count, &ok);
     if (!ok)

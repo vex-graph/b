@@ -102,7 +102,7 @@ const Adapter *Adapter_forName(const char *name) {
         THROW("adapter name is null");
         return nullptr;
     }
-    for (size_t i = 0; i < Adapter_count(); ++i)
+    for (bytes i = 0; i < Adapter_count(); ++i)
         if (strcmp((*ADAPTERS[i]).name, name) == 0)
             return ADAPTERS[i];
     return nullptr;
@@ -115,7 +115,7 @@ const Adapter *Adapter_forFile(const char *path) {
     }
     const char *basename = strrchr(path, '/');
     basename = basename != nullptr ? basename + 1 : path;
-    for (size_t i = 0; i < Adapter_count(); ++i) {
+    for (bytes i = 0; i < Adapter_count(); ++i) {
         const Adapter *adapter = ADAPTERS[i];
         const char *selector = (*adapter).extension;
         if (selector == nullptr)
@@ -127,11 +127,11 @@ const Adapter *Adapter_forFile(const char *path) {
 }
 
 // Return the number of immutable adapter records in the registry.
-size_t Adapter_count(void) {
+bytes Adapter_count(void) {
     return sizeof ADAPTERS / sizeof ADAPTERS[0];
 }
 
-const Adapter *Adapter_at(size_t index) {
+const Adapter *Adapter_at(bytes index) {
     if (index >= Adapter_count()) {
         THROW("adapter index is out of range");
         return nullptr;

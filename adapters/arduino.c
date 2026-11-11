@@ -9,7 +9,7 @@
 // or edits are made to the user's source.
 // OVERVIEW: cli; stageFile; sketchDirectory; boardFromHeader; compileSketch; buildArduino; runArduino rejects
 // host execution; Arduino_upload validates flags; ARDUINO_ADAPTER.
-#include "annotation.h"
+#include "vex.h"
 
 ;;DEFINITION
 /* Arduino firmware runs on a board, not the host. This adapter reads the
@@ -104,7 +104,7 @@ static char *stageFile(const char *file, const char *parent) {
     // Fixed chunk size bounds temporary copy memory; it is not a file-size limit.
     char Bytes[8192];
     while (ok) {
-        size_t count = fread(Bytes, 1, sizeof Bytes, input);
+        bytes count = fread(Bytes, 1, sizeof Bytes, input);
         if (count == 0) {
             ok = !ferror(input);
             break;
@@ -141,7 +141,7 @@ static char *sketchDirectory(const char *input) {
         return nullptr;
     }
     char *directory = Util_parentDirectory(path);
-    size_t length = strlen(directory);
+    bytes length = strlen(directory);
     if (length > 1 && directory[length - 1] == '/')
         directory[length - 1] = '\0';
     const char *folder = strrchr(directory, '/');
@@ -192,7 +192,7 @@ static char *boardFromHeader(const char *sketch) {
         return nullptr;
     }
     *end = '\0';
-    size_t colons = 0;
+    bytes colons = 0;
     for (const char *p = board; *p != '\0'; ++p) {
         bool valid = (*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
             (*p >= '0' && *p <= '9') || strchr("_-:,.=", *p) != nullptr;

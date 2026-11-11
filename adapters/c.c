@@ -51,7 +51,7 @@ static char *joinPath(const char *directory, const char *name) {
 // The reader accepts only the array b.sh assembly writes: quoted paths, no escapes.
 // A missing file or an empty array yields no roots; a malformed array sets *ok.
 // Two passes size the list exactly, so the reader never grows storage in place.
-static char **assemblyIncludes(const char *project, size_t *count, bool *ok) {
+static char **assemblyIncludes(const char *project, bytes *count, bool *ok) {
     *count = 0;
     *ok = true;
     char *path = Util_combine(project, "/b.sh.assembly.json");
@@ -66,7 +66,7 @@ static char **assemblyIncludes(const char *project, size_t *count, bool *ok) {
         Util_release(text);
         return nullptr;
     }
-    size_t items = 0;
+    bytes items = 0;
     for (char *quote = strchr(open, '"'); quote != nullptr && quote < end; quote = strchr(quote + 1, '"')) {
         char *close = strchr(quote + 1, '"');
         if (close == nullptr || close > end) {
@@ -79,10 +79,10 @@ static char **assemblyIncludes(const char *project, size_t *count, bool *ok) {
         quote = close;
     }
     char **list = Util_allocate((items != 0 ? items : 1) * sizeof(char*));
-    size_t filled = 0;
+    bytes filled = 0;
     for (char *quote = strchr(open, '"'); quote != nullptr && quote < end; ) {
         char *close = strchr(quote + 1, '"');
-        size_t length = (size_t) (close - quote - 1);
+        bytes length = (bytes) (close - quote - 1);
         char *item = Util_allocate(length + 1);
         memcpy(item, quote + 1, length);
         list[filled++] = item;
@@ -98,12 +98,12 @@ static char **assemblyIncludes(const char *project, size_t *count, bool *ok) {
 static char *baseNameOf(const char *path);
 static char *stemOf(const char *path);
 
-static int compileC(const char *project, char **sources, size_t count, const char *name, char **output) {
+static int compileC(const char *project, char **sources, bytes count, const char *name, char **output) {
     if (count > SIZE_MAX / sizeof(char*) - 20) {
         THROW("source argument count overflow");
         return EXIT_FAILURE;
     }
-    size_t includeCount = 0;
+    bytes includeCount = 0;
     bool includesOk = true;
     char **includes = assemblyIncludes(project, &includeCount, &includesOk);
     if (!includesOk) {
@@ -112,10 +112,10 @@ static int compileC(const char *project, char **sources, size_t count, const cha
     }
     char *root = Territory_find(project);
     // Default assembly: discover include dirs from territory's direct subdirs.
-    size_t depCount = 0;
+    bytes depCount = 0;
     char **deps = nullptr;
-    size_t depCapacity = 0;
-    size_t includeCapacity = includeCount == 0 ? 16 : includeCount;
+    bytes depCapacity = 0;
+    bytes includeCapacity = includeCount == 0 ? 16 : includeCount;
     if (includes == nullptr)
         includes = Util_allocate(includeCapacity * sizeof(char*));
     if (includeCount == 0 && root != nullptr) {
@@ -124,7 +124,7 @@ static int compileC(const char *project, char **sources, size_t count, const cha
         // it is a dependency unit.
         // Use a simple stack-based traversal.
         char **stack = Util_allocate(4096 * sizeof(char*));
-        size_t stackTop = 0;
+        bytes stackTop = 0;
         stack[stackTop++] = Util_combine(root, "");
         while (stackTop > 0) {
             char *cur = stack[--stackTop];
@@ -136,7 +136,7 @@ static int compileC(const char *project, char **sources, size_t count, const cha
             // First pass: classify this directory.
             // Collect subdirs for traversal.
             char **subdirs = Util_allocate(256 * sizeof(char*));
-            size_t subCount = 0;
+            bytes subCount = 0;
             rewinddir(dir);
             while ((e = readdir(dir)) != nullptr) {
                 if (strcmp((*e).d_name, ".") == 0 || strcmp((*e).d_name, "..") == 0) continue;
@@ -158,7 +158,7 @@ static int compileC(const char *project, char **sources, size_t count, const cha
 
             if (hasHeader && strcmp(cur, root) != 0) {
                 // Make relative to root
-                size_t rootLen = strlen(root);
+                bytes rootLen = strlen(root);
                 const char *rel = cur;
                 if (strncmp(cur, root, rootLen) == 0) {
                     rel = cur + rootLen;
@@ -167,13 +167,13 @@ static int compileC(const char *project, char **sources, size_t count, const cha
                 if (*rel != '\0') {
                     char *relDir = Util_combine(rel, "");
                     bool found = false;
-                    for (size_t i = 0; i < includeCount; ++i)
+                    for (bytes i = 0; i < includeCount; ++i)
                         if (strcmp(includes[i], relDir) == 0) { found = true; break; }
                     if (!found) {
                         if (includeCount == includeCapacity) {
                             includeCapacity *= 2;
                             char **grown = Util_allocate(includeCapacity * sizeof(char*));
-                            for (size_t j = 0; j < includeCount; ++j) grown[j] = includes[j];
+                            for (bytes j = 0; j < includeCount; ++j) grown[j] = includes[j];
                             free(includes);
                             includes = grown;
                         }
@@ -183,13 +183,13 @@ static int compileC(const char *project, char **sources, size_t count, const cha
                     }
                     if (hasC) {
                         bool depFound = false;
-                        for (size_t i = 0; i < depCount; ++i)
+                        for (bytes i = 0; i < depCount; ++i)
                             if (strcmp(deps[i], rel) == 0) { depFound = true; break; }
                         if (!depFound) {
                             if (depCount == depCapacity) {
                                 depCapacity = depCapacity == 0 ? 8 : depCapacity * 2;
                                 char **grown = Util_allocate(depCapacity * sizeof(char*));
-                                for (size_t j = 0; j < depCount; ++j) grown[j] = deps[j];
+                                for (bytes j = 0; j < depCount; ++j) grown[j] = deps[j];
                                 free(deps);
                                 deps = grown;
                             }
@@ -200,7 +200,7 @@ static int compileC(const char *project, char **sources, size_t count, const cha
             }
 
             // Push subdirs onto stack
-            for (size_t i = 0; i < subCount; ++i) {
+            for (bytes i = 0; i < subCount; ++i) {
                 if (stackTop < 4095)
                     stack[stackTop++] = subdirs[i];
                 else
@@ -213,28 +213,28 @@ static int compileC(const char *project, char **sources, size_t count, const cha
     }
 
     // Collect dep source files
-    size_t depSrcTotal = 0;
+    bytes depSrcTotal = 0;
     char **depSources = nullptr;
-    size_t depSrcCapacity = 0;
+    bytes depSrcCapacity = 0;
     if (depCount > 0 && root != nullptr) {
-        for (size_t di = 0; di < depCount; ++di) {
+        for (bytes di = 0; di < depCount; ++di) {
             char *depDir = joinPath(root, deps[di]);
-            size_t depSrcCount = 0;
+            bytes depSrcCount = 0;
             bool depOk = false;
             char **depSrcs = Util_collectSources(depDir, "/*.c", &depSrcCount, &depOk);
             if (depOk) {
-                for (size_t si = 0; si < depSrcCount; ++si) {
+                for (bytes si = 0; si < depSrcCount; ++si) {
                     if (depSrcTotal == depSrcCapacity) {
                         depSrcCapacity = depSrcCapacity == 0 ? 8 : depSrcCapacity * 2;
                         char **grown = Util_allocate(depSrcCapacity * sizeof(char*));
-                        for (size_t j = 0; j < depSrcTotal; ++j) grown[j] = depSources[j];
+                        for (bytes j = 0; j < depSrcTotal; ++j) grown[j] = depSources[j];
                         free(depSources);
                         depSources = grown;
                     }
                     // dedup by basename
                     char *bn = baseNameOf(depSrcs[si]);
                     bool dup = false;
-                    for (size_t k = 0; k < depSrcTotal; ++k) {
+                    for (bytes k = 0; k < depSrcTotal; ++k) {
                         char *obn = baseNameOf(depSources[k]);
                         if (strcmp(obn, bn) == 0) { dup = true; free(obn); break; }
                         free(obn);
@@ -259,7 +259,7 @@ static int compileC(const char *project, char **sources, size_t count, const cha
     char **paths = Util_allocate((includeCount != 0 ? includeCount : 1) * sizeof(char*));
     // Fixed option overhead, not a ceiling on the dynamic source list.
     char **arguments = Util_allocate((count + 20 + 2 * includeCount) * sizeof(char*));
-    size_t n = 0;
+    bytes n = 0;
     const char *compiler = getenv("CC");
     arguments[n++] = (char*) (compiler != nullptr && *compiler ? compiler : "cc");
     arguments[n++] = "-std=gnu2x";
@@ -283,7 +283,7 @@ static int compileC(const char *project, char **sources, size_t count, const cha
 #endif
     arguments[n++] = "-I";
     arguments[n++] = (char*) project;
-    for (size_t i = 0; i < includeCount; ++i) {
+    for (bytes i = 0; i < includeCount; ++i) {
         char *prefix = Util_combine(root, "/");
         paths[i] = Util_combine(prefix, includes[i]);
         free(prefix);
@@ -301,12 +301,12 @@ static int compileC(const char *project, char **sources, size_t count, const cha
 #endif
     arguments[n++] = "-o";
     arguments[n++] = *output;
-    for (size_t i = 0; i < count; ++i)
+    for (bytes i = 0; i < count; ++i)
         arguments[n++] = sources[i];
-    for (size_t i = 0; i < depSrcTotal; ++i)
+    for (bytes i = 0; i < depSrcTotal; ++i)
         arguments[n++] = depSources[i];
     int status = Util_execute(arguments);
-    for (size_t i = 0; i < includeCount; ++i)
+    for (bytes i = 0; i < includeCount; ++i)
         free(paths[i]);
     free(paths);
     free(arguments);
@@ -341,13 +341,13 @@ static bool hasEntry(const char *source) {
 }
 
 // Find the unit's program entries. Returns the first one, owned, and counts all.
-static char *programEntry(const char *project, size_t *count) {
-    size_t total = 0;
+static char *programEntry(const char *project, bytes *count) {
+    bytes total = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.c", &total, &ok);
     char *first = nullptr;
-    size_t programs = 0;
-    for (size_t i = 0; ok && i < total; ++i) {
+    bytes programs = 0;
+    for (bytes i = 0; ok && i < total; ++i) {
         if (!hasEntry(sources[i]))
             continue;
         ++programs;
@@ -362,15 +362,15 @@ static char *programEntry(const char *project, size_t *count) {
 // Compile one program: the named entry plus every sibling that is not itself an
 // entry. A unit's shared helpers therefore link into each of its programs.
 static int compileEntry(const char *project, const char *entry, char **output) {
-    size_t count = 0;
+    bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.c", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
     char *entryName = baseNameOf(entry);
     char **chosen = Util_allocate((count != 0 ? count : 1) * sizeof(char*));
-    size_t chosenCount = 0;
-    for (size_t i = 0; i < count; ++i) {
+    bytes chosenCount = 0;
+    for (bytes i = 0; i < count; ++i) {
         char *name = baseNameOf(sources[i]);
         bool same = strcmp(name, entryName) == 0;
         free(name);
@@ -391,13 +391,13 @@ static int compileEntry(const char *project, const char *entry, char **output) {
 }
 
 static int buildC(const char *project, char **output) {
-    size_t count = 0;
+    bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.c", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
-    size_t programs = 0;
-    for (size_t i = 0; i < count; ++i)
+    bytes programs = 0;
+    for (bytes i = 0; i < count; ++i)
         if (hasEntry(sources[i]))
             ++programs;
     int status = EXIT_SUCCESS;
@@ -406,8 +406,8 @@ static int buildC(const char *project, char **output) {
         status = EXIT_FAILURE;
     }
     char *artifact = nullptr;
-    size_t built = 0;
-    for (size_t i = 0; i < count; ++i) {
+    bytes built = 0;
+    for (bytes i = 0; i < count; ++i) {
         if (!hasEntry(sources[i]))
             continue;
         char *one = nullptr;
@@ -449,7 +449,7 @@ static int runC(const char *file, int argc, char **argv, bool buildArtifact) {
     if (hasEntry(file)) {
         entry = Util_combine(file, "");
     } else {
-        size_t programs = 0;
+        bytes programs = 0;
         char *first = programEntry(project, &programs);
         if (programs == 1)
             entry = first;
@@ -466,7 +466,7 @@ static int runC(const char *file, int argc, char **argv, bool buildArtifact) {
     if (entry != nullptr)
         status = compileEntry(project, entry, &output);
     if (status == 0) {
-        char **arguments = Util_allocate(((size_t) argc + 2) * sizeof(char*));
+        char **arguments = Util_allocate(((bytes) argc + 2) * sizeof(char*));
         arguments[0] = output;
         for (int i = 0; i < argc; ++i)
             arguments[i + 1] = argv[i];
@@ -481,11 +481,11 @@ static int runC(const char *file, int argc, char **argv, bool buildArtifact) {
 
 // Return an owned path to the top-level C source that defines main(), or nullptr.
 static char *entryC(const char *project) {
-    size_t count = 0;
+    bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.c", &count, &ok);
     char *found = nullptr;
-    for (size_t i = 0; ok && i < count && found == nullptr; ++i)
+    for (bytes i = 0; ok && i < count && found == nullptr; ++i)
         if (Util_fileContains(sources[i], "int main("))
             found = Util_combine(sources[i], "");
     Util_freeSources(sources, count);

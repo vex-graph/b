@@ -14,7 +14,7 @@
 #pragma once
 
 
-#include "annotation.h"
+#include "vex.h"
 
 ;;DEFINITION
 /* Shared standalone services for every adapter. Arguments and inherited
@@ -44,10 +44,8 @@
 #include <sys/stat.h>
 #endif
 
-#define THROW(...) do { fprintf(stderr, "[vex] %s:%d: ", __FILE__, __LINE__); fprintf(stderr, __VA_ARGS__); fputc('\n', stderr); } while (0)
-
 // The suite owns one allocation pair; adapters never call malloc/calloc/free.
-void *Util_allocate(size_t size);
+void *Util_allocate(bytes size);
 void Util_release(void *block);
 char *Util_combine(const char *left, const char *right);
 bool Util_endsWith(const char *text, const char *suffix);
@@ -63,12 +61,12 @@ int Util_execute(char **arguments);
 int Util_executeBuild(char **arguments);
 int Util_executeWithEnvironment(char **arguments, char **environment);
 // Append literal program arguments to a borrowed command prefix.
-int Util_runCommand(char **prefix, size_t prefixCount, int argc, char **argv);
+int Util_runCommand(char **prefix, bytes prefixCount, int argc, char **argv);
 // Check each matching source independently; return the checked directory.
-int Util_checkSources(const char *project, const char *pattern, char **prefix, size_t prefixCount, char **output);
+int Util_checkSources(const char *project, const char *pattern, char **prefix, bytes prefixCount, char **output);
 
-char **Util_collectSources(const char *project, const char *extension, size_t *count, bool *ok);
-void Util_freeSources(char **sources, size_t count);
+char **Util_collectSources(const char *project, const char *extension, bytes *count, bool *ok);
+void Util_freeSources(char **sources, bytes count);
 // Report whether a readable regular file's bytes contain the needle (whole-file read; source-sized inputs).
 bool Util_fileContains(const char *path, const char *needle);
 // Read a whole regular file as NUL-terminated text; nullptr when it cannot be read. Caller frees.

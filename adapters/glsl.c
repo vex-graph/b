@@ -37,7 +37,7 @@ static int buildGlsl(const char *project, char **output) {
         THROW("GLSL_BACKEND must be shaderc or glslang");
         return EXIT_FAILURE;
     }
-    size_t count = 0;
+    bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.{vert,frag,comp,geom,tesc,tese,glsl}", &count, &ok);
     if (!ok)
@@ -55,7 +55,7 @@ static int buildGlsl(const char *project, char **output) {
     if (tool == nullptr || *tool == '\0')
         tool = glslang ? "glslangValidator" : "glslc";
     int status = 0;
-    for (size_t i = 0; i < count && status == 0; ++i) {
+    for (bytes i = 0; i < count && status == 0; ++i) {
         struct stat info;
         if (lstat(sources[i], &info) != 0 || !S_ISREG(info.st_mode)) {
             THROW("GLSL input must be a regular non-symlink file: %s", sources[i]);
@@ -80,7 +80,7 @@ static int buildGlsl(const char *project, char **output) {
     if (status == 0)
         *output = directory;
     else {
-        for (size_t i = 0; i < count; ++i) {
+        for (bytes i = 0; i < count; ++i) {
             char *stem = Util_combine(directory, strrchr(sources[i], '/'));
             char *artifact = Util_combine(stem, ".spv");
             unlink(artifact);

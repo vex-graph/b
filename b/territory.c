@@ -15,7 +15,7 @@
 #include "adapters/lang/adapter.h"
 #include "b.h"
 
-#include "annotation.h"
+#include "vex.h"
 
 ;;DEFINITION
 /* The walk is cold and total: every directory under the claimed root is read
@@ -56,37 +56,37 @@
 typedef struct TerritoryUnit {
     char *directory;
     char **names;
-    size_t count;
-    size_t capacity;
+    bytes count;
+    bytes capacity;
 } TerritoryUnit;
 
 typedef struct TerritoryFiles {
     char *directory;
     char **names;
-    size_t count;
-    size_t capacity;
+    bytes count;
+    bytes capacity;
 } TerritoryFiles;
 
 typedef struct TerritoryWalk {
     char **directories;
-    size_t directoryCount;
-    size_t directoryCapacity;
+    bytes directoryCount;
+    bytes directoryCapacity;
     TerritoryUnit *units;
-    size_t unitCount;
-    size_t unitCapacity;
+    bytes unitCount;
+    bytes unitCapacity;
     TerritoryFiles *tree;
-    size_t treeCount;
-    size_t treeCapacity;
-    size_t files;
-    size_t sources;
-    size_t excluded;
+    bytes treeCount;
+    bytes treeCapacity;
+    bytes files;
+    bytes sources;
+    bytes excluded;
 } TerritoryWalk;
 
 // Grow a cold slot array with overflow checks, preserving old storage on error.
-static bool grow(size_t count, size_t size, size_t *capacity, void **storage) {
+static bool grow(bytes count, bytes size, bytes *capacity, void **storage) {
     if (count < *capacity)
         return true;
-    size_t next = *capacity == 0 ? TERRITORY_INITIAL_CAPACITY : *capacity;
+    bytes next = *capacity == 0 ? TERRITORY_INITIAL_CAPACITY : *capacity;
     if (next > SIZE_MAX / 2 || next * 2 > SIZE_MAX / size) {
         THROW("territory inventory overflow");
         return false;
@@ -106,7 +106,7 @@ static bool grow(size_t count, size_t size, size_t *capacity, void **storage) {
 static bool excluded(const char *name) {
     const char *names[] = { ".", "..", ".git", ".hg", ".svn", ".b", "node_modules",
         "target", "build", "dist", "out", ".cache", "__pycache__", ".venv", "venv" };
-    for (size_t index = 0; index < sizeof names / sizeof names[0]; ++index)
+    for (bytes index = 0; index < sizeof names / sizeof names[0]; ++index)
         if (strcmp(name, names[index]) == 0)
             return true;
     return false;
@@ -114,7 +114,7 @@ static bool excluded(const char *name) {
 
 // Drop trailing separators while keeping a root ("/" or "C:/") intact.
 static void normalize(char *path) {
-    size_t length = strlen(path);
+    bytes length = strlen(path);
     while (length > 1 && (path[length - 1] == '/' || path[length - 1] == '\\')) {
         if (length == 3 && path[1] == ':')
             break;
@@ -124,9 +124,9 @@ static void normalize(char *path) {
 
 // Return the unit owning one directory, appending a new unit when absent.
 static TerritoryUnit *unitFor(TerritoryWalk *walk, const char *directory) {
-    size_t count = (*walk).unitCount;
+    bytes count = (*walk).unitCount;
     TerritoryUnit *units = (*walk).units;
-    for (size_t index = 0; index < count; ++index)
+    for (bytes index = 0; index < count; ++index)
         if (strcmp(units[index].directory, directory) == 0)
             return &units[index];
     void *storage = units;
@@ -148,7 +148,7 @@ static bool addSource(TerritoryWalk *walk, const char *directory, const char *na
     TerritoryUnit *unit = unitFor(walk, directory);
     if (unit == nullptr)
         return false;
-    size_t count = (*unit).count;
+    bytes count = (*unit).count;
     void *storage = (*unit).names;
     if (!grow(count, sizeof(char*), &(*unit).capacity, &storage))
         return false;
@@ -161,7 +161,7 @@ static bool addSource(TerritoryWalk *walk, const char *directory, const char *na
 
 // Name a directory relative to the territory root; the root itself is ".".
 static char *relative(const char *root, const char *directory) {
-    size_t length = strlen(root);
+    bytes length = strlen(root);
     if (strcmp(root, directory) == 0)
         return Util_combine(".", "");
     if (strncmp(directory, root, length) == 0 && directory[length] == '/')
@@ -173,9 +173,9 @@ static char *relative(const char *root, const char *directory) {
 // layer, the names inside it are the second.
 static bool addFile(TerritoryWalk *walk, const char *root, const char *directory, const char *name) {
     char *path = relative(root, directory);
-    size_t count = (*walk).treeCount;
+    bytes count = (*walk).treeCount;
     TerritoryFiles *tree = (*walk).tree;
-    size_t index = 0;
+    bytes index = 0;
     while (index < count && strcmp(tree[index].directory, path) != 0)
         ++index;
     if (index == count) {
@@ -195,7 +195,7 @@ static bool addFile(TerritoryWalk *walk, const char *root, const char *directory
         free(path);
     }
     TerritoryFiles *entry = &tree[index];
-    size_t nameCount = (*entry).count;
+    bytes nameCount = (*entry).count;
     void *names = (*entry).names;
     if (!grow(nameCount, sizeof(char*), &(*entry).capacity, &names))
         return false;
@@ -231,7 +231,7 @@ static bool inventory(const char *root, TerritoryWalk *walk) {
     (*walk).directories = storage;
     (*walk).directories[0] = Util_combine(root, "");
     (*walk).directoryCount = 1;
-    for (size_t index = 0; index < (*walk).directoryCount; ++index) {
+    for (bytes index = 0; index < (*walk).directoryCount; ++index) {
         char **directories = (*walk).directories;
         const char *current = directories[index];
         struct dirent **entries = nullptr;
@@ -260,7 +260,7 @@ static bool inventory(const char *root, TerritoryWalk *walk) {
                 break;
             }
             if (S_ISDIR(information.st_mode)) {
-                size_t count = (*walk).directoryCount;
+                bytes count = (*walk).directoryCount;
                 void *next = (*walk).directories;
                 ok = grow(count, sizeof(char*), &(*walk).directoryCapacity, &next);
                 (*walk).directories = next;
@@ -316,7 +316,7 @@ static char *absoluteOf(const char *root, const char *directory) {
 static bool inScope(const char *directory, const char *scope) {
     if (strcmp(scope, ".") == 0)
         return true;
-    size_t length = strlen(scope);
+    bytes length = strlen(scope);
     return strcmp(directory, scope) == 0 ||
         (strncmp(directory, scope, length) == 0 && directory[length] == '/');
 }
@@ -326,7 +326,7 @@ static bool inScope(const char *directory, const char *scope) {
 // from different families make a unit mixed.
 static UnitVerdict classify(const TerritoryUnit *unit, const Adapter **adapter) {
     *adapter = nullptr;
-    for (size_t source = 0; source < (*unit).count; ++source) {
+    for (bytes source = 0; source < (*unit).count; ++source) {
         const Adapter *claimed = Adapter_forFile((*unit).names[source]);
         if (claimed == nullptr)
             continue;
@@ -350,16 +350,16 @@ static bool emit(const char *path, const char *root, TerritoryWalk *walk) {
         THROW("cannot write %s: %s", path, strerror(errno));
         return false;
     }
-    size_t treeCount = (*walk).treeCount;
+    bytes treeCount = (*walk).treeCount;
     TerritoryFiles *tree = (*walk).tree;
     fprintf(file, "{\n  \"root\": ");
     escape(file, root);
     fprintf(file, ",\n  \"directories\": {");
-    for (size_t index = 0; index < treeCount; ++index) {
+    for (bytes index = 0; index < treeCount; ++index) {
         fprintf(file, "%s\n    ", index == 0 ? "" : ",");
         escape(file, tree[index].directory);
         fputs(": [", file);
-        for (size_t name = 0; name < tree[index].count; ++name) {
+        for (bytes name = 0; name < tree[index].count; ++name) {
             if (name != 0)
                 fputs(", ", file);
             escape(file, tree[index].names[name]);
@@ -416,18 +416,18 @@ char *Territory_workspacePath(const char *root) {
 
 // Release every slot of a walk; the caller owns the walk until this runs.
 static void releaseWalk(TerritoryWalk *walk) {
-    for (size_t index = 0; index < (*walk).unitCount; ++index) {
+    for (bytes index = 0; index < (*walk).unitCount; ++index) {
         TerritoryUnit *unit = &(*walk).units[index];
-        for (size_t source = 0; source < (*unit).count; ++source)
+        for (bytes source = 0; source < (*unit).count; ++source)
             free((*unit).names[source]);
         free((*unit).names);
         free((*unit).directory);
     }
-    for (size_t index = 0; index < (*walk).directoryCount; ++index)
+    for (bytes index = 0; index < (*walk).directoryCount; ++index)
         free((*walk).directories[index]);
-    for (size_t index = 0; index < (*walk).treeCount; ++index) {
+    for (bytes index = 0; index < (*walk).treeCount; ++index) {
         TerritoryFiles *entry = &(*walk).tree[index];
-        for (size_t name = 0; name < (*entry).count; ++name)
+        for (bytes name = 0; name < (*entry).count; ++name)
             free((*entry).names[name]);
         free((*entry).names);
         free((*entry).directory);
@@ -516,8 +516,8 @@ bool Territory_buildAll(const char *startDirectory) {
     char *scope = relative(root, here);
     TerritoryWalk walk = { nullptr, 0, 0, nullptr, 0, 0, nullptr, 0, 0, 0, 0, 0 };
     bool ok = inventory(root, &walk);
-    size_t scoped = 0, succeeded = 0, failed = 0, skipped = 0;
-    for (size_t index = 0; ok && index < walk.unitCount; ++index) {
+    bytes scoped = 0, succeeded = 0, failed = 0, skipped = 0;
+    for (bytes index = 0; ok && index < walk.unitCount; ++index) {
         TerritoryUnit *unit = &walk.units[index];
         if (!inScope((*unit).directory, scope))
             continue;
@@ -598,7 +598,7 @@ static void keyText(FILE *file, const char *key) {
 
 // Write one unit's assembly declaration. Authored once: an existing file is refused
 // unless force is set. The version may be empty; only box refuses an empty one.
-bool Territory_writeAssembly(const char *directory, const char *version, const char *const *includes, size_t includeCount, const char *const *dependencies, size_t dependencyCount, bool force) {
+bool Territory_writeAssembly(const char *directory, const char *version, const char *const *includes, bytes includeCount, const char *const *dependencies, bytes dependencyCount, bool force) {
     char *here = realpath(directory, nullptr);
     if (here == nullptr) {
         THROW("cannot resolve directory: %s", directory);
@@ -705,14 +705,14 @@ bool Territory_writeAssembly(const char *directory, const char *version, const c
     }
     fputs("],\n    ", file);
     keyText(file, "includes"); fputs("[", file);
-    for (size_t index = 0; index < includeCount; ++index) {
+    for (bytes index = 0; index < includeCount; ++index) {
         if (index != 0)
             fputs(", ", file);
         escape(file, includes[index]);
     }
     fputs("],\n    ", file);
     keyText(file, "dependencies"); fputs("[", file);
-    for (size_t index = 0; index < dependencyCount; ++index) {
+    for (bytes index = 0; index < dependencyCount; ++index) {
         if (index != 0)
             fputs(", ", file);
         escape(file, dependencies[index]);

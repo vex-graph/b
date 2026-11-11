@@ -9,7 +9,7 @@
 #pragma once
 
 
-#include "annotation.h"
+#include "vex.h"
 
 ;;DEFINITION
 /* A territory is claimed, never inferred. Claiming creates .b/ and writes the
@@ -42,4 +42,4 @@ bool Territory_claim(const char *directory);
 bool Territory_buildAll(const char *directory);
 // Write <unit>/b.sh.assembly.json once; force replaces it. An empty version is allowed.
 // includes are include roots; dependencies are libraries the unit links.
-bool Territory_writeAssembly(const char *directory, const char *version, const char *const *includes, size_t includeCount, const char *const *dependencies, size_t dependencyCount, bool force);
+bool Territory_writeAssembly(const char *directory, const char *version, const char *const *includes, bytes includeCount, const char *const *dependencies, bytes dependencyCount, bool force);

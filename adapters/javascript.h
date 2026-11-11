@@ -1,5 +1,5 @@
 #pragma once
-#include "annotation.h"
+#include "vex.h"
 #include "adapters/lang/adapter.h"
 ;;DEFINITION
 /* Node.js script/check adapter records. Node owns modules and runtime semantics. */
