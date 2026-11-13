@@ -68,8 +68,8 @@ static char **processEnvironment(void) {
 #endif
 
 // Allocate zero-initialized storage; report and terminate the CLI if allocation fails.
-void *Util_allocate(bytes size) {
-    void *memory = calloc(1, size);
+any Util_allocate(bytes size) {
+    any memory = calloc(1, size);
     if (memory == nullptr) {
         THROW("out of memory");
         exit(EXIT_FAILURE);
@@ -79,7 +79,7 @@ void *Util_allocate(bytes size) {
 
 // Release storage from Util_allocate; the single release seam for the suite.
 // Relational Memory Law: one owner for allocation, no scattered free().
-void Util_release(void *block) {
+void Util_release(any block) {
     free(block);
 }
 
@@ -163,7 +163,7 @@ int Util_lstat(const char *path, struct stat *information) {
 }
 
 // Adapt scandir's comparator to qsort's standard callback signature.
-static int compareEntryPointers(const void *left, const void *right) {
+static int compareEntryPointers(const any left, const any right) {
     const struct dirent *const *leftEntry = left;
     const struct dirent *const *rightEntry = right;
     return strcmp((*(*leftEntry)).d_name, (*(*rightEntry)).d_name);
@@ -284,8 +284,8 @@ bool Util_fileContains(const char *path, const char *needle) {
         long size = ftell(input);
         if (size >= 0 && fseek(input, 0, SEEK_SET) == 0) {
             char *text = Util_allocate((bytes) size + 1);
-            bytes bytes = fread(text, 1, (bytes) size, input);
-            found = bytes == (bytes) size && strstr(text, needle) != nullptr;
+            bytes got = fread(text, 1, (bytes) size, input);
+            found = got == (bytes) size && strstr(text, needle) != nullptr;
             free(text);
         }
     }

@@ -1,3 +1,5 @@
+#include "vex.h"
+
 #include "generate.h"
 
 #include <dirent.h>
@@ -135,7 +137,7 @@ static bool emit(FILE *out, const char *path, int depth)
     char **names = nullptr;
     bytes count = collect(path, &names);
     bool first = true;
-    bool any = false;
+    bool emitted = false;
     fputc('{', out);
     fputc('\n', out);
     for (bytes i = 0; i < count; i++)
@@ -154,7 +156,7 @@ static bool emit(FILE *out, const char *path, int depth)
             }
             if (!first) { fputc(',', out); fputc('\n', out); }
             first = false;
-            any = true;
+            emitted = true;
             indent(out, depth + 1);
             fprintf(out, "\"%s\": ", names[i]);
             emit(out, full, depth + 1);
@@ -164,20 +166,20 @@ static bool emit(FILE *out, const char *path, int depth)
             const char *dot = strrchr(names[i], '.');
             if (!first) { fputc(',', out); fputc('\n', out); }
             first = false;
-            any = true;
+            emitted = true;
             indent(out, depth + 1);
             fprintf(out, "\"%s\": [\"%s\"]", names[i], dot + 1);
         }
         free(names[i]);
     }
     free(names);
-    if (count > 0 && any)
+    if (count > 0 && emitted)
         fputc('\n', out);
     indent(out, depth);
     fputc('}', out);
     /* If nothing emitted, mark empty by returning false; but we already wrote {}. 
        Caller checks has_compilable before calling, so empty dirs won't be emitted. */
-    return any;
+    return emitted;
 }
 
 bool Generate_workspace(const char *root, FILE *out)

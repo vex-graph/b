@@ -541,17 +541,16 @@ static bool loadGraph(const char *path, Graph *graph) {
 
 // ── content hashing ────────────────────────────────────────────────────────
 
-static u64 hashBytes(u64 hash, const void *bytes, bytes count) {
-    const unsigned char *p = bytes;
+static u64 hashBytes(u64 hash, const u8 *data, bytes count) {
     for (bytes i = 0; i < count; i++) {
-        hash ^= p[i];
+        hash ^= data[i];
         hash *= 1099511628211ull;
     }
     return hash;
 }
 
 static u64 hashText(u64 hash, const char *text) {
-    hash = hashBytes(hash, text, strlen(text));
+    hash = hashBytes(hash, (const u8*) text, strlen(text));
     unsigned char end = 0;
     return hashBytes(hash, &end, 1);
 }

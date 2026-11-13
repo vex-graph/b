@@ -1,3 +1,5 @@
+#include "vex.h"
+
 #include "assembly.h"
 
 #include <stdio.h>
