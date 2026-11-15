@@ -1,6 +1,8 @@
 // Recursive cold assessment/build entry. No source execution or privilege escalation.
+
 #pragma once
 #include "vex.h"
+
 ;;DEFINITION
 /* One synchronous CLI operation: directory plus optional --plan or --confirm.
  * Borrowed argv, no retained state. A failed assessment invokes no build tools;

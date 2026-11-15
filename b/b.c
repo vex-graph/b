@@ -5,6 +5,8 @@
 // build policy.
 // OVERVIEW: usage; generateCommand; main (generate | run | breeze | build |
 // assembly | box | adapter).
+
+#include "vex.h"
 #include "b.h"
 #include "breeze.h"
 #include "assembly.h"
@@ -39,7 +41,7 @@
 #include <string.h>
 
 // Print the command grammar and the distinction between claiming and building.
-static void usage() {
+static fn usage() {
     puts("Territory\n"
          "  b.sh generate [<directory>]            claim a territory; write .b/workspace.json\n"
          "\nRun\n"

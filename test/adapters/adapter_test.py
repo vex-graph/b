@@ -16,7 +16,7 @@ class RegistryTest(AdapterCase):
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
-int main(void) {
+int main() {
     bytes count = Adapter_count();
     assert(count > 0);
     for (bytes i = 0; i < count; ++i) {

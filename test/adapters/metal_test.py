@@ -49,7 +49,7 @@ class MetalTest(AdapterCase):
         if probe.returncode != 0:
             self.skipTest("installed Metal compiler unavailable; no download authorized")
         source = self.source("main.metal", "#include <metal_stdlib>\nusing namespace metal;\n"
-                             "kernel void fill(device float *out [[buffer(0)]], uint i [[thread_position_in_grid]]){out[i]=1.0;}\n")
+                             "kernel fn fill(device float *out [[buffer(0)]], uint i [[thread_position_in_grid]]){out[i]=1.0;}\n")
         output = Path(self.invoke("build", "metal", self.project).stdout.strip())
         self.assertGreater((output / "main.metal.metallib").stat().st_size, 0)
         source.write_text("malformed metal")

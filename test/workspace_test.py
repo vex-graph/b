@@ -138,7 +138,7 @@ int main(int argc, char **argv) {
     def test_filter_gallery_target_has_vulkan_headers_and_loader_link(self):
         self.assert_vulkan_target_client("filter_gallery_fixture_test")
         engine = (ROOT / "tools/workspace.c").read_text()
-        apps = engine.split("static void setup_apps(", 1)[1].split("static void setup_graphvex(", 1)[0]
+        apps = engine.split("static fn setup_apps(", 1)[1].split("static fn setup_graphvex(", 1)[0]
         for flag in ("-L/opt/homebrew/lib", "-lvulkan", "-Wl,-rpath,/opt/homebrew/lib"):
             self.assertIn(f'strl_push(&(*t).syslibs, "{flag}");', apps)
 
@@ -195,7 +195,7 @@ int main(int argc, char **argv) {
             home = Path(scratch)
             client = home / "loader.c"
             client.write_text('#include <vulkan/vulkan.h>\n'
-                              'int main(void) { return vkGetInstanceProcAddr(VK_NULL_HANDLE, "vkCreateInstance") == 0; }\n')
+                              'int main() { return vkGetInstanceProcAddr(VK_NULL_HANDLE, "vkCreateInstance") == 0; }\n')
             binary = home / "loader"
             command = [os.environ.get("CC", "cc"), "-std=gnu23", "-Wall", "-Wextra", "-Werror"]
             for directory in target["includes"]:

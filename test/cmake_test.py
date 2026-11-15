@@ -37,12 +37,12 @@ class CmakeTest(unittest.TestCase):
                             'add_executable(hello main.c)\n'
                             'target_compile_options(hello PRIVATE -Wall -Wextra -Werror)\n')
         source = self.project / "main.c"
-        source.write_text('#include <stdio.h>\nint main(void) { puts("Hello CMake"); return 0; }\n')
+        source.write_text('#include <stdio.h>\nint main() { puts("Hello CMake"); return 0; }\n')
         before = manifest.read_bytes()
         output = Path(self.invoke("build", "cmake", self.project).stdout.strip())
         self.assertTrue(output.is_relative_to(self.home / "state"))
         self.assertEqual(self.invoke("run", "exec", output / "hello").stdout.strip(), "Hello CMake")
-        source.write_text('#include <stdio.h>\nint main(void) { puts("updated"); return 0; }\n')
+        source.write_text('#include <stdio.h>\nint main() { puts("updated"); return 0; }\n')
         # Make generators may compare only whole seconds. Establish explicit
         # source-after-object ordering without a sleep or wall-clock race.
         for object_file in output.rglob("*.o"):

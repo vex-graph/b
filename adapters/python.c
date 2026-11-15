@@ -4,6 +4,8 @@
 // `build` is a bytecode syntax check: py_compile runs with PYTHONPYCACHEPREFIX
 // redirected to the out-of-tree output directory, so no __pycache__ is written
 // into the source tree.
+
+#include "vex.h"
 #include "adapters/python.h"
 #include "b.h"
 
@@ -63,7 +65,7 @@ static int buildPython(const char *project, char **output) {
 
 // Execute the source file with Python and forward the remaining arguments.
 static int runPython(const char *file, int argc, char **argv, bool buildArtifact) {
-    (void) buildArtifact; // interpreted: instance and exec both run the source
+    (discard) buildArtifact; // interpreted: instance and exec both run the source
     char **arguments = Util_allocate(((bytes) argc + 3) * sizeof(char*));
     bytes n = 0;
     arguments[n++] = "python3";

@@ -36,7 +36,7 @@ static const char *const DIAGNOSTIC_LOG = "box-diagnostics.log";
 static const bytes EXPECTED_DIAGNOSTICS = 33;
 
 // Write one fixture file with exact content.
-static void writeText(const char *path, const char *text) {
+static fn writeText(const char *path, const char *text) {
     FILE *file = fopen(path, "wb");
     assert(file != nullptr);
     bytes length = strlen(text);
@@ -45,7 +45,7 @@ static void writeText(const char *path, const char *text) {
 }
 
 // Write a fixture of repeated bytes (used for the size-limit case).
-static void writeRepetition(const char *path, char character, bytes count) {
+static fn writeRepetition(const char *path, char character, bytes count) {
     FILE *file = fopen(path, "wb");
     assert(file != nullptr);
     for (bytes index = 0; index < count; ++index)
@@ -78,12 +78,12 @@ static bytes countOf(const char *text, const char *needle) {
 }
 
 // Assert one expected diagnostic fragment is present in the captured log.
-static void checkText(const char *log, const char *needle, bytes expected) {
+static fn checkText(const char *log, const char *needle, bytes expected) {
     assert(countOf(log, needle) == expected);
 }
 
 // Assert that no private staging directory survived next to the destinations.
-static void checkNoStaging(const char *directory) {
+static fn checkNoStaging(const char *directory) {
     DIR *tree = opendir(directory);
     assert(tree != nullptr);
     struct dirent *entry;

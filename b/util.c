@@ -3,10 +3,11 @@
 // output directory outside the source tree, and collects a directory's sources
 // with glob metacharacters treated literally. The environment helper exists so
 // an adapter can redirect a tool's cache (e.g. Python bytecode) out of source.
+
+#include "vex.h"
 #include "b.h"
 #include "territory.h"
 
-#include "vex.h"
 
 ;;DEFINITION
 /* Utility services keep adapters focused on their language contracts. Dynamic
@@ -57,12 +58,12 @@
 
 #ifdef _WIN32
 // Use the Microsoft CRT accessor macro rather than declaring POSIX environ.
-static char **processEnvironment(void) {
+static char **processEnvironment() {
     return environ;
 }
 #else
 extern char **environ;
-static char **processEnvironment(void) {
+static char **processEnvironment() {
     return environ;
 }
 #endif
@@ -79,7 +80,7 @@ any Util_allocate(bytes size) {
 
 // Release storage from Util_allocate; the single release seam for the suite.
 // Relational Memory Law: one owner for allocation, no scattered free().
-void Util_release(any block) {
+fn Util_release(any block) {
     free(block);
 }
 
@@ -163,7 +164,7 @@ int Util_lstat(const char *path, struct stat *information) {
 }
 
 // Adapt scandir's comparator to qsort's standard callback signature.
-static int compareEntryPointers(const any left, const any right) {
+static int compareEntryPointers(const_any left, const_any right) {
     const struct dirent *const *leftEntry = left;
     const struct dirent *const *rightEntry = right;
     return strcmp((*(*leftEntry)).d_name, (*(*rightEntry)).d_name);
@@ -255,7 +256,7 @@ int Util_alphasort(const struct dirent **left, const struct dirent **right) {
 // Create exactly one directory; unlike Util_makeDirectory, an existing path fails.
 int Util_createDirectory(const char *path, int mode) {
 #ifdef _WIN32
-    (void) mode;
+    (discard) mode;
     return _mkdir(path);
 #else
     return mkdir(path, (mode_t) mode);
@@ -265,8 +266,8 @@ int Util_createDirectory(const char *path, int mode) {
 // Set POSIX file mode bits where available; Windows has no executable mode bits.
 int Util_setFileMode(int descriptor, int mode) {
 #ifdef _WIN32
-    (void) descriptor;
-    (void) mode;
+    (discard) descriptor;
+    (discard) mode;
     return 0;
 #else
     return fchmod(descriptor, (mode_t) mode);
@@ -383,7 +384,7 @@ static char *buildCommandLine(char **arguments) {
 // Spawn an argv command with the supplied environment and return its status.
 int Util_executeWithEnvironment(char **arguments, char **environment) {
 #ifdef _WIN32
-    (void) environment;
+    (discard) environment;
     char *cmdline = buildCommandLine(arguments);
     if (cmdline == nullptr)
         return EXIT_FAILURE;
@@ -781,7 +782,7 @@ char **Util_collectSources(const char *project, const char *extension, bytes *co
 }
 
 // Release the copied source paths and their containing array.
-void Util_freeSources(char **sources, bytes count) {
+fn Util_freeSources(char **sources, bytes count) {
     if (sources == nullptr)
         return;
     for (bytes i = 0; i < count; ++i)
@@ -817,7 +818,7 @@ char **Util_environmentWith(const char *name, const char *value) {
 }
 
 // Free an environment array and owned override while preserving inherited entries.
-void Util_freeEnvironment(char **environment) {
+fn Util_freeEnvironment(char **environment) {
     if (environment == nullptr)
         return;
     char **inheritedEnvironment = processEnvironment();

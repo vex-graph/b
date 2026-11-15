@@ -94,7 +94,7 @@ static bool inspectAdapter(const Adapter *adapter) {
 }
 
 // List registered adapter names, selectors, capabilities, and tool requirements.
-int Inspect_adapters(void) {
+int Inspect_adapters() {
     for (bytes i = 0; i < Adapter_count(); ++i) {
         const Adapter *adapter = Adapter_at(i);
         printf("%-12s %-14s %s [tools: %s]\n", (*adapter).name,

@@ -16,21 +16,21 @@ class ZigTest(AdapterCase):
             self.invoke("run", mode, source, expected=7)
         source.write_text("pub fn main(\n")
         self.invoke("run", "exec", source, expected=None)
-        source.write_text("pub fn main() void {}\n")
+        source.write_text("pub fn main() fn {}\n")
         self.invoke("zig", source)
 
     def test_directory_main_single_root_ambiguity_and_external_artifact(self):
-        source = self.source("one.zig", "pub fn main() void {}\n")
+        source = self.source("one.zig", "pub fn main() fn {}\n")
         artifact = Path(self.invoke("build", "zig", self.project).stdout.strip())
         self.assertTrue(artifact.is_file())
         self.assertFalse(artifact.is_relative_to(self.project))
-        self.source("two.zig", "pub fn main() void {}\n")
+        self.source("two.zig", "pub fn main() fn {}\n")
         self.invoke("build", "zig", self.project, expected=None)
         source.rename(self.project / "main.zig")
         self.invoke("build", "zig", self.project)
 
     def test_native_build_script_external_prefix_and_bad_script(self):
-        self.source("build.zig", 'const std = @import("std");\npub fn build(b: *std.Build) void { _ = b; }\n')
+        self.source("build.zig", 'const std = @import("std");\npub fn build(b: *std.Build) fn { _ = b; }\n')
         result = self.invoke("build", "zig", self.project)
         prefix = Path(result.stdout.strip())
         self.assertEqual(prefix.name, "zig-out")
@@ -40,7 +40,7 @@ class ZigTest(AdapterCase):
 
     def test_empty_and_missing_tool_reject(self):
         self.invoke("build", "zig", self.project, expected=None)
-        source = self.source("main.zig", "pub fn main() void {}\n")
+        source = self.source("main.zig", "pub fn main() fn {}\n")
         environment = dict(self.environment, ZIG="missing-zig")
         self.invoke("run", "exec", source, environment=environment, expected=None)
 
@@ -54,7 +54,7 @@ class ZigTest(AdapterCase):
                                '  -femit-bin=*) cp "$B_ZIG_RUN_FIXTURE" "${arg#-femit-bin=}" ;;\n'
                                'esac\ndone\n')
         compiler.chmod(0o755)
-        source = self.source("main.zig", "pub fn main() void {}\n")
+        source = self.source("main.zig", "pub fn main() fn {}\n")
         environment = dict(self.environment, ZIG=str(compiler), B_ZIG_RUN_FIXTURE=str(fixture))
         args = ["", "a b", "$(touch marker)", *map(str, range(10))]
         for mode in ("instance", "exec"):

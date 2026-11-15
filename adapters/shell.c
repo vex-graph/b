@@ -23,7 +23,7 @@ static int buildShell(const char *project, char **output) {
 
 // Run a script through POSIX sh and append the supplied arguments literally.
 static int runShell(const char *file, int argc, char **argv, bool buildArtifact) {
-    (void) buildArtifact;
+    (discard) buildArtifact;
     char *prefix[] = { "/bin/sh", (char*) file };
     return Util_runCommand(prefix, 2, argc, argv);
 }

@@ -3,6 +3,8 @@
 // 2021) into one native executable; `run exec` compiles a single file on demand.
 // Rust has no source runtime, so `run instance` rejects. Requires rustc on PATH;
 // b.sh does not download it. Cargo projects use the separate cargo adapter.
+
+#include "vex.h"
 #include "adapters/rust.h"
 #include "b.h"
 

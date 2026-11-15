@@ -2,6 +2,8 @@
 // DEFINITION: run and breeze are one behaviour: resolve the file, build or
 // interpret it through its adapter, forward arguments, return the child status.
 // OVERVIEW: Breeze_command; PRIVATE: regularFile; runFile.
+
+#include "vex.h"
 #include "breeze.h"
 #include "b.h"
 #include "territory.h"

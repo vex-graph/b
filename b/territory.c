@@ -3,9 +3,10 @@
 // generated file; claim creates the marker and writes what it found.
 // OVERVIEW: find; workspacePath; claim; PRIVATE: grow; excluded; normalize;
 // unitFor; addSource; relative; escape; inventory; emit.
+
+#include "vex.h"
 #include <dirent.h>
 #include <errno.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -83,7 +84,7 @@ typedef struct TerritoryWalk {
 } TerritoryWalk;
 
 // Grow a cold slot array with overflow checks, preserving old storage on error.
-static bool grow(bytes count, bytes size, bytes *capacity, void **storage) {
+static bool grow(bytes count, bytes size, bytes *capacity, any *storage) {
     if (count < *capacity)
         return true;
     bytes next = *capacity == 0 ? TERRITORY_INITIAL_CAPACITY : *capacity;
@@ -92,7 +93,7 @@ static bool grow(bytes count, bytes size, bytes *capacity, void **storage) {
         return false;
     }
     next *= 2;
-    void *replacement = realloc(*storage, next * size);
+    any replacement = realloc(*storage, next * size);
     if (replacement == nullptr) {
         THROW("territory inventory allocation failed");
         return false;
@@ -113,7 +114,7 @@ static bool excluded(const char *name) {
 }
 
 // Drop trailing separators while keeping a root ("/" or "C:/") intact.
-static void normalize(char *path) {
+static fn normalize(char *path) {
     bytes length = strlen(path);
     while (length > 1 && (path[length - 1] == '/' || path[length - 1] == '\\')) {
         if (length == 3 && path[1] == ':')
@@ -129,7 +130,7 @@ static TerritoryUnit *unitFor(TerritoryWalk *walk, const char *directory) {
     for (bytes index = 0; index < count; ++index)
         if (strcmp(units[index].directory, directory) == 0)
             return &units[index];
-    void *storage = units;
+    any storage = units;
     if (!grow(count, sizeof(TerritoryUnit), &(*walk).unitCapacity, &storage))
         return nullptr;
     (*walk).units = storage;
@@ -149,7 +150,7 @@ static bool addSource(TerritoryWalk *walk, const char *directory, const char *na
     if (unit == nullptr)
         return false;
     bytes count = (*unit).count;
-    void *storage = (*unit).names;
+    any storage = (*unit).names;
     if (!grow(count, sizeof(char*), &(*unit).capacity, &storage))
         return false;
     (*unit).names = storage;
@@ -179,7 +180,7 @@ static bool addFile(TerritoryWalk *walk, const char *root, const char *directory
     while (index < count && strcmp(tree[index].directory, path) != 0)
         ++index;
     if (index == count) {
-        void *storage = tree;
+        any storage = tree;
         if (!grow(count, sizeof(TerritoryFiles), &(*walk).treeCapacity, &storage)) {
             free(path);
             return false;
@@ -196,7 +197,7 @@ static bool addFile(TerritoryWalk *walk, const char *root, const char *directory
     }
     TerritoryFiles *entry = &tree[index];
     bytes nameCount = (*entry).count;
-    void *names = (*entry).names;
+    any names = (*entry).names;
     if (!grow(nameCount, sizeof(char*), &(*entry).capacity, &names))
         return false;
     (*entry).names = names;
@@ -208,7 +209,7 @@ static bool addFile(TerritoryWalk *walk, const char *root, const char *directory
 }
 
 // Emit one JSON string, escaping what cannot appear literally in a path.
-static void escape(FILE *file, const char *text) {
+static fn escape(FILE *file, const char *text) {
     fputc('"', file);
     for (const unsigned char *cursor = (const unsigned char*) text; *cursor != '\0'; ++cursor) {
         if (*cursor == '"' || *cursor == '\\') {
@@ -225,7 +226,7 @@ static void escape(FILE *file, const char *text) {
 
 // Read every directory under the root once and record each unit it finds.
 static bool inventory(const char *root, TerritoryWalk *walk) {
-    void *storage = (*walk).directories;
+    any storage = (*walk).directories;
     if (!grow((*walk).directoryCount, sizeof(char*), &(*walk).directoryCapacity, &storage))
         return false;
     (*walk).directories = storage;
@@ -261,7 +262,7 @@ static bool inventory(const char *root, TerritoryWalk *walk) {
             }
             if (S_ISDIR(information.st_mode)) {
                 bytes count = (*walk).directoryCount;
-                void *next = (*walk).directories;
+                any next = (*walk).directories;
                 ok = grow(count, sizeof(char*), &(*walk).directoryCapacity, &next);
                 (*walk).directories = next;
                 if (ok) {
@@ -415,7 +416,7 @@ char *Territory_workspacePath(const char *root) {
 }
 
 // Release every slot of a walk; the caller owns the walk until this runs.
-static void releaseWalk(TerritoryWalk *walk) {
+static fn releaseWalk(TerritoryWalk *walk) {
     for (bytes index = 0; index < (*walk).unitCount; ++index) {
         TerritoryUnit *unit = &(*walk).units[index];
         for (bytes source = 0; source < (*unit).count; ++source)
@@ -584,14 +585,14 @@ static char *displayNameOf(const char *name) {
 }
 
 // Release a directory listing that a writer kept alive while reading its sources.
-static void freeEntries(struct dirent **entries, int total) {
+static fn freeEntries(struct dirent **entries, int total) {
     for (int index = 0; index < total; ++index)
         free(entries[index]);
     free(entries);
 }
 
 // Emit a quoted key followed by its colon separator; the value follows the caller.
-static void keyText(FILE *file, const char *key) {
+static fn keyText(FILE *file, const char *key) {
     escape(file, key);
     fputs(": ", file);
 }

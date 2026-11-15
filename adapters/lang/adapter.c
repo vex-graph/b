@@ -3,6 +3,8 @@
 // Adding an adapter means
 // adding one file pair and one entry here; no other file changes. Lookup is by
 // CLI name or by file extension, both left-to-right.
+
+#include "vex.h"
 #include "adapters/lang/adapter.h"
 #include "adapters/c.h"
 #include "adapters/csharp.h"
@@ -127,7 +129,7 @@ const Adapter *Adapter_forFile(const char *path) {
 }
 
 // Return the number of immutable adapter records in the registry.
-bytes Adapter_count(void) {
+bytes Adapter_count() {
     return sizeof ADAPTERS / sizeof ADAPTERS[0];
 }
 

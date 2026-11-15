@@ -13,7 +13,6 @@
 // Util_freeEnvironment).
 #pragma once
 
-
 #include "vex.h"
 
 ;;DEFINITION
@@ -45,8 +44,8 @@
 #endif
 
 // The suite owns one allocation pair; adapters never call malloc/calloc/free.
-void *Util_allocate(bytes size);
-void Util_release(void *block);
+any Util_allocate(bytes size);
+fn Util_release(any block);
 char *Util_combine(const char *left, const char *right);
 bool Util_endsWith(const char *text, const char *suffix);
 bool Util_makeDirectory(char *path);
@@ -66,14 +65,14 @@ int Util_runCommand(char **prefix, bytes prefixCount, int argc, char **argv);
 int Util_checkSources(const char *project, const char *pattern, char **prefix, bytes prefixCount, char **output);
 
 char **Util_collectSources(const char *project, const char *extension, bytes *count, bool *ok);
-void Util_freeSources(char **sources, bytes count);
+fn Util_freeSources(char **sources, bytes count);
 // Report whether a readable regular file's bytes contain the needle (whole-file read; source-sized inputs).
 bool Util_fileContains(const char *path, const char *needle);
 // Read a whole regular file as NUL-terminated text; nullptr when it cannot be read. Caller frees.
 char *Util_readText(const char *path);
 
 char **Util_environmentWith(const char *name, const char *value);
-void Util_freeEnvironment(char **environment);
+fn Util_freeEnvironment(char **environment);
 
 #ifdef _WIN32
 char *Util_realPath(const char *path, char *resolved);

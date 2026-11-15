@@ -24,7 +24,7 @@ class ArduinoTest(unittest.TestCase):
         self.sketch = self.home / "Blink"
         self.sketch.mkdir()
         self.source = self.sketch / "Blink.ino"
-        self.source.write_text('// b_build("arduino:avr:uno")\nvoid setup() {}\nvoid loop() {}\n')
+        self.source.write_text('// b_build("arduino:avr:uno")\nfn setup() {}\nfn loop() {}\n')
         self.log = self.home / "calls.jsonl"
         self.fake = self.home / "fake cli"
         self.fake.write_text(f"#!{sys.executable}\n" +
@@ -93,7 +93,7 @@ class ArduinoTest(unittest.TestCase):
     def test_build_requires_header_and_run_rejects(self):
         env = dict(self.env)
         source = self.source.read_text()
-        self.source.write_text("void setup() {}\nvoid loop() {}\n")
+        self.source.write_text("fn setup() {}\nfn loop() {}\n")
         self.invoke("build", "arduino", self.sketch, env=env, expected=1)
         for mode in ("exec", "instance"):
             self.invoke("run", mode, self.source, expected=1)
@@ -118,13 +118,13 @@ class ArduinoTest(unittest.TestCase):
                        '// b_build("arduino:avr:uno"); touch NEVER\n',
                        '// b_build("$(touch NEVER)")\n',
                        '// b_build("arduino:avr:' + 'x' * 1100 + '")\n'):
-            self.source.write_text(header + 'void setup() {}\nvoid loop() {}\n')
+            self.source.write_text(header + 'fn setup() {}\nfn loop() {}\n')
             self.assertIn("[vex]", self.upload(expected=1).stderr)
         self.assertEqual(self.calls(), [])
 
     def test_board_options_and_crlf_header(self):
         self.source.write_bytes(b'// b_build("arduino:avr:nano:cpu=atmega328old")\r\n'
-                                b'void setup() {}\r\nvoid loop() {}\r\n')
+                                b'fn setup() {}\r\nfn loop() {}\r\n')
         self.invoke("upload", "arduino", self.source, "--port", "TEST_PORT")
         for call in self.calls():
             self.assertEqual(call[call.index("--fqbn") + 1],

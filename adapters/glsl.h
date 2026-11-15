@@ -1,5 +1,7 @@
 // GLSL build-only adapter: shaderc glslc emits Vulkan SPIR-V, never host execution.
 #pragma once
+
+#include "vex.h"
 #include "adapters/lang/adapter.h"
 ;;DEFINITION
 /* Immutable build-only shader records. Directory inputs are borrowed; successful

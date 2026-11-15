@@ -1,9 +1,7 @@
 #include "vex.h"
-
 #include "generate.h"
 
 #include <dirent.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,7 +37,7 @@ static bool is_ignored_dir(const char *name)
     return false;
 }
 
-static void indent(FILE *out, int depth)
+static fn indent(FILE *out, int depth)
 {
     for (int i = 0; i < depth; i++)
         fputs("    ", out);

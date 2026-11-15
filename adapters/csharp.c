@@ -4,6 +4,8 @@
 // Instance delegates to dotnet's file runner (which internally compiles); it
 // does not publish an application. Multi-file/project discovery is not guessed.
 // OVERVIEW: compileCsharp; buildCsharp (one entry); runCsharp; CSHARP_ADAPTER.
+
+#include "vex.h"
 #include "adapters/csharp.h"
 #include "b.h"
 

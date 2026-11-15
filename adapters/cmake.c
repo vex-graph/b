@@ -48,10 +48,10 @@ static int buildCmake(const char *project, char **output) {
 
 // Reject source execution because CMake does not identify a unique runnable target.
 static int runCmake(const char *file, int argc, char **argv, bool buildArtifact) {
-    (void) file;
-    (void) argc;
-    (void) argv;
-    (void) buildArtifact;
+    (discard) file;
+    (discard) argc;
+    (discard) argv;
+    (discard) buildArtifact;
     THROW("CMake builds projects; use b.sh build cmake <directory>, then run the chosen artifact");
     return EXIT_FAILURE;
 }

@@ -24,11 +24,10 @@
 //   bytes fileCount     number of declared payload files
 //   char **formats       requested export formats
 //   bytes formatCount   number of requested export formats
+
 #pragma once
 
-
 #include "vex.h"
-#include <stddef.h>
 
 ;;DEFINITION
 /* A manifest is untrusted, user-authored input: it is parsed and validated once
@@ -97,10 +96,10 @@ int BoxManifest_writeTemplate(const char *path);
 // Parse and validate a manifest; nullptr with a THROW diagnostic on rejection.
 BoxManifest *BoxManifest_load(const char *path);
 // Release every owned string and the record itself; nullptr is permitted.
-void BoxManifest_free(BoxManifest *self);
+fn BoxManifest_free(BoxManifest *self);
 // Export declared payload into destination (which must not exist yet).
 int BoxManifest_export(const BoxManifest *self, const char *destination);
 // Bounded value projection; dest-last with a truncation flag.
-void BoxManifest_toString(const BoxManifest *self, char *dest, bytes capacity, bool *outTruncated);
+fn BoxManifest_toString(const BoxManifest *self, char *dest, bytes capacity, bool *outTruncated);
 // Bounded field projection mirroring STRUCT FIELDS; one layer only.
-void BoxManifest_toStringStruct(const BoxManifest *self, char *dest, bytes capacity, bool *outTruncated);
+fn BoxManifest_toStringStruct(const BoxManifest *self, char *dest, bytes capacity, bool *outTruncated);

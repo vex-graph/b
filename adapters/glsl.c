@@ -96,7 +96,7 @@ static int buildGlsl(const char *project, char **output) {
 
 // Shader execution belongs to a graphics pipeline, never the CLI run seam.
 static int rejectRun(const char *file, int argc, char **argv, bool buildArtifact) {
-    (void) file; (void) argc; (void) argv; (void) buildArtifact;
+    (discard) file; (discard) argc; (discard) argv; (discard) buildArtifact;
     THROW("GLSL is build-only; use b.sh build glsl <directory>");
     return EXIT_FAILURE;
 }

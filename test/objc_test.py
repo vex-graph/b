@@ -22,11 +22,11 @@ class ObjcTest(AdapterCase):
 
     def test_directory_sources_compile_failure_and_recovery(self):
         self.invoke("build", "objc", self.project, expected=1)
-        source = self.source("main.m", 'int answer(void); int main(void) { return answer(); }\n')
-        self.source("answer.m", 'int answer(void) { return 12; }\n')
+        source = self.source("main.m", 'int answer(); int main() { return answer(); }\n')
+        self.source("answer.m", 'int answer() { return 12; }\n')
         output = Path(self.invoke("build", "objc", self.project).stdout.strip())
         self.invoke("run", "exec", output, expected=12)
         source.write_text("not Objective C\n")
         self.invoke("build", "objc", self.project, expected=None)
-        source.write_text("int main(void) { return 0; }\n")
+        source.write_text("int main() { return 0; }\n")
         self.invoke("run", "exec", source)

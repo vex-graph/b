@@ -24,7 +24,7 @@
 #include <sys/stat.h>
 
 // Select the configured Cargo executable or the standard command name.
-static const char *tool(void) {
+static const char *tool() {
     const char *value = getenv("CARGO");
     return value != nullptr && *value != '\0' ? value : "cargo";
 }

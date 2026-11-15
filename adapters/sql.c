@@ -25,16 +25,16 @@
 
 // Reject standalone SQL compilation because parsing requires database context.
 static int buildSql(const char *project, char **output) {
-    (void) project;
-    (void) output;
+    (discard) project;
+    (discard) output;
     THROW("SQL has no standalone compile here; run against an explicitly selected disposable database");
     return EXIT_FAILURE;
 }
 
 // Execute a SQL file only against the explicitly named PostgreSQL database.
 static int runSql(const char *file, int argc, char **argv, bool buildArtifact) {
-    (void) argv;
-    (void) buildArtifact;
+    (discard) argv;
+    (discard) buildArtifact;
     const char *database = getenv("B_SQL_DATABASE");
     if (database == nullptr || *database == '\0') {
         THROW("SQL execution requires B_SQL_DATABASE; no existing database is auto-selected");

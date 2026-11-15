@@ -45,7 +45,7 @@ class CliTest(unittest.TestCase):
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return result
 
-    def source(self, name="hello.c", text='int main(void) { return 0; }\n'):
+    def source(self, name="hello.c", text='int main() { return 0; }\n'):
         path = self.project / name
         path.write_text(text)
         return path
@@ -212,7 +212,7 @@ class CliTest(unittest.TestCase):
         self.assertEqual(result.stderr, "")
 
     def test_build_current_directory_and_existing_exec(self):
-        self.source(text='int main(void) { return 9; }\n')
+        self.source(text='int main() { return 9; }\n')
         output = Path(self.invoke("adapter", "c", "build").stdout.strip())
         self.assertTrue(output.is_file())
         self.assertTrue(output.is_relative_to(self.home / "state"))
@@ -220,16 +220,16 @@ class CliTest(unittest.TestCase):
         self.assertEqual(list(self.project.iterdir()), [self.project / "hello.c"])
 
     def test_build_multiple_sources_and_include_directory(self):
-        self.source("main.c", '#include "value.h"\nint main(void) { return value(); }\n')
-        self.source("value.c", 'int value(void) { return 11; }\n')
-        self.source("value.h", 'int value(void);\n')
+        self.source("main.c", '#include "value.h"\nint main() { return value(); }\n')
+        self.source("value.c", 'int value() { return 11; }\n')
+        self.source("value.h", 'int value();\n')
         output = Path(self.invoke("adapter", "c", "build", self.project).stdout.strip())
         self.invoke("run", "exec", output, expected=11)
 
     def test_directory_glob_characters_are_literal(self):
         unusual = self.project / "literal [project]"
         unusual.mkdir()
-        (unusual / "main.c").write_text('int main(void) { return 0; }\n')
+        (unusual / "main.c").write_text('int main() { return 0; }\n')
         output = Path(self.invoke("adapter", "c", "build", unusual).stdout.strip())
         self.invoke("run", "exec", output)
 
@@ -243,7 +243,7 @@ class CliTest(unittest.TestCase):
         self.invoke("run", "exec", self.project, expected=1)
 
     def test_compiler_failure_never_runs_previous_result(self):
-        source = self.source(text='int main(void) { return 23; }\n')
+        source = self.source(text='int main() { return 23; }\n')
         self.invoke("run", "exec", source, expected=23)
         source.write_text("not C code\n")
         self.invoke("run", "exec", source, expected=1)
@@ -255,7 +255,7 @@ class CliTest(unittest.TestCase):
         self.assertIn("cannot launch", result.stderr)
 
     def test_c_instance_and_export_reject_without_side_effects(self):
-        source = self.source(text='int main(void) { return 23; }\n')
+        source = self.source(text='int main() { return 23; }\n')
         self.invoke("run", "instance", source, expected=1)
         manifest = self.project / "manifest.json"
         manifest.write_text("{}\n")
@@ -337,7 +337,7 @@ class CliTest(unittest.TestCase):
 
     def test_java_source_alias_and_direct_instance(self):
         self.require_java()
-        self.source("Hello.java", 'class Hello { public static void main(String[] args) {'
+        self.source("Hello.java", 'class Hello { public static fn main(String[] args) {'
                     'System.out.println(args[0]); System.exit(6); } }\n')
         before = set((self.home / "state").rglob("*.class"))
         for arguments in (("breeze", "Hello.java"), ("run", "instance", "Hello.java")):
@@ -348,7 +348,7 @@ class CliTest(unittest.TestCase):
 
     def test_java_exec_builds_classes_then_runs(self):
         self.require_java()
-        self.source("Hello.java", 'class Hello { public static void main(String[] args) {'
+        self.source("Hello.java", 'class Hello { public static fn main(String[] args) {'
                     'System.out.println(args[0]); System.exit(6); } }\n')
         before = set((self.home / "state").rglob("Hello.class"))
         result = self.invoke("run", "exec", "Hello.java", "--", "built artifact", expected=6)
@@ -356,14 +356,14 @@ class CliTest(unittest.TestCase):
         self.assertTrue(set((self.home / "state").rglob("Hello.class")) - before)
 
     def test_existing_executable_instance_needs_no_compiler(self):
-        self.source(text='int main(void) { return 9; }\n')
+        self.source(text='int main() { return 9; }\n')
         output = self.invoke("adapter", "c", "build").stdout.strip()
         environment = dict(self.environment, CC="missing-b-test-compiler")
         self.invoke("run", "instance", output, environment=environment, expected=9)
 
     def test_java_directory_build(self):
         self.require_java()
-        self.source("Hello.java", 'class Hello { public static void main(String[] args) {} }\n')
+        self.source("Hello.java", 'class Hello { public static fn main(String[] args) {} }\n')
         output = Path(self.invoke("adapter", "java", "build").stdout.strip())
         self.assertTrue((output / "Hello.class").is_file())
 
@@ -374,7 +374,7 @@ class CliTest(unittest.TestCase):
         self.assertIn("rust", result.stdout)
 
     def test_workspace_init_and_rescan(self):
-        self.source("main.c", "int main(void) { return 0; }\n")
+        self.source("main.c", "int main() { return 0; }\n")
         result = self.invoke("workspace")
         self.assertIn("files discovered", result.stdout)
         ws_file = self.project / ".b" / "workspace.json"

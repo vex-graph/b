@@ -22,7 +22,7 @@
 // Compile top-level Metal sources to independent libraries using the macOS SDK.
 static int buildMetal(const char *project, char **output) {
 #ifndef __APPLE__
-    (void) project; (void) output;
+    (discard) project; (discard) output;
     THROW("Metal compilation requires Apple tools on macOS");
     return EXIT_FAILURE;
 #else
@@ -90,7 +90,7 @@ static int buildMetal(const char *project, char **output) {
 
 // A metallib requires a graphics consumer and cannot run as a CLI program.
 static int rejectRun(const char *file, int argc, char **argv, bool buildArtifact) {
-    (void) file; (void) argc; (void) argv; (void) buildArtifact;
+    (discard) file; (discard) argc; (discard) argv; (discard) buildArtifact;
     THROW("Metal is build-only; use b.sh build metal <directory>");
     return EXIT_FAILURE;
 }

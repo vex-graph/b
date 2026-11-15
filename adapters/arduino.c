@@ -9,6 +9,7 @@
 // or edits are made to the user's source.
 // OVERVIEW: cli; stageFile; sketchDirectory; boardFromHeader; compileSketch; buildArduino; runArduino rejects
 // host execution; Arduino_upload validates flags; ARDUINO_ADAPTER.
+
 #include "vex.h"
 
 ;;DEFINITION
@@ -47,7 +48,7 @@
 #include "adapters/lang/adapter.h"
 
 // Resolve the Arduino CLI override, PATH executable, or macOS IDE-bundled tool.
-static const char *cli(void) {
+static const char *cli() {
     const char *override = getenv("ARDUINO_CLI");
     if (override != nullptr && *override != '\0')
         return override;
@@ -247,10 +248,10 @@ static int buildArduino(const char *project, char **output) {
 
 // Reject host execution because Arduino sketches require an explicit hardware upload.
 static int runArduino(const char *file, int argc, char **argv, bool buildArtifact) {
-    (void) file;
-    (void) argc;
-    (void) argv;
-    (void) buildArtifact;
+    (discard) file;
+    (discard) argc;
+    (discard) argv;
+    (discard) buildArtifact;
     THROW("Arduino sketches run on hardware; use b.sh upload arduino <sketch> --port <port> with a b_build header");
     return EXIT_FAILURE;
 }

@@ -5,10 +5,11 @@
 // artifact, its output and the generator argv that produces it. The reader
 // walks that schema directly; it builds no general JSON tree.
 // OVERVIEW: Graph_command; parseGraph; plan; buildTarget; readFile; hashing.
+
+#include "vex.h"
 #include "adapters/lang/graph.h"
 #include "b.h"
 
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -44,7 +45,7 @@ static char *copyText(const char *text) {
     return copy;
 }
 
-static void rowsPush(Rows *rows, const char *text) {
+static fn rowsPush(Rows *rows, const char *text) {
     if ((*rows).count == (*rows).cap) {
         int cap = (*rows).cap ? (*rows).cap * 2 : 8;
         char **grown = Util_allocate((bytes) cap * sizeof *grown);
@@ -57,7 +58,7 @@ static void rowsPush(Rows *rows, const char *text) {
     (*rows).items[(*rows).count++] = copyText(text);
 }
 
-static void rowsPushf(Rows *rows, const char *format, const char *value) {
+static fn rowsPushf(Rows *rows, const char *format, const char *value) {
     bytes size = strlen(format) + strlen(value) + 1;
     char *text = Util_allocate(size);
     snprintf(text, size, format, value);
@@ -65,7 +66,7 @@ static void rowsPushf(Rows *rows, const char *format, const char *value) {
     Util_release(text);
 }
 
-static void rowsFree(Rows *rows) {
+static fn rowsFree(Rows *rows) {
     for (int i = 0; i < (*rows).count; i++)
         Util_release((*rows).items[i]);
     Util_release((*rows).items);
@@ -154,7 +155,7 @@ typedef struct {
     const char *p;
 } Cursor;
 
-static void skipSpace(Cursor *cursor) {
+static fn skipSpace(Cursor *cursor) {
     const char *p = (*cursor).p;
     while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r')
         p++;
@@ -464,7 +465,7 @@ static bool parseGraph(const char *json, Graph *graph) {
     }
 }
 
-static void graphFree(Graph *graph) {
+static fn graphFree(Graph *graph) {
     for (int i = 0; i < (*graph).count; i++) {
         GraphTarget *t = &(*graph).items[i];
         Util_release((*t).name);
@@ -569,7 +570,7 @@ static bool hashFile(u64 *hash, const char *path) {
 
 // ── compile and link ───────────────────────────────────────────────────────
 
-static const char *compilerName(void) {
+static const char *compilerName() {
     const char *cc = getenv("CC");
     return (cc != nullptr && *cc != 0) ? cc : "cc";
 }
@@ -782,7 +783,7 @@ static u64 linkSignature(Graph *graph, GraphTarget *target, const Rows *objects)
     return hash;
 }
 
-static void writeSignature(const char *name, u64 signature) {
+static fn writeSignature(const char *name, u64 signature) {
     char *path = signaturePath(name);
     char *directory = Util_parentDirectory(path);
     if (Util_makeDirectory(directory)) {

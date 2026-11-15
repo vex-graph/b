@@ -4,6 +4,8 @@
 // Build parses each top-level .R/.r file without evaluating it and returns the
 // checked directory, not a fabricated binary. Package installation is not owned.
 // OVERVIEW: buildR; runR; R_ADAPTER and R_LOWER_ADAPTER (.R/.r aliases).
+
+#include "vex.h"
 #include "adapters/r.h"
 #include "b.h"
 
@@ -50,7 +52,7 @@ static int buildR(const char *project, char **output) {
 
 // Run an R script with a clean startup and forward its trailing arguments.
 static int runR(const char *file, int argc, char **argv, bool buildArtifact) {
-    (void) buildArtifact; // Interpreter execution in both modes; no packaging.
+    (discard) buildArtifact; // Interpreter execution in both modes; no packaging.
     char **arguments = Util_allocate(((bytes) argc + 4) * sizeof(char*));
     arguments[0] = "Rscript";
     arguments[1] = "--vanilla";

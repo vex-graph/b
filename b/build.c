@@ -1,11 +1,11 @@
+#include "vex.h"
 #include "build.h"
 #include "territory.h"
 
 /* Defined below; used by both the unit and the dependency compiles. */
-static void appendExternalIncludes(char *command, bytes capacity, bytes *length);
+static fn appendExternalIncludes(char *command, bytes capacity, bytes *length);
 
 #include <dirent.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -91,7 +91,7 @@ static bool glob_match(const char *pattern, const char *str)
 }
 
 /* Recursive directory walk collecting files matching glob pattern. */
-static void walk_glob(const char *dir, const char *pattern, const char *prefix,
+static fn walk_glob(const char *dir, const char *pattern, const char *prefix,
                       char items[][512], bytes *n, bytes max)
 {
     DIR *d = opendir(dir);
@@ -131,7 +131,7 @@ static void walk_glob(const char *dir, const char *pattern, const char *prefix,
 }
 
 /* Expand a source spec (literal or glob) into file list. */
-static void expand_source(const char *spec, char items[][512], bytes *n, bytes max)
+static fn expand_source(const char *spec, char items[][512], bytes *n, bytes max)
 {
     if (strchr(spec, '*') || strchr(spec, '?'))
     {
@@ -300,7 +300,7 @@ static bool find_unit_block(const char *assembly, const char *unit_name,
     return false;
 }
 
-static void collect_strings(const char *block, const char *field,
+static fn collect_strings(const char *block, const char *field,
                            char items[][512], bytes *n, bytes max)
 {
     char key[128];
@@ -343,7 +343,7 @@ static void collect_strings(const char *block, const char *field,
  * names). Those sources are compiled into .b/obj/deps/<path>/ and linked into
  * the unit, so a test links the R0 and R2 code it exercises. A source that
  * defines main() is skipped: the unit owns the entry point. */
-static void appendDependencyObjects(char *objects, bytes capacity, bytes *used,
+static fn appendDependencyObjects(char *objects, bytes capacity, bytes *used,
                                     const char *territory, const char *dependency,
                                     const char *objectBase, const char *includeFlags,
                                     char amalgamatedList[][256], bytes amalgamatedCount)
@@ -491,7 +491,7 @@ static void appendDependencyObjects(char *objects, bytes capacity, bytes *used,
  * share one scope. The pattern is legitimate, but the included file must not
  * ALSO be compiled into the unit or every symbol it defines is a duplicate.
  * Record the basenames here so the compile loop can skip them and say so. */
-static void noteAmalgamation(const char *path, char names[][256], bytes *count, bytes capacity)
+static fn noteAmalgamation(const char *path, char names[][256], bytes *count, bytes capacity)
 {
     FILE *file = fopen(path, "rb");
     if (file == nullptr)
@@ -528,7 +528,7 @@ static void noteAmalgamation(const char *path, char names[][256], bytes *count, 
 bool Build_file(const char *source_path, const char *assembly_path,
                 const char *workspace_path, const char *out_dir, FILE *out)
 {
-    (void)workspace_path;
+    (discard) workspace_path;
     char *asm_buf = read_file(assembly_path);
     if (asm_buf == nullptr)
     {
@@ -1117,7 +1117,7 @@ typedef struct
 } WorkspaceBuild;
 
 /* Call fn(context, directory, name) for every file the inventory records. */
-static bool walkWorkspace(const char *text, bool (*fn)(void *, const char *, const char *), void *context)
+static bool walkWorkspace(const char *text, bool (*fn)(any , const char *, const char *), any context)
 {
     const char *cursor = strstr(text, "\"directories\"");
     if (cursor == nullptr)
@@ -1173,7 +1173,7 @@ static bool rememberHeaderDirectory(WorkspaceBuild *build, const char *directory
     for (bytes index = 0; index < (*build).headerCount; ++index)
         if (strcmp((*build).headerDirectories[index], directory) == 0)
             return true;
-    void *grown = realloc((*build).headerDirectories, ((*build).headerCount + 1) * sizeof(char*));
+    any grown = realloc((*build).headerDirectories, ((*build).headerCount + 1) * sizeof(char*));
     if (grown == nullptr)
         return false;
     (*build).headerDirectories = grown;
@@ -1232,7 +1232,7 @@ static bool scanHeaderDirectories(WorkspaceBuild *build, const char *absolute, c
 }
 
 /* Single-quote a path into a growing command line. */
-static void appendQuoted(char *command, bytes capacity, bytes *length, const char *path)
+static fn appendQuoted(char *command, bytes capacity, bytes *length, const char *path)
 {
     bytes pathLength = strlen(path);
     if (*length + pathLength + 4 >= capacity)
@@ -1252,7 +1252,7 @@ static void appendQuoted(char *command, bytes capacity, bytes *length, const cha
  * ($VULKAN_SDK/include), then the two Homebrew prefixes. A directory that is
  * absent is skipped, never a failure — an image that needs Vulkan and cannot
  * find it fails at its own #include, with its own words. */
-static void appendExternalIncludes(char *command, bytes capacity, bytes *length)
+static fn appendExternalIncludes(char *command, bytes capacity, bytes *length)
 {
     char sdkInclude[4096];
     const char *candidates[4];
@@ -1279,7 +1279,7 @@ static void appendExternalIncludes(char *command, bytes capacity, bytes *length)
     }
 }
 
-static bool compileSource(void *context, const char *directory, const char *name)
+static bool compileSource(any context, const char *directory, const char *name)
 {
     WorkspaceBuild *build = context;
     const char *dot = strrchr(name, '.');

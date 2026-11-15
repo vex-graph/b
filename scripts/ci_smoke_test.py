@@ -50,7 +50,7 @@ class CiSmokeTest(unittest.TestCase):
             root = Path(scratch) / "territory"
             unit = root / "src" / "hello"
             unit.mkdir(parents=True)
-            (unit / "main.c").write_text("int main(void) { return 0; }\n")
+            (unit / "main.c").write_text("int main() { return 0; }\n")
             (root / "README.md").write_text("# prose, not a unit\n")
 
             claimed = self.invoke("generate", root, cwd=root)
@@ -120,7 +120,7 @@ class CiSmokeTest(unittest.TestCase):
             self.invoke("generate", temp, cwd=temp)
 
             standalone = temp / "standalone.c"
-            standalone.write_text('int main(void) { return 0; }\n')
+            standalone.write_text('int main() { return 0; }\n')
             self.assertEqual(self.invoke("breeze", standalone), "")
 
             stage = temp / "b-stage"

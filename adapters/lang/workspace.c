@@ -42,7 +42,7 @@ typedef struct BuildSlot { char *path; const Adapter *adapter; } BuildSlot;
 #define WORKSPACE_INITIAL_CAPACITY 16u
 
 // Grow the cold slot directory with overflow checks, preserving old storage on error.
-static bool grow(bytes count, bytes size, bytes *capacity, void **storage) {
+static bool grow(bytes count, bytes size, bytes *capacity, any *storage) {
     if (count < *capacity)
         return true;
     bytes next = *capacity == 0 ? WORKSPACE_INITIAL_CAPACITY : *capacity;
@@ -51,7 +51,7 @@ static bool grow(bytes count, bytes size, bytes *capacity, void **storage) {
         return false;
     }
     next *= 2;
-    void *replacement = realloc(*storage, next * size);
+    any replacement = realloc(*storage, next * size);
     if (replacement == nullptr) {
         THROW("workspace inventory allocation failed");
         return false;
@@ -116,7 +116,7 @@ static bool addUnit(char *path, const Adapter *adapter, BuildSlot **units, bytes
             return false;
         }
     }
-    void *storage = *units;
+    any storage = *units;
     if (!grow(*count, sizeof(BuildSlot), capacity, &storage))
         return false;
     *units = storage;
@@ -199,7 +199,7 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
                 break;
             }
             if (S_ISDIR(info.st_mode) && (cache == nullptr || strcmp(path, cache) != 0)) {
-                void *storage = *dirs;
+                any storage = *dirs;
                 ok = grow(*dirCount, sizeof(ScanSlot), dirCapacity, &storage);
                 *dirs = storage;
                 if (ok) {

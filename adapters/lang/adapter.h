@@ -12,6 +12,7 @@
 //   int (*run)(file, argc, argv, buildArtifact)  run one file
 //   const char *tools          comma-separated executable requirements
 //   const char *capabilities   human-readable supported operations
+
 #pragma once
 
 #include "vex.h"
@@ -62,5 +63,5 @@ typedef struct Adapter {
 
 const Adapter *Adapter_forName(const char *name);
 const Adapter *Adapter_forFile(const char *path);
-bytes Adapter_count(void);
+bytes Adapter_count();
 const Adapter *Adapter_at(bytes index);

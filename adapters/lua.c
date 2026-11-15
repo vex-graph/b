@@ -33,7 +33,7 @@ static int buildLua(const char *project, char **output) {
 
 // Run a canonicalized Lua script and forward its arguments to the interpreter.
 static int runLua(const char *file, int argc, char **argv, bool buildArtifact) {
-    (void) buildArtifact;
+    (discard) buildArtifact;
     char *path = realpath(file, nullptr);
     if (path == nullptr) {
         THROW("Lua script cannot be resolved");

@@ -18,16 +18,15 @@
  * Temporary paths/arguments are freed; failed compilation never launches output.
  */
 
-#include <stdint.h>
 #include <stdlib.h>
 
 // Compile Objective-C sources with ARC/Foundation on the supported Apple host.
 static int compileObjc(const char *project, char **sources, bytes count, char **output) {
 #ifndef __APPLE__
-    (void) project;
-    (void) sources;
-    (void) count;
-    (void) output;
+    (discard) project;
+    (discard) sources;
+    (discard) count;
+    (discard) output;
     THROW("Objective-C Foundation adapter currently requires macOS");
     return EXIT_FAILURE;
 #else

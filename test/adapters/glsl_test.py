@@ -48,15 +48,15 @@ class GlslTest(AdapterCase):
     def real_compile(self, backend, tool):
         if shutil.which(tool) is None:
             self.skipTest(f"{tool} unavailable; corresponding real compilation unproved")
-        self.source("main.vert", "#version 450\nvoid main(){gl_Position=vec4(0.0);}\n")
-        self.source("main.frag", "#version 450\nlayout(location=0) out vec4 c;void main(){c=vec4(1.0);}\n")
+        self.source("main.vert", "#version 450\nfn main(){gl_Position=vec4(0.0);}\n")
+        self.source("main.frag", "#version 450\nlayout(location=0) out vec4 c;fn main(){c=vec4(1.0);}\n")
         self.source("main.geom", "#version 450\nlayout(points) in;layout(points,max_vertices=1) out;\n"
-                    "void main(){gl_Position=gl_in[0].gl_Position;EmitVertex();EndPrimitive();}\n")
+                    "fn main(){gl_Position=gl_in[0].gl_Position;EmitVertex();EndPrimitive();}\n")
         self.source("main.tesc", "#version 450\nlayout(vertices=3) out;\n"
-                    "void main(){gl_out[gl_InvocationID].gl_Position=gl_in[gl_InvocationID].gl_Position;}\n")
-        self.source("main.tese", "#version 450\nlayout(triangles) in;void main(){gl_Position=gl_in[0].gl_Position;}\n")
-        self.source("generic.comp.glsl", "#version 450\n#pragma shader_stage(compute)\nlayout(local_size_x=1) in;void main(){}\n")
-        source = self.source("main.comp", "#version 450\nlayout(local_size_x=1) in;void main(){}\n")
+                    "fn main(){gl_out[gl_InvocationID].gl_Position=gl_in[gl_InvocationID].gl_Position;}\n")
+        self.source("main.tese", "#version 450\nlayout(triangles) in;fn main(){gl_Position=gl_in[0].gl_Position;}\n")
+        self.source("generic.comp.glsl", "#version 450\n#pragma shader_stage(compute)\nlayout(local_size_x=1) in;fn main(){}\n")
+        source = self.source("main.comp", "#version 450\nlayout(local_size_x=1) in;fn main(){}\n")
         env = dict(self.environment, GLSL_BACKEND=backend)
         output = Path(self.invoke("build", "glsl", self.project, environment=env).stdout.strip())
         for name in ("main.vert", "main.frag", "main.comp", "main.geom", "main.tesc", "main.tese", "generic.comp.glsl"):
@@ -67,9 +67,9 @@ class GlslTest(AdapterCase):
         source.write_text('#version 450\n#include "missing.glsl"\n')
         self.invoke("build", "glsl", self.project, environment=env, expected=None)
         self.assertTrue((output / "main.comp.spv").is_file())
-        source.write_text("#version 450\nlayout(local_size_x=1) in;void main(){}\n")
+        source.write_text("#version 450\nlayout(local_size_x=1) in;fn main(){}\n")
         if backend == "shaderc":
-            self.source("generic.glsl", "#version 450\n#pragma shader_stage(compute)\nlayout(local_size_x=1) in;void main(){}\n")
+            self.source("generic.glsl", "#version 450\n#pragma shader_stage(compute)\nlayout(local_size_x=1) in;fn main(){}\n")
         self.invoke("build", "glsl", self.project, environment=env)
 
     def test_empty_build_rejects(self):

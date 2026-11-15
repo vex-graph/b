@@ -29,7 +29,7 @@ static int buildTypescript(const char *project, char **output) {
 
 // Run a TypeScript source through Node's native type-stripping support.
 static int runTypescript(const char *file, int argc, char **argv, bool buildArtifact) {
-    (void) buildArtifact;
+    (discard) buildArtifact;
     char *prefix[] = { "node", (char*) file };
     return Util_runCommand(prefix, 2, argc, argv);
 }

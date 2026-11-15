@@ -25,7 +25,7 @@ static int buildJavascript(const char *project, char **output) {
 
 // Run the selected JavaScript source with Node and forward program arguments.
 static int runJavascript(const char *file, int argc, char **argv, bool buildArtifact) {
-    (void) buildArtifact;
+    (discard) buildArtifact;
     char *prefix[] = { "node", (char*) file };
     return Util_runCommand(prefix, 2, argc, argv);
 }

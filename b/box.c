@@ -12,9 +12,10 @@
 // statePolicy; authors/authorCount; sources/destinations/fileCount;
 // formats/formatCount. PRIVATE HELPERS: struct stat is not owned here.
 // OVERVIEW: the annotation registry below names every function in this file.
+
+#include "vex.h"
 #include "box.h"
 #include "b.h"
-#include "vex.h"
 
 ;;DEFINITION
 /* The parser is a schema walk, not a general JSON tree: the cursor advances
@@ -824,7 +825,7 @@ static bool validateManifest(BoxManifest *manifest) {
 }
 
 // Release an owned string list; the count is informational only.
-static void freeTextList(char **items, bytes count) {
+static fn freeTextList(char **items, bytes count) {
     for (bytes index = 0; index < count; ++index)
         free(items[index]);
     free(items);
@@ -1025,7 +1026,7 @@ static bool copyTree(const char *source, const char *target, bytes depth) {
 }
 
 // Append literal text to a bounded projection, flagging any truncation.
-static void emitText(char *dest, bytes capacity, bytes *used, bool *outTruncated, const char *text) {
+static fn emitText(char *dest, bytes capacity, bytes *used, bool *outTruncated, const char *text) {
     bytes length = strlen(text);
     if (*used + length >= capacity) {
         bytes room = capacity > 0 && *used < capacity - 1 ? capacity - 1 - *used : 0;
@@ -1043,7 +1044,7 @@ static void emitText(char *dest, bytes capacity, bytes *used, bool *outTruncated
 }
 
 // Append one quoted, escaped string field.
-static void emitQuoted(char *dest, bytes capacity, bytes *used, bool *outTruncated, const char *text) {
+static fn emitQuoted(char *dest, bytes capacity, bytes *used, bool *outTruncated, const char *text) {
     emitText(dest, capacity, used, outTruncated, "\"");
     for (const char *position = text; *position != '\0'; ++position) {
         char character = *position;
@@ -1065,14 +1066,14 @@ static void emitQuoted(char *dest, bytes capacity, bytes *used, bool *outTruncat
 }
 
 // Append one unsigned count.
-static void emitCount(char *dest, bytes capacity, bytes *used, bool *outTruncated, bytes value) {
+static fn emitCount(char *dest, bytes capacity, bytes *used, bool *outTruncated, bytes value) {
     char text[32];
     snprintf(text, sizeof text, "%zu", value);
     emitText(dest, capacity, used, outTruncated, text);
 }
 
 // Append a bracketed list of quoted strings.
-static void emitList(char *dest, bytes capacity, bytes *used, bool *outTruncated, char **items, bytes count) {
+static fn emitList(char *dest, bytes capacity, bytes *used, bool *outTruncated, char **items, bytes count) {
     emitText(dest, capacity, used, outTruncated, "[");
     for (bytes index = 0; index < count; ++index) {
         if (index > 0)
@@ -1205,7 +1206,7 @@ BoxManifest *BoxManifest_load(const char *path) {
 }
 
 // Release every owned field; a null record is a no-op.
-void BoxManifest_free(BoxManifest *self) {
+fn BoxManifest_free(BoxManifest *self) {
     if (self == nullptr)
         return;
     free((*self).baseDirectory);
@@ -1341,7 +1342,7 @@ int BoxManifest_export(const BoxManifest *self, const char *destination) {
 }
 
 // Project the manifest's value state; a null record writes "nullptr".
-void BoxManifest_toString(const BoxManifest *self, char *dest, bytes capacity, bool *outTruncated) {
+fn BoxManifest_toString(const BoxManifest *self, char *dest, bytes capacity, bool *outTruncated) {
     if (dest == nullptr)
         return;
     if (capacity == 0) {
@@ -1373,7 +1374,7 @@ void BoxManifest_toString(const BoxManifest *self, char *dest, bytes capacity, b
 }
 
 // Dump this class's own fields in declaration order; one layer, no recursion.
-void BoxManifest_toStringStruct(const BoxManifest *self, char *dest, bytes capacity, bool *outTruncated) {
+fn BoxManifest_toStringStruct(const BoxManifest *self, char *dest, bytes capacity, bool *outTruncated) {
     if (dest == nullptr)
         return;
     if (capacity == 0) {

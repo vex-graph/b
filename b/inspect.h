@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include "vex.h"
@@ -11,5 +12,5 @@
  * doctor returns nonzero for a requested missing/unknown adapter; unfiltered
  * reports optional missing tools successfully. It does not prove tool versions.
  */
-int Inspect_adapters(void);
+int Inspect_adapters();
 int Inspect_doctor(const char *adapter);

@@ -23,7 +23,7 @@ static int buildPhp(const char *project, char **output) {
 
 // Execute a PHP source file through the CLI and forward its arguments.
 static int runPhp(const char *file, int argc, char **argv, bool buildArtifact) {
-    (void) buildArtifact;
+    (discard) buildArtifact;
     char *prefix[] = { "php", (char*) file };
     return Util_runCommand(prefix, 2, argc, argv);
 }

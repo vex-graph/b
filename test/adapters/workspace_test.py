@@ -20,7 +20,7 @@ class WorkspaceBuildTest(AdapterCase):
         return path
 
     def test_recursive_plan_is_read_only_and_build_reports_each_unit(self):
-        self.nested("a native/main.c", 'int main(void){return 19;}\n')
+        self.nested("a native/main.c", 'int main(){return 19;}\n')
         self.nested("z scripts/good.py", 'raise RuntimeError("must not execute")\n')
         self.nested("z scripts/readme.txt", "unassigned\n")
         self.nested("node_modules/evil.c", "broken")
@@ -48,7 +48,7 @@ class WorkspaceBuildTest(AdapterCase):
         result = self.invoke("build", "workspace", self.project, expected=None)
         self.assertIn("[2/2]", result.stdout)
         self.assertIn("1 succeeded, 1 failed", result.stdout)
-        source.write_text("int main(void){return 0;}\n")
+        source.write_text("int main(){return 0;}\n")
         self.assertIn("2 succeeded", self.invoke("build", "workspace", self.project).stdout)
 
     def test_manifest_owns_subtree_and_ambiguity_rejects_before_tools(self):
@@ -65,7 +65,7 @@ class WorkspaceBuildTest(AdapterCase):
         self.assertNotIn("Building", result.stdout)
 
     def test_source_symlinks_and_mixed_languages_reject(self):
-        source = self.nested("main.c", "int main(void){return 0;}\n")
+        source = self.nested("main.c", "int main(){return 0;}\n")
         (self.project / "alias.c").symlink_to(source)
         self.assertIn("symlink", self.invoke("build", "workspace", self.project, expected=None).stderr)
         (self.project / "alias.c").unlink()
@@ -80,7 +80,7 @@ class WorkspaceBuildTest(AdapterCase):
         self.require_tool("cmake", "--version")
         self.nested("native/CMakeLists.txt", "cmake_minimum_required(VERSION 3.24)\n"
                     "project(local C)\nadd_executable(local src/main.c)\n")
-        self.nested("native/src/main.c", 'int main(void){return 37;}\n')
+        self.nested("native/src/main.c", 'int main(){return 37;}\n')
         self.nested("native/nested/broken.py", "broken python [")
         result = self.invoke("build", "workspace", self.project)
         self.assertIn("1 build units", result.stdout)
@@ -131,7 +131,7 @@ class WorkspaceBuildTest(AdapterCase):
     def test_broad_scope_confirmation_empty_and_invalid_forms(self):
         downloads = self.project / "Downloads"
         downloads.mkdir()
-        (downloads / "main.c").write_text("int main(void){return 0;}\n")
+        (downloads / "main.c").write_text("int main(){return 0;}\n")
         self.invoke("build", "workspace", downloads, "--plan")
         rejected = self.invoke("build", "workspace", downloads, expected=None)
         self.assertIn("--confirm", rejected.stderr)
@@ -165,19 +165,19 @@ class WorkspaceBuildTest(AdapterCase):
 #include "adapters/metal.h"
 #include <assert.h>
 #include <stdint.h>
-int main(void) {
+int main() {
     char *bad[] = { ".", nullptr };
     assert(Workspace_command(0, nullptr) != 0);
     assert(Workspace_command(1, nullptr) != 0);
     assert(Workspace_command(2, bad) != 0);
     const Adapter *a = &GLSL_ADAPTER;
     const Adapter *b = &METAL_ADAPTER;
-    char *output = (char*) (uintptr_t) 1;
+    char *output = (char*) (pointer) 1;
     assert((*a).build(nullptr, &output) != 0);
     assert((*a).build(".", nullptr) != 0);
     assert((*b).build(nullptr, &output) != 0);
     assert((*b).build(".", nullptr) != 0);
-    assert(output == (char*) (uintptr_t) 1);
+    assert(output == (char*) (pointer) 1);
     return 0;
 }
 ''')

@@ -6,8 +6,8 @@
 // OVERVIEW: find; workspacePath; claim; buildAll; writeAssembly. Claim writes .b/workspace.json, the one
 // disposable fact file, and refuses a nested claim. buildAll builds the units
 // under a directory; writeAssembly authors one unit's b.sh.assembly.json once.
-#pragma once
 
+#pragma once
 
 #include "vex.h"
 

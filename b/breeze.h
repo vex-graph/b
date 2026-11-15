@@ -4,10 +4,11 @@
 // interpret it, forwards the program's arguments literally, and returns the
 // child's exit status. It never runs a stale artifact after a failed build.
 // OVERVIEW: Breeze_command; PRIVATE: regularFile; runFile.
+
 #pragma once
 
-
 #include "vex.h"
+
 ;;DEFINITION
 /* One synchronous operation over a borrowed argv. The mode word is the only
  * thing this verb decides: exec builds the artifact first, instance hands the

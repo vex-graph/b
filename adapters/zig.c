@@ -90,7 +90,7 @@ static int buildZig(const char *project, char **output) {
 
 // Compile the resolved Zig source and run the resulting program with its arguments.
 static int runZig(const char *file, int argc, char **argv, bool buildArtifact) {
-    (void) buildArtifact;
+    (discard) buildArtifact;
     char *path = realpath(file, nullptr);
     if (path == nullptr) {
         THROW("Zig source cannot be resolved");
