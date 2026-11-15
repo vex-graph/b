@@ -867,7 +867,7 @@ static char *parentOf(const char *path) {
 // Build the private staging path next to the export destination.
 static char *stagingPath(const char *parent) {
     char suffix[64];
-    snprintf(suffix, sizeof suffix, ".b-box-staging-%ld", (i64) getpid());
+    snprintf(suffix, sizeof suffix, ".b-box-staging-%lld", (i64) getpid());
     return joinPath(parent, suffix);
 }
 
