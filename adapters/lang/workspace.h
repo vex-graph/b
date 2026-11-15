@@ -13,4 +13,4 @@
 /* MODULE: Workspace_command — assess recursively and perform build-only units.
  * Broad roots require confirmation; no privilege escalation, upload or run mode.
  */
-int Workspace_command(int argc, char **argv);
+i32 Workspace_command(i32 argc, char **argv);

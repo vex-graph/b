@@ -47,20 +47,20 @@ fn Util_release(any block);
 char *Util_combine(const char *left, const char *right);
 bool Util_endsWith(const char *text, const char *suffix);
 bool Util_makeDirectory(char *path);
-int Util_createDirectory(const char *path, int mode);
-int Util_setFileMode(int descriptor, int mode);
+i32 Util_createDirectory(const char *path, i32 mode);
+i32 Util_setFileMode(i32 descriptor, i32 mode);
 char *Util_outputDirectory(const char *project);
 char *Util_parentDirectory(const char *file);
 char *Util_projectDirectory(const char *file);
 
-int Util_execute(char **arguments);
+i32 Util_execute(char **arguments);
 // Build diagnostics go to stderr; stdout remains the build result path.
-int Util_executeBuild(char **arguments);
-int Util_executeWithEnvironment(char **arguments, char **environment);
+i32 Util_executeBuild(char **arguments);
+i32 Util_executeWithEnvironment(char **arguments, char **environment);
 // Append literal program arguments to a borrowed command prefix.
-int Util_runCommand(char **prefix, bytes prefixCount, int argc, char **argv);
+i32 Util_runCommand(char **prefix, bytes prefixCount, i32 argc, char **argv);
 // Check each matching source independently; return the checked directory.
-int Util_checkSources(const char *project, const char *pattern, char **prefix, bytes prefixCount, char **output);
+i32 Util_checkSources(const char *project, const char *pattern, char **prefix, bytes prefixCount, char **output);
 
 char **Util_collectSources(const char *project, const char *extension, bytes *count, bool *ok);
 fn Util_freeSources(char **sources, bytes count);
@@ -74,11 +74,11 @@ fn Util_freeEnvironment(char **environment);
 
 #ifdef _WIN32
 char *Util_realPath(const char *path, char *resolved);
-int Util_lstat(const char *path, struct stat *information);
-int Util_scandir(const char *directory, struct dirent ***entries,
-                 int (*filter)(const struct dirent *),
-                 int (*compare)(const struct dirent **, const struct dirent **));
-int Util_alphasort(const struct dirent **left, const struct dirent **right);
+i32 Util_lstat(const char *path, struct stat *information);
+i32 Util_scandir(const char *directory, struct dirent ***entries,
+                 i32 (*filter)(const struct dirent *),
+                 i32 (*compare)(const struct dirent **, const struct dirent **));
+i32 Util_alphasort(const struct dirent **left, const struct dirent **right);
 
 #define realpath Util_realPath
 #define lstat Util_lstat

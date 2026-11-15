@@ -16,4 +16,4 @@
 
 #include "adapters/lang/adapter.h"
 extern const Adapter ARDUINO_ADAPTER;
-int Arduino_upload(int argc, char **argv);
+i32 Arduino_upload(i32 argc, char **argv);

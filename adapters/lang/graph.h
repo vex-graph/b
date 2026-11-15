@@ -12,4 +12,4 @@
 /* MODULE: Graph_command — read a serialized target graph and list its targets.
  * argv is borrowed; the file buffer is released before return; no state retained.
  */
-int Graph_command(int argc, char **argv);
+i32 Graph_command(i32 argc, char **argv);

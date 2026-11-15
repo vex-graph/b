@@ -21,7 +21,7 @@
 #include <stdlib.h>
 
 // Compile the provided C++23 sources into one external native executable.
-static int compileCpp(const char *project, char **sources, bytes count, char **output) {
+static i32 compileCpp(const char *project, char **sources, bytes count, char **output) {
     if (count > SIZE_MAX / sizeof(char*) - 16) {
         THROW("C++ source count overflow");
         return EXIT_FAILURE;
@@ -51,25 +51,25 @@ static int compileCpp(const char *project, char **sources, bytes count, char **o
     arguments[n++] = *output;
     for (bytes i = 0; i < count; ++i)
         arguments[n++] = sources[i];
-    int status = Util_executeBuild(arguments);
+    i32 status = Util_executeBuild(arguments);
     free(arguments);
     return status;
 }
 
 // Collect supported top-level C++ extensions and compile the project together.
-static int buildCpp(const char *project, char **output) {
+static i32 buildCpp(const char *project, char **output) {
     bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.{cpp,cc,cxx}", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
-    int status = compileCpp(project, sources, count, output);
+    i32 status = compileCpp(project, sources, count, output);
     Util_freeSources(sources, count);
     return status;
 }
 
 // Compile one source entry for exec mode, then launch with forwarded arguments.
-static int runCpp(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runCpp(const char *file, i32 argc, char **argv, bool buildArtifact) {
     if (!buildArtifact) {
         THROW("C++ has no source runtime; use b.sh run exec");
         return EXIT_FAILURE;
@@ -77,7 +77,7 @@ static int runCpp(const char *file, int argc, char **argv, bool buildArtifact) {
     char *project = Util_projectDirectory(file);
     char *output = nullptr;
     char *sources[] = { (char*) file };
-    int status = compileCpp(project, sources, 1, &output);
+    i32 status = compileCpp(project, sources, 1, &output);
     if (status == 0) {
         char *prefix[] = { output };
         status = Util_runCommand(prefix, 1, argc, argv);

@@ -21,7 +21,7 @@
 #include <unistd.h>
 
 // Compile top-level Metal sources to independent libraries using the macOS SDK.
-static int buildMetal(const char *project, char **output) {
+static i32 buildMetal(const char *project, char **output) {
 #ifndef __APPLE__
     (discard) project; (discard) output;
     THROW("Metal compilation requires Apple tools on macOS");
@@ -48,7 +48,7 @@ static int buildMetal(const char *project, char **output) {
     const char *tool = getenv("XCRUN");
     if (tool == nullptr || *tool == '\0')
         tool = "xcrun";
-    int status = 0;
+    i32 status = 0;
     for (bytes i = 0; i < count && status == 0; ++i) {
         struct stat info;
         if (lstat(sources[i], &info) != 0 || !S_ISREG(info.st_mode)) {
@@ -90,7 +90,7 @@ static int buildMetal(const char *project, char **output) {
 }
 
 // A metallib requires a graphics consumer and cannot run as a CLI program.
-static int rejectRun(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 rejectRun(const char *file, i32 argc, char **argv, bool buildArtifact) {
     (discard) file; (discard) argc; (discard) argv; (discard) buildArtifact;
     THROW("Metal is build-only; use b.sh build metal <directory>");
     return EXIT_FAILURE;

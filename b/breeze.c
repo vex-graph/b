@@ -37,7 +37,7 @@ static bool regularFile(const char *path) {
 
 // Dispatch a source file to its adapter or execute an existing native binary.
 // Refuses if the file lives outside a claimed territory.
-static int runFile(const char *input, bool buildArtifact, int argc, char **argv) {
+static i32 runFile(const char *input, bool buildArtifact, i32 argc, char **argv) {
     if (!regularFile(input)) {
         THROW("run file does not exist or is not regular: %s", input);
         return EXIT_FAILURE;
@@ -71,11 +71,11 @@ static int runFile(const char *input, bool buildArtifact, int argc, char **argv)
     }
     char **arguments = Util_allocate(((bytes) argc + 2) * sizeof(char*));
     arguments[0] = file;
-    for (int i = 0; i < argc; ++i)
+    for (i32 i = 0; i < argc; ++i)
         arguments[i + 1] = argv[i];
     fflush(stdout);
     fflush(stderr);
-    int status = Util_execute(arguments);
+    i32 status = Util_execute(arguments);
     free(arguments);
     free(file);
     return status;
@@ -87,7 +87,7 @@ static int runFile(const char *input, bool buildArtifact, int argc, char **argv)
 // `b run` inside a test directory is the whole contract: the manifest says what
 // the unit is, the build produces .b/out/<name>, and the unit's own exit status
 // is returned unchanged so a suite runner can read pass, fail and skip alike.
-static int runUnit(int argc, char **argv) {
+static i32 runUnit(i32 argc, char **argv) {
     if (access("b.assembly.json", R_OK) != 0) {
         THROW("no b.assembly.json in this directory; name a file instead");
         return EXIT_FAILURE;
@@ -139,11 +139,11 @@ static int runUnit(int argc, char **argv) {
     }
     char **arguments = Util_allocate(((bytes) argc + 2) * sizeof(char*));
     arguments[0] = binary;
-    for (int index = 0; index < argc; ++index)
+    for (i32 index = 0; index < argc; ++index)
         arguments[index + 1] = argv[index];
     fflush(stdout);
     fflush(stderr);
-    int status = Util_execute(arguments);
+    i32 status = Util_execute(arguments);
     free(arguments);
     return status;
 }
@@ -151,13 +151,13 @@ static int runUnit(int argc, char **argv) {
 // Parse `breeze|run [exec|instance] <file> [--] [arguments...]` and dispatch it.
 // The mode word is optional: exec is the default, because running the artifact
 // is the behaviour that always has an answer.
-int Breeze_command(int argc, char **argv) {
+i32 Breeze_command(i32 argc, char **argv) {
     // `b run` with nothing after it runs the unit this directory declares.
     if (argc < 2)
         return runUnit(0, nullptr);
     if (strcmp(argv[1], "--") == 0)
         return runUnit(argc - 2, argv + 2);
-    int first = 1;
+    i32 first = 1;
     bool buildArtifact = true;
     if (strcmp(argv[first], "exec") == 0)
         ++first;

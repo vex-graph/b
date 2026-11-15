@@ -23,4 +23,4 @@
  * PRIVATE: regularFile — reject a path that is not a regular file; runFile —
  * adapter dispatch, else execute an existing native binary.
  */
-int Breeze_command(int argc, char **argv);
+i32 Breeze_command(i32 argc, char **argv);

@@ -15,7 +15,7 @@
 #include <assert.h>
 
 /* Checks command/source helper rejection, exit-status propagation, and literal ten-argument forwarding. */
-int main() {
+i32 main() {
 #if defined(VEX_PLATFORM_WINDOWS)
     char *prefix[] = { "sh", "-c", "exit 7" };
 #else

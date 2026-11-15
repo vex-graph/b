@@ -22,14 +22,14 @@
  */
 
 // Validate TypeScript erasability with Node's native stripping parser, not tsc.
-static int buildTypescript(const char *project, char **output) {
+static i32 buildTypescript(const char *project, char **output) {
     char *prefix[] = { "node", "-e",
         "require('node:module').stripTypeScriptTypes(require('node:fs').readFileSync(process.argv[1], 'utf8'), {mode:'strip', sourceUrl:process.argv[1]})", "--" };
     return Util_checkSources(project, "/*.{ts,mts,cts}", prefix, 4, output);
 }
 
 // Run a TypeScript source through Node's native type-stripping support.
-static int runTypescript(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runTypescript(const char *file, i32 argc, char **argv, bool buildArtifact) {
     (discard) buildArtifact;
     char *prefix[] = { "node", (char*) file };
     return Util_runCommand(prefix, 2, argc, argv);

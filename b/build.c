@@ -18,7 +18,7 @@ static char *read_file(const char *path)
     if (f == nullptr)
         return nullptr;
     fseek(f, 0, SEEK_END);
-    long sz = ftell(f);
+    i64 sz = ftell(f);
     fseek(f, 0, SEEK_SET);
     if (sz < 0)
     {
@@ -179,7 +179,7 @@ static bool find_unit_name(const char *assembly, const char *key,
     if (o == nullptr)
         return false;
     const char *p = o + 1;
-    int depth = 1;
+    i32 depth = 1;
     while (*p && depth >= 1)
     {
         while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r' || *p == ',')
@@ -214,7 +214,7 @@ static bool find_unit_name(const char *assembly, const char *key,
             continue;
         }
         const char *ustart = p;
-        int ud = 0;
+        i32 ud = 0;
         const char *q = p;
         while (*q)
         {
@@ -269,7 +269,7 @@ static bool find_unit_block(const char *assembly, const char *unit_name,
     const char *o = strchr(p, '{');
     if (o == nullptr)
         return false;
-    int depth = 0;
+    i32 depth = 0;
     const char *q = o;
     while (*q)
     {
@@ -441,7 +441,7 @@ static fn appendDependencyObjects(char *objects, bytes capacity, bytes *used,
                 {
                     char candidate[4096];
                     snprintf(candidate, sizeof(candidate), "%s/%.*s%s", directoryOf,
-                             (int) (leafDot - leaf), leaf, shims[s]);
+                             (i32) (leafDot - leaf), leaf, shims[s]);
                     struct stat probe;
                     replaced = stat(candidate, &probe) == 0;
                 }
@@ -452,7 +452,7 @@ static fn appendDependencyObjects(char *objects, bytes capacity, bytes *used,
 
         char object[4096];
         snprintf(object, sizeof(object), "%s/deps/%.*s.o", objectBase,
-                 (int) (strlen(relative) - 2), relative);
+                 (i32) (strlen(relative) - 2), relative);
         char directory[4096];
         snprintf(directory, sizeof(directory), "%s", object);
         char *slash = strrchr(directory, '/');
@@ -959,7 +959,7 @@ bool Build_file(const char *source_path, const char *assembly_path,
                      debug_flags, include_flags, option_flags, src, obj_path);
         }
         fprintf(out, "build: %s\n", cmd);
-        int rc = system(cmd);
+        i32 rc = system(cmd);
         if (rc != 0)
         {
             fprintf(out, "build: FAILED compiling %s (exit %d)\n", src, rc);
@@ -983,7 +983,7 @@ bool Build_file(const char *source_path, const char *assembly_path,
 
     /* Link or archive. */
     char out_path[1024];
-    int rc = 0;
+    i32 rc = 0;
     if (strcmp(unit_type, "lib") == 0)
     {
         snprintf(out_path, sizeof(out_path), "%s/lib%s.a", out_dir, unit_name);
@@ -1294,7 +1294,7 @@ static bool compileSource(any context, const char *directory, const char *name)
     snprintf(objectDirectory, sizeof(objectDirectory), "%s/.b/obj/%s", (*build).root,
              strcmp(directory, ".") == 0 ? "root" : directory);
     snprintf(object, sizeof(object), "%s/%.*s.o", objectDirectory,
-             (int) (dot - name), name);
+             (i32) (dot - name), name);
 
     char makeDirectory[8192];
     bytes makeLength = 0;
@@ -1459,7 +1459,7 @@ bool Build_workspace(const char *workspacePath, FILE *out)
     return ok && build.failed == 0;
 }
 
-int Build_command(int argc, char **argv)
+i32 Build_command(i32 argc, char **argv)
 {
     const char *key = argc > 1 ? argv[1] : nullptr;
     const char *asm_path = argc > 2 ? argv[2] : "b.assembly.json";

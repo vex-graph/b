@@ -12,7 +12,7 @@ static char *read_file(const char *path)
     if (f == nullptr)
         return nullptr;
     fseek(f, 0, SEEK_END);
-    long sz = ftell(f);
+    i64 sz = ftell(f);
     fseek(f, 0, SEEK_SET);
     if (sz < 0)
     {
@@ -65,7 +65,7 @@ bool Assembly_validate(const char *assembly_path, const char *workspace_path, FI
     return true;
 }
 
-int Build_assembly(int argc, char **argv)
+i32 Build_assembly(i32 argc, char **argv)
 {
     const char *asm_path = argc > 1 ? argv[1] : "b.assembly.json";
     const char *ws_path = argc > 2 ? argv[2] : ".b/workspace.json";

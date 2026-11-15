@@ -37,9 +37,9 @@ static bool is_ignored_dir(const char *name)
     return false;
 }
 
-static fn indent(FILE *out, int depth)
+static fn indent(FILE *out, i32 depth)
 {
-    for (int i = 0; i < depth; i++)
+    for (i32 i = 0; i < depth; i++)
         fputs("    ", out);
 }
 
@@ -130,7 +130,7 @@ static bool has_compilable(const char *path)
 }
 
 /* Emit directory contents. Returns true if anything was emitted. */
-static bool emit(FILE *out, const char *path, int depth)
+static bool emit(FILE *out, const char *path, i32 depth)
 {
     char **names = nullptr;
     bytes count = collect(path, &names);

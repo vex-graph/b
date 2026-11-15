@@ -23,7 +23,7 @@
 #include <stdlib.h>
 
 // Reject a guessed HTML build because no bundling pipeline is declared.
-static int buildHtml(const char *project, char **output) {
+static i32 buildHtml(const char *project, char **output) {
     (discard) project;
     (discard) output;
     THROW("HTML has no guessed build pipeline; use b.sh build npm for a declared web build script");
@@ -31,7 +31,7 @@ static int buildHtml(const char *project, char **output) {
 }
 
 // Open a resolved local HTML document with the configured host browser.
-static int runHtml(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runHtml(const char *file, i32 argc, char **argv, bool buildArtifact) {
     (discard) argv;
     (discard) buildArtifact;
     if (argc != 0) {
@@ -52,7 +52,7 @@ static int runHtml(const char *file, int argc, char **argv, bool buildArtifact) 
 #endif
     }
     char *prefix[] = { (char*) browser, path };
-    int status = Util_runCommand(prefix, 2, 0, nullptr);
+    i32 status = Util_runCommand(prefix, 2, 0, nullptr);
     free(path);
     return status;
 }

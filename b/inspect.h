@@ -12,5 +12,5 @@
  * doctor returns nonzero for a requested missing/unknown adapter; unfiltered
  * reports optional missing tools successfully. It does not prove tool versions.
  */
-int Inspect_adapters();
-int Inspect_doctor(const char *adapter);
+i32 Inspect_adapters();
+i32 Inspect_doctor(const char *adapter);

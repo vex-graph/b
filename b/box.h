@@ -6,7 +6,7 @@
 // formats. It is project/toolchain agnostic and has no ecosystem dependency.
 // STRUCT FIELDS:
 //   char *baseDirectory  manifest directory; payload paths resolve against it
-//   int schemaVersion    declared schema number (only 1 is accepted)
+//   i32 schemaVersion    declared schema number (only 1 is accepted)
 //   char *identifier     stable application id used for platform identity
 //   char *name           display name
 //   char *version        release version supplied by the author
@@ -41,12 +41,12 @@
 ;;OVERVIEW
 /* CLASS: BoxManifest. STRUCT FIELDS (declaration order):
  * char *baseDirectory — directory of the manifest file; payload resolution base.
- * int schemaVersion — declared schema number; only 1 is accepted.
+ * i32 schemaVersion — declared schema number; only 1 is accepted.
  * char *identifier — stable application identity (platform identity source).
  * char *name — display name.
  * char *version — author-supplied release version.
  * char *publisher — publisher/authority text.
- * char *description — short summary.
+ * char *description — i16 summary.
  * char *license — license family or identifier.
  * char *homepage — project URL.
  * char *icon — relative icon path when declared.
@@ -71,7 +71,7 @@
 
 typedef struct BoxManifest {
     char *baseDirectory;
-    int schemaVersion;
+    i32 schemaVersion;
     char *identifier;
     char *name;
     char *version;
@@ -92,13 +92,13 @@ typedef struct BoxManifest {
 } BoxManifest;
 
 // Write the starter schema-1 JSON form; never replaces an existing path.
-int BoxManifest_writeTemplate(const char *path);
+i32 BoxManifest_writeTemplate(const char *path);
 // Parse and validate a manifest; nullptr with a THROW diagnostic on rejection.
 BoxManifest *BoxManifest_load(const char *path);
 // Release every owned string and the record itself; nullptr is permitted.
 fn BoxManifest_free(BoxManifest *self);
 // Export declared payload into destination (which must not exist yet).
-int BoxManifest_export(const BoxManifest *self, const char *destination);
+i32 BoxManifest_export(const BoxManifest *self, const char *destination);
 // Bounded value projection; dest-last with a truncation flag.
 fn BoxManifest_toString(const BoxManifest *self, char *dest, bytes capacity, bool *outTruncated);
 // Bounded field projection mirroring STRUCT FIELDS; one layer only.

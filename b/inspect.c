@@ -95,7 +95,7 @@ static bool inspectAdapter(const Adapter *adapter) {
 }
 
 // List registered adapter names, selectors, capabilities, and tool requirements.
-int Inspect_adapters() {
+i32 Inspect_adapters() {
     for (bytes i = 0; i < Adapter_count(); ++i) {
         const Adapter *adapter = Adapter_at(i);
         printf("%-12s %-14s %s [tools: %s]\n", (*adapter).name,
@@ -106,7 +106,7 @@ int Inspect_adapters() {
 }
 
 // Inspect one named adapter or enumerate all tools without executing them.
-int Inspect_doctor(const char *adapter) {
+i32 Inspect_doctor(const char *adapter) {
     puts("b.sh doctor: executable discovery only; no version/SDK checks or tool execution");
     if (adapter != nullptr) {
         const Adapter *record = Adapter_forName(adapter);

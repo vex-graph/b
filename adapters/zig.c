@@ -29,7 +29,7 @@ static const char *tool() {
 }
 
 // Compile one Zig source root into an external ReleaseSafe executable.
-static int compileZig(const char *project, const char *file, char **output) {
+static i32 compileZig(const char *project, const char *file, char **output) {
     char *directory = Util_outputDirectory(project);
     if (directory == nullptr)
         return EXIT_FAILURE;
@@ -37,7 +37,7 @@ static int compileZig(const char *project, const char *file, char **output) {
     free(directory);
     char *emit = Util_combine("-femit-bin=", artifact);
     char *arguments[] = { (char*) tool(), "build-exe", "-O", "ReleaseSafe", emit, (char*) file, nullptr, nullptr };
-    int status = Util_executeBuild(arguments);
+    i32 status = Util_executeBuild(arguments);
     free(emit);
     if (status == 0)
         *output = artifact;
@@ -47,7 +47,7 @@ static int compileZig(const char *project, const char *file, char **output) {
 }
 
 // Delegate to build.zig or select an unambiguous standalone source root.
-static int buildZig(const char *project, char **output) {
+static i32 buildZig(const char *project, char **output) {
     char *script = Util_combine(project, "/build.zig");
     struct stat info;
     if (stat(script, &info) == 0 && S_ISREG(info.st_mode)) {
@@ -59,7 +59,7 @@ static int buildZig(const char *project, char **output) {
         char *prefix = Util_combine(directory, "/zig-out");
         free(directory);
         char *arguments[] = { (char*) tool(), "build", "--build-file", script, "--prefix", prefix, nullptr, nullptr };
-        int status = Util_executeBuild(arguments);
+        i32 status = Util_executeBuild(arguments);
         if (status == 0)
             *output = prefix;
         else
@@ -70,7 +70,7 @@ static int buildZig(const char *project, char **output) {
     free(script);
     char *main = Util_combine(project, "/main.zig");
     if (stat(main, &info) == 0 && S_ISREG(info.st_mode)) {
-        int status = compileZig(project, main, output);
+        i32 status = compileZig(project, main, output);
         free(main);
         return status;
     }
@@ -80,7 +80,7 @@ static int buildZig(const char *project, char **output) {
     char **sources = Util_collectSources(project, "/*.zig", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
-    int status = EXIT_FAILURE;
+    i32 status = EXIT_FAILURE;
     if (count == 1)
         status = compileZig(project, sources[0], output);
     else
@@ -90,7 +90,7 @@ static int buildZig(const char *project, char **output) {
 }
 
 // Compile the resolved Zig source and run the resulting program with its arguments.
-static int runZig(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runZig(const char *file, i32 argc, char **argv, bool buildArtifact) {
     (discard) buildArtifact;
     char *path = realpath(file, nullptr);
     if (path == nullptr) {
@@ -99,7 +99,7 @@ static int runZig(const char *file, int argc, char **argv, bool buildArtifact) {
     }
     char *project = Util_projectDirectory(path);
     char *output = nullptr;
-    int status = compileZig(project, path, &output);
+    i32 status = compileZig(project, path, &output);
     if (status == 0) {
         char *prefix[] = { output };
         status = Util_runCommand(prefix, 1, argc, argv);

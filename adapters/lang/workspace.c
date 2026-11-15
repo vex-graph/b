@@ -136,7 +136,7 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
     for (bytes index = 0; index < *dirCount && ok; ++index) {
         ScanSlot current = (*dirs)[index];
         struct dirent **entries = nullptr;
-        int total = scandir(current.path, &entries, nullptr, alphasort);
+        i32 total = scandir(current.path, &entries, nullptr, alphasort);
         if (total < 0) {
             THROW("cannot assess %s: %s", current.path, strerror(errno));
             ok = false;
@@ -144,7 +144,7 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
         }
         const Adapter *owner = nullptr;
         // Detect competing native manifests before assigning loose sources.
-        for (int i = 0; i < total && ok && !current.owned; ++i) {
+        for (i32 i = 0; i < total && ok && !current.owned; ++i) {
             struct dirent *entry = entries[i];
             const char *name = (*entry).d_name;
             const char *backend = strcmp(name, "Cargo.toml") == 0 ? "cargo" :
@@ -172,7 +172,7 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
         }
         if (ok && owner != nullptr)
             ok = addUnit(current.path, owner, units, unitCount, unitCapacity);
-        for (int i = 0; i < total && ok; ++i) {
+        for (i32 i = 0; i < total && ok; ++i) {
             struct dirent *entry = entries[i];
             const char *name = (*entry).d_name;
             if (ignored(name)) {
@@ -180,7 +180,7 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
                     ++*skipped;
                 continue;
             }
-            for (const unsigned char *c = (const unsigned char*) name; *c; ++c)
+            for (const u8 *c = (const u8*) name; *c; ++c)
                 if (*c < ' ' || *c == 127) {
                     THROW("workspace names containing control characters are unsupported");
                     ok = false;
@@ -229,7 +229,7 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
             }
             free(path);
         }
-        for (int i = 0; i < total; ++i)
+        for (i32 i = 0; i < total; ++i)
             free(entries[i]);
         free(entries);
     }
@@ -238,7 +238,7 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
 }
 
 // Assess, optionally stop at the plan, then build with completed-unit progress.
-int Workspace_command(int argc, char **argv) {
+i32 Workspace_command(i32 argc, char **argv) {
     if (argc < 1 || argc > 2 || argv == nullptr || argv[0] == nullptr ||
         (argc == 2 && (argv[1] == nullptr || (strcmp(argv[1], "--plan") != 0 && strcmp(argv[1], "--confirm") != 0)))) {
         THROW("usage: b.sh build workspace <directory> [--plan|--confirm]");
@@ -251,7 +251,7 @@ int Workspace_command(int argc, char **argv) {
         free(root);
         return EXIT_FAILURE;
     }
-    for (const unsigned char *c = (const unsigned char*) root; *c; ++c)
+    for (const u8 *c = (const u8*) root; *c; ++c)
         if (*c < ' ' || *c == 127) {
             THROW("workspace root contains control characters");
             free(root);
@@ -287,7 +287,7 @@ int Workspace_command(int argc, char **argv) {
             printf("[%zu/%zu] Building %s: %s\n", i + 1, unitCount, (*adapter).name, (*unit).path);
             fflush(stdout);
             char *output = nullptr;
-            int status = (*adapter).build((*unit).path, &output);
+            i32 status = (*adapter).build((*unit).path, &output);
             failed += status != 0;
             printf("Building %.0f%% — %s%s%s\n", 100.0 * (d64) (i + 1) / (d64) unitCount,
                    status == 0 ? "OK" : "FAIL", output == nullptr ? "" : ": ", output == nullptr ? "" : output);

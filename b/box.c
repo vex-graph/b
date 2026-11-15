@@ -30,10 +30,10 @@
 ;;OVERVIEW
 /* CLASS: BoxManifest. STRUCT FIELDS (declaration order, mirroring box.h):
  * char *baseDirectory — manifest directory; payload paths resolve against it.
- * int schemaVersion — only 1 is accepted.
+ * i32 schemaVersion — only 1 is accepted.
  * char *identifier — stable identity for platform mapping.
  * char *name — display name. char *version — author release version.
- * char *publisher — publisher text. char *description — short summary.
+ * char *publisher — publisher text. char *description — i16 summary.
  * char *license — license family. char *homepage — project URL.
  * char *icon — relative icon path. char *entry — relative payload entry.
  * char *statePolicy — only "clean" is accepted.
@@ -159,7 +159,7 @@ static bool parseString(const char **cursor, const char *field, char **out) {
         return false;
     bytes length = 0;
     while (*position != '\0' && *position != '"') {
-        unsigned char character = (unsigned char) *position;
+        u8 character = (u8) *position;
         if (character < 0x20) {
             THROW("manifest: %s contains a control character", field);
             free(text);
@@ -239,13 +239,13 @@ static bool parseStringArray(const char **cursor, const char *field, char ***ite
 }
 
 // Parse a non-negative decimal integer without accepting a fractional part.
-static bool parseInteger(const char **cursor, const char *field, int *out) {
+static bool parseInteger(const char **cursor, const char *field, i32 *out) {
     const char *position = skipSpace(*cursor);
     if (*position < '0' || *position > '9') {
         THROW("manifest: %s must be an integer", field);
         return false;
     }
-    long value = 0;
+    i64 value = 0;
     while (*position >= '0' && *position <= '9') {
         value = value * 10 + (*position - '0');
         if (value > 1000000) {
@@ -255,12 +255,12 @@ static bool parseInteger(const char **cursor, const char *field, int *out) {
         ++position;
     }
     *cursor = position;
-    *out = (int) value;
+    *out = (i32) value;
     return true;
 }
 
 // Parse the declared schema number.
-static bool parseSchemaVersion(const char **cursor, int *out) {
+static bool parseSchemaVersion(const char **cursor, i32 *out) {
     return parseInteger(cursor, "schemaVersion", out);
 }
 
@@ -709,7 +709,7 @@ static bool validateRelativePath(const char *text, const char *field) {
             return false;
         }
         for (bytes index = 0; index < length; ++index) {
-            if ((unsigned char) position[index] < 0x20) {
+            if ((u8) position[index] < 0x20) {
                 THROW("manifest: %s has a control character: %s", field, text);
                 return false;
             }
@@ -867,7 +867,7 @@ static char *parentOf(const char *path) {
 // Build the private staging path next to the export destination.
 static char *stagingPath(const char *parent) {
     char suffix[64];
-    snprintf(suffix, sizeof suffix, ".b-box-staging-%ld", (long) getpid());
+    snprintf(suffix, sizeof suffix, ".b-box-staging-%ld", (i64) getpid());
     return joinPath(parent, suffix);
 }
 
@@ -911,12 +911,12 @@ static bool removeTree(const char *path) {
 
 // Copy one regular file, preserving its permission bits.
 static bool copyRegularFile(const char *source, const char *target, mode_t mode) {
-    int input = open(source, O_RDONLY | BOX_BINARY_MODE);
+    i32 input = open(source, O_RDONLY | BOX_BINARY_MODE);
     if (input < 0) {
         THROW("cannot read payload file %s: %s", source, strerror(errno));
         return false;
     }
-    int output = open(target, O_WRONLY | O_CREAT | O_EXCL | BOX_BINARY_MODE, mode & 0777);
+    i32 output = open(target, O_WRONLY | O_CREAT | O_EXCL | BOX_BINARY_MODE, mode & 0777);
     if (output < 0) {
         THROW("cannot create payload file %s: %s", target, strerror(errno));
         close(input);
@@ -1065,7 +1065,7 @@ static fn emitQuoted(char *dest, bytes capacity, bytes *used, bool *outTruncated
     emitText(dest, capacity, used, outTruncated, "\"");
 }
 
-// Append one unsigned count.
+// Append one u32 count.
 static fn emitCount(char *dest, bytes capacity, bytes *used, bool *outTruncated, bytes value) {
     char text[32];
     snprintf(text, sizeof text, "%zu", value);
@@ -1094,7 +1094,7 @@ static char *readManifestText(const char *path) {
         THROW("manifest must be 1..%u bytes: %s", BOX_MANIFEST_MAX_BYTES, path);
         return nullptr;
     }
-    int file = open(path, O_RDONLY);
+    i32 file = open(path, O_RDONLY);
     if (file < 0) {
         THROW("cannot read manifest %s: %s", path, strerror(errno));
         return nullptr;
@@ -1126,7 +1126,7 @@ static char *readManifestText(const char *path) {
 }
 
 // Write the starter schema-1 form without replacing an existing path.
-int BoxManifest_writeTemplate(const char *path) {
+i32 BoxManifest_writeTemplate(const char *path) {
     static const char template[] =
         "{\n"
         "  \"application\": {\n"
@@ -1150,7 +1150,7 @@ int BoxManifest_writeTemplate(const char *path) {
         THROW("manifest path must not be empty");
         return EXIT_FAILURE;
     }
-    int file = open(path, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    i32 file = open(path, O_WRONLY | O_CREAT | O_EXCL, 0600);
     if (file < 0) {
         THROW("cannot create manifest without replacing an existing path: %s", path);
         return EXIT_FAILURE;
@@ -1163,7 +1163,7 @@ int BoxManifest_writeTemplate(const char *path) {
             break;
         offset += (bytes) written;
     }
-    int closed = close(file);
+    i32 closed = close(file);
     if (offset != length || closed != 0) {
         unlink(path);
         THROW("could not completely write manifest: %s", path);
@@ -1228,7 +1228,7 @@ fn BoxManifest_free(BoxManifest *self) {
 }
 
 // Export the declared payload as a portable directory payload.
-int BoxManifest_export(const BoxManifest *self, const char *destination) {
+i32 BoxManifest_export(const BoxManifest *self, const char *destination) {
     if (self == nullptr || destination == nullptr || *destination == '\0') {
         THROW("export requires a loaded manifest and a destination path");
         return EXIT_FAILURE;
@@ -1320,7 +1320,7 @@ int BoxManifest_export(const BoxManifest *self, const char *destination) {
         free(target);
         free(source);
     }
-    int status = EXIT_SUCCESS;
+    i32 status = EXIT_SUCCESS;
     if (copied && entryTarget != nullptr && lstat(entryTarget, &info) != 0) {
         THROW("staged export is missing its declared entry");
         copied = false;

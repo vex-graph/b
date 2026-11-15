@@ -34,18 +34,18 @@ static bool hasManifest(const char *project) {
 }
 
 // Run the project's declared npm build script without installing dependencies.
-static int buildNpm(const char *project, char **output) {
+static i32 buildNpm(const char *project, char **output) {
     if (!hasManifest(project))
         return EXIT_FAILURE;
     char *arguments[] = { "npm", "--prefix", (char*) project, "run", "build", nullptr, nullptr };
-    int status = Util_executeBuild(arguments);
+    i32 status = Util_executeBuild(arguments);
     if (status == 0)
         *output = Util_combine(project, "");
     return status;
 }
 
 // Run the declared start script, building first only for exec mode.
-static int runNpm(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runNpm(const char *file, i32 argc, char **argv, bool buildArtifact) {
     char *path = realpath(file, nullptr);
     if (path == nullptr) {
         THROW("npm manifest path is unavailable");
@@ -60,7 +60,7 @@ static int runNpm(const char *file, int argc, char **argv, bool buildArtifact) {
     char *project = Util_projectDirectory(path);
     free(path);
     char *output = nullptr;
-    int status = buildArtifact ? buildNpm(project, &output) : 0;
+    i32 status = buildArtifact ? buildNpm(project, &output) : 0;
     if (status == 0) {
         char *prefix[] = { "npm", "--prefix", project, "run", "start", "--" };
         status = Util_runCommand(prefix, 6, argc, argv);

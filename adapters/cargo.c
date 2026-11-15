@@ -42,7 +42,7 @@ static char *manifest(const char *project) {
 }
 
 // Build the existing Cargo package offline into b.sh's external target directory.
-static int buildCargo(const char *project, char **output) {
+static i32 buildCargo(const char *project, char **output) {
     char *path = manifest(project);
     if (path == nullptr)
         return EXIT_FAILURE;
@@ -55,7 +55,7 @@ static int buildCargo(const char *project, char **output) {
     free(directory);
     char *arguments[] = { (char*) tool(), "build", "--offline", "--manifest-path", path,
         "--target-dir", target, nullptr, nullptr };
-    int status = Util_executeBuild(arguments);
+    i32 status = Util_executeBuild(arguments);
     if (status == 0)
         *output = target;
     else
@@ -65,7 +65,7 @@ static int buildCargo(const char *project, char **output) {
 }
 
 // Validate a Cargo.toml input and run its package offline, forwarding program args.
-static int runCargo(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runCargo(const char *file, i32 argc, char **argv, bool buildArtifact) {
     char *path = realpath(file, nullptr);
     if (path == nullptr) {
         THROW("Cargo manifest cannot be resolved");
@@ -86,7 +86,7 @@ static int runCargo(const char *file, int argc, char **argv, bool buildArtifact)
         return EXIT_FAILURE;
     }
     char *target = nullptr;
-    int status = 0;
+    i32 status = 0;
     if (buildArtifact)
         status = buildCargo(project, &target);
     else {

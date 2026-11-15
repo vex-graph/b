@@ -59,7 +59,7 @@ static char *readAll(const char *path) {
     FILE *file = fopen(path, "rb");
     assert(file != nullptr);
     assert(fseek(file, 0, SEEK_END) == 0);
-    long size = ftell(file);
+    i64 size = ftell(file);
     assert(size >= 0);
     assert(fseek(file, 0, SEEK_SET) == 0);
     char *text = malloc((bytes) size + 1);
@@ -93,11 +93,11 @@ static fn checkNoStaging(const char *directory) {
     assert(closedir(tree) == 0);
 }
 
-int main() {
+i32 main() {
     // Capture this run's diagnostics; on success the process writes nothing.
-    int saved = dup(STDERR_FILENO);
+    i32 saved = dup(STDERR_FILENO);
     assert(saved >= 0);
-    int log = open(DIAGNOSTIC_LOG, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    i32 log = open(DIAGNOSTIC_LOG, O_WRONLY | O_CREAT | O_TRUNC, 0600);
     assert(log >= 0);
     assert(dup2(log, STDERR_FILENO) == STDERR_FILENO);
     assert(close(log) == 0);

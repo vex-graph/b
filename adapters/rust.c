@@ -30,7 +30,7 @@
 #include <unistd.h>
 
 // Compile the chosen Rust crate root with rustc edition 2021.
-static int compileRust(const char *project, char **sources, bytes count, char **output) {
+static i32 compileRust(const char *project, char **sources, bytes count, char **output) {
     if (count > SIZE_MAX / sizeof(char*) - 8) {
         THROW("source argument count overflow");
         return EXIT_FAILURE;
@@ -47,14 +47,14 @@ static int compileRust(const char *project, char **sources, bytes count, char **
         arguments[n++] = sources[i];
     arguments[n++] = "-o";
     arguments[n++] = *output;
-    int status = Util_execute(arguments);
+    i32 status = Util_execute(arguments);
     free(arguments);
     free(directory);
     return status;
 }
 
 // Choose main.rs or the sole Rust source as crate root and compile it.
-static int buildRust(const char *project, char **output) {
+static i32 buildRust(const char *project, char **output) {
     bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.rs", &count, &ok);
@@ -63,7 +63,7 @@ static int buildRust(const char *project, char **output) {
     // rustc accepts one crate root; sibling modules are discovered by `mod`.
     char *mainFile = Util_combine(project, "/main.rs");
     char *root = access(mainFile, R_OK) == 0 ? mainFile : count == 1 ? sources[0] : nullptr;
-    int status = EXIT_FAILURE;
+    i32 status = EXIT_FAILURE;
     if (root == nullptr)
         THROW("multiple Rust files need a main.rs crate root; Cargo projects are not supported yet");
     else
@@ -74,7 +74,7 @@ static int buildRust(const char *project, char **output) {
 }
 
 // Compile one Rust entry source for exec mode and run it with forwarded arguments.
-static int runRust(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runRust(const char *file, i32 argc, char **argv, bool buildArtifact) {
     if (!buildArtifact) {
         THROW("Rust has no source runtime; use b.sh run exec to compile then launch");
         return EXIT_FAILURE;
@@ -82,11 +82,11 @@ static int runRust(const char *file, int argc, char **argv, bool buildArtifact) 
     char *project = Util_projectDirectory(file);
     char *output = nullptr;
     char *sources[1] = { (char*) file };
-    int status = compileRust(project, sources, 1, &output);
+    i32 status = compileRust(project, sources, 1, &output);
     if (status == 0) {
         char **arguments = Util_allocate(((bytes) argc + 2) * sizeof(char*));
         arguments[0] = output;
-        for (int i = 0; i < argc; ++i)
+        for (i32 i = 0; i < argc; ++i)
             arguments[i + 1] = argv[i];
         status = Util_execute(arguments);
         free(arguments);

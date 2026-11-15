@@ -20,7 +20,7 @@
 #include <stdlib.h>
 
 // Compile the supplied Swift sources into an external native executable.
-static int compileSwift(const char *project, char **sources, bytes count, char **output) {
+static i32 compileSwift(const char *project, char **sources, bytes count, char **output) {
     if (count > SIZE_MAX / sizeof(char*) - 8) {
         THROW("Swift source count overflow");
         return EXIT_FAILURE;
@@ -42,25 +42,25 @@ static int compileSwift(const char *project, char **sources, bytes count, char *
     arguments[n++] = *output;
     for (bytes i = 0; i < count; ++i)
         arguments[n++] = sources[i];
-    int status = Util_executeBuild(arguments);
+    i32 status = Util_executeBuild(arguments);
     free(arguments);
     return status;
 }
 
 // Discover top-level Swift sources and compile them together.
-static int buildSwift(const char *project, char **output) {
+static i32 buildSwift(const char *project, char **output) {
     bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.swift", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
-    int status = compileSwift(project, sources, count, output);
+    i32 status = compileSwift(project, sources, count, output);
     Util_freeSources(sources, count);
     return status;
 }
 
 // Interpret the Swift file or compile then launch it, forwarding program arguments.
-static int runSwift(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runSwift(const char *file, i32 argc, char **argv, bool buildArtifact) {
     if (!buildArtifact) {
         char *prefix[] = { "swift", (char*) file };
         return Util_runCommand(prefix, 2, argc, argv);
@@ -68,7 +68,7 @@ static int runSwift(const char *file, int argc, char **argv, bool buildArtifact)
     char *project = Util_projectDirectory(file);
     char *output = nullptr;
     char *sources[] = { (char*) file };
-    int status = compileSwift(project, sources, 1, &output);
+    i32 status = compileSwift(project, sources, 1, &output);
     if (status == 0) {
         char *prefix[] = { output };
         status = Util_runCommand(prefix, 1, argc, argv);

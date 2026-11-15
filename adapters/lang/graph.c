@@ -34,8 +34,8 @@
 
 typedef struct {
     char **items;
-    int count;
-    int cap;
+    i32 count;
+    i32 cap;
 } Rows;
 
 static char *copyText(const char *text) {
@@ -47,7 +47,7 @@ static char *copyText(const char *text) {
 
 static fn rowsPush(Rows *rows, const char *text) {
     if ((*rows).count == (*rows).cap) {
-        int cap = (*rows).cap ? (*rows).cap * 2 : 8;
+        i32 cap = (*rows).cap ? (*rows).cap * 2 : 8;
         char **grown = Util_allocate((bytes) cap * sizeof *grown);
         if ((*rows).count)
             memcpy(grown, (*rows).items, (bytes) (*rows).count * sizeof *grown);
@@ -67,7 +67,7 @@ static fn rowsPushf(Rows *rows, const char *format, const char *value) {
 }
 
 static fn rowsFree(Rows *rows) {
-    for (int i = 0; i < (*rows).count; i++)
+    for (i32 i = 0; i < (*rows).count; i++)
         Util_release((*rows).items[i]);
     Util_release((*rows).items);
     (*rows).items = nullptr;
@@ -78,14 +78,14 @@ static fn rowsFree(Rows *rows) {
 // A NUL-terminated view of the rows; the rows still own the strings.
 static char **rowsArgv(Rows *rows) {
     char **argv = Util_allocate(((bytes) (*rows).count + 1) * sizeof *argv);
-    for (int i = 0; i < (*rows).count; i++)
+    for (i32 i = 0; i < (*rows).count; i++)
         argv[i] = (*rows).items[i];
     return argv;
 }
 
 static bool runRows(Rows *rows) {
     char **argv = rowsArgv(rows);
-    int status = Util_execute(argv);
+    i32 status = Util_execute(argv);
     Util_release(argv);
     return status == 0;
 }
@@ -116,16 +116,16 @@ typedef struct {
 
 typedef struct {
     GraphTarget *items;
-    int count;
-    int cap;
+    i32 count;
+    i32 cap;
     GenStep *gens;
-    int genCount;
-    int genCap;
+    i32 genCount;
+    i32 genCap;
 } Graph;
 
 static GraphTarget *targetAdd(Graph *graph) {
     if ((*graph).count == (*graph).cap) {
-        int cap = (*graph).cap ? (*graph).cap * 2 : 32;
+        i32 cap = (*graph).cap ? (*graph).cap * 2 : 32;
         GraphTarget *grown = Util_allocate((bytes) cap * sizeof *grown);
         if ((*graph).count)
             memcpy(grown, (*graph).items, (bytes) (*graph).count * sizeof *grown);
@@ -138,7 +138,7 @@ static GraphTarget *targetAdd(Graph *graph) {
 
 static GenStep *genAdd(Graph *graph) {
     if ((*graph).genCount == (*graph).genCap) {
-        int cap = (*graph).genCap ? (*graph).genCap * 2 : 16;
+        i32 cap = (*graph).genCap ? (*graph).genCap * 2 : 16;
         GenStep *grown = Util_allocate((bytes) cap * sizeof *grown);
         if ((*graph).genCount)
             memcpy(grown, (*graph).gens, (bytes) (*graph).genCount * sizeof *grown);
@@ -466,7 +466,7 @@ static bool parseGraph(const char *json, Graph *graph) {
 }
 
 static fn graphFree(Graph *graph) {
-    for (int i = 0; i < (*graph).count; i++) {
+    for (i32 i = 0; i < (*graph).count; i++) {
         GraphTarget *t = &(*graph).items[i];
         Util_release((*t).name);
         Util_release((*t).kind);
@@ -481,7 +481,7 @@ static fn graphFree(Graph *graph) {
         rowsFree(&(*t).linkFlags);
         rowsFree(&(*t).generator);
     }
-    for (int i = 0; i < (*graph).genCount; i++) {
+    for (i32 i = 0; i < (*graph).genCount; i++) {
         Util_release((*graph).gens[i].output);
         rowsFree(&(*graph).gens[i].sources);
         rowsFree(&(*graph).gens[i].generator);
@@ -510,7 +510,7 @@ static char *readFile(const char *path, bytes *length) {
         THROW("cannot seek graph file: %s", path);
         return nullptr;
     }
-    long size = ftell(file);
+    i64 size = ftell(file);
     if (size < 0) {
         fclose(file);
         THROW("cannot size graph file: %s", path);
@@ -552,7 +552,7 @@ static u64 hashBytes(u64 hash, const u8 *data, bytes count) {
 
 static u64 hashText(u64 hash, const char *text) {
     hash = hashBytes(hash, (const u8*) text, strlen(text));
-    unsigned char end = 0;
+    u8 end = 0;
     return hashBytes(hash, &end, 1);
 }
 
@@ -560,7 +560,7 @@ static bool hashFile(u64 *hash, const char *path) {
     FILE *file = fopen(path, "rb");
     if (file == nullptr)
         return false;
-    unsigned char buffer[8192];
+    u8 buffer[8192];
     bytes got;
     while ((got = fread(buffer, 1, sizeof buffer, file)) > 0)
         *hash = hashBytes(*hash, buffer, got);
@@ -575,8 +575,8 @@ static const char *compilerName() {
     return (cc != nullptr && *cc != 0) ? cc : "cc";
 }
 
-static int targetIndex(Graph *graph, const char *name) {
-    for (int i = 0; i < (*graph).count; i++)
+static i32 targetIndex(Graph *graph, const char *name) {
+    for (i32 i = 0; i < (*graph).count; i++)
         if (strcmp((*graph).items[i].name, name) == 0)
             return i;
     return -1;
@@ -601,11 +601,11 @@ static char *objectPath(const GraphTarget *target, const char *source) {
         THROW("cannot read source: %s", source);
         return nullptr;
     }
-    for (int i = 0; i < (*target).options.count; i++)
+    for (i32 i = 0; i < (*target).options.count; i++)
         hash = hashText(hash, (*target).options.items[i]);
-    for (int i = 0; i < (*target).definitions.count; i++)
+    for (i32 i = 0; i < (*target).definitions.count; i++)
         hash = hashText(hash, (*target).definitions.items[i]);
-    for (int i = 0; i < (*target).includes.count; i++)
+    for (i32 i = 0; i < (*target).includes.count; i++)
         hash = hashText(hash, (*target).includes.items[i]);
     const char *slash = strrchr(source, '/');
     const char *base = slash ? slash + 1 : source;
@@ -615,7 +615,7 @@ static char *objectPath(const GraphTarget *target, const char *source) {
     if (dot != nullptr)
         *dot = 0;
     char hex[24];
-    snprintf(hex, sizeof hex, "%016llx", (unsigned long long) hash);
+    snprintf(hex, sizeof hex, "%016llx", (u64) hash);
     bytes size = strlen((*target).name) + strlen(label) + sizeof hex + 32;
     char *path = Util_allocate(size);
     snprintf(path, size, ".b/objects/%s/%s-%s.o", (*target).name, label, hex);
@@ -636,11 +636,11 @@ static bool compileSource(const GraphTarget *target, const char *source, char **
         return false;
     Rows argv = {0};
     rowsPush(&argv, compilerName());
-    for (int i = 0; i < (*target).options.count; i++)
+    for (i32 i = 0; i < (*target).options.count; i++)
         rowsPush(&argv, (*target).options.items[i]);
-    for (int i = 0; i < (*target).definitions.count; i++)
+    for (i32 i = 0; i < (*target).definitions.count; i++)
         rowsPushf(&argv, "-D%s", (*target).definitions.items[i]);
-    for (int i = 0; i < (*target).includes.count; i++)
+    for (i32 i = 0; i < (*target).includes.count; i++)
         rowsPushf(&argv, "-I%s", (*target).includes.items[i]);
     if (Util_endsWith(source, ".m"))
         rowsPush(&argv, "-fobjc-arc");
@@ -667,7 +667,7 @@ static bool generateExternal(const GraphTarget *target, const char *output) {
     if (!made)
         return false;
     Rows argv = {0};
-    for (int i = 0; i < (*target).generator.count; i++)
+    for (i32 i = 0; i < (*target).generator.count; i++)
         rowsPush(&argv, (*target).generator.items[i]);
     bool ok = runRows(&argv);
     rowsFree(&argv);
@@ -695,13 +695,13 @@ static bool linkTarget(Graph *graph, GraphTarget *target, const Rows *objects, c
         rowsPush(&argv, "ar");
         rowsPush(&argv, "rcs");
         rowsPush(&argv, output);
-        for (int i = 0; i < (*objects).count; i++)
+        for (i32 i = 0; i < (*objects).count; i++)
             rowsPush(&argv, (*objects).items[i]);
         unlink(output);
         ok = runRows(&argv);
     } else {
         rowsPush(&argv, compilerName());
-        for (int i = 0; i < (*objects).count; i++)
+        for (i32 i = 0; i < (*objects).count; i++)
             rowsPush(&argv, (*objects).items[i]);
         if (strcmp(kind, "mod") == 0) {
             rowsPush(&argv, "-bundle");
@@ -709,8 +709,8 @@ static bool linkTarget(Graph *graph, GraphTarget *target, const Rows *objects, c
         }
         rowsPush(&argv, "-o");
         rowsPush(&argv, output);
-        for (int i = 0; i < (*target).links.count; i++) {
-            int index = targetIndex(graph, (*target).links.items[i]);
+        for (i32 i = 0; i < (*target).links.count; i++) {
+            i32 index = targetIndex(graph, (*target).links.items[i]);
             if (index < 0) {
                 THROW("link plan names an unknown target: %s", (*target).links.items[i]);
                 rowsFree(&argv);
@@ -720,7 +720,7 @@ static bool linkTarget(Graph *graph, GraphTarget *target, const Rows *objects, c
             rowsPush(&argv, library);
             Util_release(library);
         }
-        for (int i = 0; i < (*target).linkFlags.count; i++)
+        for (i32 i = 0; i < (*target).linkFlags.count; i++)
             rowsPush(&argv, (*target).linkFlags.items[i]);
         ok = runRows(&argv);
     }
@@ -751,12 +751,12 @@ static char *signaturePath(const char *name) {
 // is decided by content, never by a clock and never by an equal timestamp.
 static u64 linkSignature(Graph *graph, GraphTarget *target, const Rows *objects) {
     u64 hash = 1469598103934665603ull;
-    for (int i = 0; i < (*objects).count; i++)
+    for (i32 i = 0; i < (*objects).count; i++)
         hash = hashText(hash, (*objects).items[i]);
-    for (int i = 0; i < (*target).linkFlags.count; i++)
+    for (i32 i = 0; i < (*target).linkFlags.count; i++)
         hash = hashText(hash, (*target).linkFlags.items[i]);
-    for (int i = 0; i < (*target).links.count; i++) {
-        int index = targetIndex(graph, (*target).links.items[i]);
+    for (i32 i = 0; i < (*target).links.count; i++) {
+        i32 index = targetIndex(graph, (*target).links.items[i]);
         if (index < 0)
             continue;
         GraphTarget *dep = &(*graph).items[index];
@@ -769,7 +769,7 @@ static u64 linkSignature(Graph *graph, GraphTarget *target, const Rows *objects)
             char token[64] = "absent";
             if (stat(output, &info) == 0)
                 snprintf(token, sizeof token, "%lld:%lld",
-                         (long long) info.st_size, (long long) info.st_mtime);
+                         (i64) info.st_size, (i64) info.st_mtime);
             hash = hashText(hash, token);
             Util_release(output);
             continue;
@@ -788,7 +788,7 @@ static fn writeSignature(const char *name, u64 signature) {
     char *directory = Util_parentDirectory(path);
     if (Util_makeDirectory(directory)) {
         char text[32];
-        snprintf(text, sizeof text, "%016llx\n", (unsigned long long) signature);
+        snprintf(text, sizeof text, "%016llx\n", (u64) signature);
         FILE *file = fopen(path, "wb");
         if (file != nullptr) {
             fwrite(text, 1, strlen(text), file);
@@ -810,30 +810,30 @@ static bool artifactFresh(const char *name, const char *output, u64 signature) {
     if (!read)
         return false;
     char expected[32];
-    snprintf(expected, sizeof expected, "%016llx", (unsigned long long) signature);
+    snprintf(expected, sizeof expected, "%016llx", (u64) signature);
     return strncmp(text, expected, 16) == 0;
 }
 
 // Produce every generated input whose sources or command changed since last time.
 // The generator argv is data: glslang, python or cargo, the builder does not care.
 static bool runGenerated(Graph *graph) {
-    for (int i = 0; i < (*graph).genCount; i++) {
+    for (i32 i = 0; i < (*graph).genCount; i++) {
         GenStep *step = &(*graph).gens[i];
         u64 hash = 1469598103934665603ull;
-        for (int s = 0; s < (*step).sources.count; s++) {
+        for (i32 s = 0; s < (*step).sources.count; s++) {
             hash = hashText(hash, (*step).sources.items[s]);
             if (!hashFile(&hash, (*step).sources.items[s])) {
                 THROW("cannot read generator input: %s", (*step).sources.items[s]);
                 return false;
             }
         }
-        for (int g = 0; g < (*step).generator.count; g++)
+        for (i32 g = 0; g < (*step).generator.count; g++)
             hash = hashText(hash, (*step).generator.items[g]);
         u64 key = hashText(1469598103934665603ull, (*step).output);
         char name[64];
-        snprintf(name, sizeof name, "gen-%016llx", (unsigned long long) key);
+        snprintf(name, sizeof name, "gen-%016llx", (u64) key);
         char expected[32];
-        snprintf(expected, sizeof expected, "%016llx", (unsigned long long) hash);
+        snprintf(expected, sizeof expected, "%016llx", (u64) hash);
         char *sigPath = signaturePath(name);
         char recorded[64] = "";
         bool fresh = access((*step).output, F_OK) == 0 &&
@@ -848,7 +848,7 @@ static bool runGenerated(Graph *graph) {
         if (!made)
             return false;
         Rows argv = {0};
-        for (int g = 0; g < (*step).generator.count; g++)
+        for (i32 g = 0; g < (*step).generator.count; g++)
             rowsPush(&argv, (*step).generator.items[g]);
         bool ok = runRows(&argv);
         rowsFree(&argv);
@@ -876,7 +876,7 @@ static bool buildTarget(Graph *graph, GraphTarget *target) {
     }
     Rows objects = {0};
     bool ok = true;
-    for (int i = 0; i < (*target).sources.count && ok; i++) {
+    for (i32 i = 0; i < (*target).sources.count && ok; i++) {
         char *object = nullptr;
         ok = compileSource(target, (*target).sources.items[i], &object);
         if (ok)
@@ -913,12 +913,12 @@ static bool buildTarget(Graph *graph, GraphTarget *target) {
 
 typedef struct {
     Graph *graph;
-    unsigned char *state;   // 0 unvisited, 1 visiting, 2 planned
-    int *order;
-    int count;
+    u8 *state;   // 0 unvisited, 1 visiting, 2 planned
+    i32 *order;
+    i32 count;
 } Plan;
 
-static bool planVisit(Plan *plan, int index) {
+static bool planVisit(Plan *plan, i32 index) {
     if ((*plan).state[index] == 2)
         return true;
     Graph *graph = (*plan).graph;
@@ -929,11 +929,11 @@ static bool planVisit(Plan *plan, int index) {
     (*plan).state[index] = 1;
     GraphTarget *target = &(*graph).items[index];
     const Rows *edges = &(*target).deps;
-    for (int pass = 0; pass < 2; pass++) {
+    for (i32 pass = 0; pass < 2; pass++) {
         if (pass == 1)
             edges = &(*target).links;
-        for (int i = 0; i < (*edges).count; i++) {
-            int next = targetIndex(graph, (*edges).items[i]);
+        for (i32 i = 0; i < (*edges).count; i++) {
+            i32 next = targetIndex(graph, (*edges).items[i]);
             if (next < 0) {
                 THROW("%s depends on unknown target %s",
                       (*target).name, (*edges).items[i]);
@@ -950,9 +950,9 @@ static bool planVisit(Plan *plan, int index) {
 
 // ── commands ───────────────────────────────────────────────────────────────
 
-static int listCommand(Graph *graph, const char *path) {
-    int targets = 0, tests = 0;
-    for (int i = 0; i < (*graph).count; i++) {
+static i32 listCommand(Graph *graph, const char *path) {
+    i32 targets = 0, tests = 0;
+    for (i32 i = 0; i < (*graph).count; i++) {
         GraphTarget *target = &(*graph).items[i];
         printf("%s %s\n", (*target).isTest ? "test" : "target", (*target).name);
         if ((*target).isTest)
@@ -965,18 +965,18 @@ static int listCommand(Graph *graph, const char *path) {
     return EXIT_SUCCESS;
 }
 
-static int buildCommand(Graph *graph, int argc, char **argv) {
+static i32 buildCommand(Graph *graph, i32 argc, char **argv) {
     Plan plan = {graph, nullptr, nullptr, 0};
     plan.state = Util_allocate((bytes) (*graph).count);
-    plan.order = Util_allocate(((bytes) (*graph).count + 1) * sizeof(int));
-    int status = EXIT_SUCCESS;
+    plan.order = Util_allocate(((bytes) (*graph).count + 1) * sizeof(i32));
+    i32 status = EXIT_SUCCESS;
     bool all = argc == 0;
-    for (int i = 0; i < argc; i++) {
+    for (i32 i = 0; i < argc; i++) {
         if (strcmp(argv[i], "--all") == 0) {
             all = true;
             continue;
         }
-        int index = targetIndex(graph, argv[i]);
+        i32 index = targetIndex(graph, argv[i]);
         if (index < 0) {
             THROW("graph has no target %s", argv[i]);
             status = EXIT_FAILURE;
@@ -986,14 +986,14 @@ static int buildCommand(Graph *graph, int argc, char **argv) {
             status = EXIT_FAILURE;
     }
     if (all) {
-        for (int i = 0; i < (*graph).count; i++)
+        for (i32 i = 0; i < (*graph).count; i++)
             if (!planVisit(&plan, i))
                 status = EXIT_FAILURE;
     }
     if (status == EXIT_SUCCESS && !runGenerated(graph))
         status = EXIT_FAILURE;
     if (status == EXIT_SUCCESS) {
-        for (int i = 0; i < plan.count; i++)
+        for (i32 i = 0; i < plan.count; i++)
             if (!buildTarget(graph, &(*graph).items[plan.order[i]]))
                 status = EXIT_FAILURE;
     }
@@ -1005,12 +1005,12 @@ static int buildCommand(Graph *graph, int argc, char **argv) {
 }
 
 // Build then run one target, forwarding program arguments to it.
-static int runCommand(Graph *graph, const char *name, const Rows *program) {
+static i32 runCommand(Graph *graph, const char *name, const Rows *program) {
     char *requested[1] = {(char*) name};
-    int status = buildCommand(graph, 1, requested);
+    i32 status = buildCommand(graph, 1, requested);
     if (status != EXIT_SUCCESS)
         return status;
-    int index = targetIndex(graph, name);
+    i32 index = targetIndex(graph, name);
     if (index < 0) {
         THROW("graph has no target %s", name);
         return EXIT_FAILURE;
@@ -1018,10 +1018,10 @@ static int runCommand(Graph *graph, const char *name, const Rows *program) {
     char *output = targetOutput(&(*graph).items[index]);
     Rows argv = {0};
     rowsPush(&argv, output);
-    for (int i = 0; i < (*program).count; i++)
+    for (i32 i = 0; i < (*program).count; i++)
         rowsPush(&argv, (*program).items[i]);
     char **list = rowsArgv(&argv);
-    int code = Util_execute(list);
+    i32 code = Util_execute(list);
     Util_release(list);
     rowsFree(&argv);
     Util_release(output);
@@ -1029,9 +1029,9 @@ static int runCommand(Graph *graph, const char *name, const Rows *program) {
 }
 
 // Build the matching tests, then run each binary; 77 is a declared skip.
-static int testCommand(Graph *graph, const char *filter) {
+static i32 testCommand(Graph *graph, const char *filter) {
     Rows names = {0};
-    for (int i = 0; i < (*graph).count; i++) {
+    for (i32 i = 0; i < (*graph).count; i++) {
         if (!(*graph).items[i].isTest)
             continue;
         if (filter != nullptr && strstr((*graph).items[i].name, filter) == nullptr)
@@ -1043,21 +1043,21 @@ static int testCommand(Graph *graph, const char *filter) {
         rowsFree(&names);
         return EXIT_FAILURE;
     }
-    int status = buildCommand(graph, names.count, names.items);
+    i32 status = buildCommand(graph, names.count, names.items);
     if (status != EXIT_SUCCESS) {
         rowsFree(&names);
         return status;
     }
-    int passed = 0, skipped = 0, failed = 0;
-    for (int i = 0; i < names.count; i++) {
-        int index = targetIndex(graph, names.items[i]);
+    i32 passed = 0, skipped = 0, failed = 0;
+    for (i32 i = 0; i < names.count; i++) {
+        i32 index = targetIndex(graph, names.items[i]);
         char *binary = index < 0 ? nullptr : targetOutput(&(*graph).items[index]);
         if (binary == nullptr) {
             failed++;
             continue;
         }
         char *argv[2] = {binary, nullptr};
-        int code = Util_execute(argv);
+        i32 code = Util_execute(argv);
         if (code == 0) {
             passed++;
         } else if (code == 77) {
@@ -1074,17 +1074,17 @@ static int testCommand(Graph *graph, const char *filter) {
 }
 
 // Run a graph command: `b.sh graph list|build|test|run [target...] [--file <path>]`.
-int Graph_command(int argc, char **argv) {
+i32 Graph_command(i32 argc, char **argv) {
     const char *path = ".b/graph.json";
     const char *command = "list";
-    int first = 0;
+    i32 first = 0;
     if (argc > 0 && argv[0][0] != '-') {
         command = argv[0];
         first = 1;
     }
     Rows names = {0};
     Rows program = {0};
-    for (int i = first; i < argc; i++) {
+    for (i32 i = first; i < argc; i++) {
         if (strcmp(argv[i], "--file") == 0 && i + 1 < argc) {
             path = argv[++i];
             continue;
@@ -1109,7 +1109,7 @@ int Graph_command(int argc, char **argv) {
         rowsFree(&program);
         return EXIT_FAILURE;
     }
-    int status;
+    i32 status;
     if (strcmp(command, "list") == 0) {
         status = listCommand(&graph, path);
     } else if (strcmp(command, "build") == 0) {

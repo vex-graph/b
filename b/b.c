@@ -61,7 +61,7 @@ static fn usage() {
 }
 
 // Claim a territory: create the marker, inventory the tree, write the fact file.
-static int generateCommand(int argc, char **argv) {
+static i32 generateCommand(i32 argc, char **argv) {
     if (argc < 2 || argc > 3) {
         THROW("usage: b.sh generate [<directory>]");
         return EXIT_FAILURE;
@@ -70,7 +70,7 @@ static int generateCommand(int argc, char **argv) {
 }
 
 // Parse b.sh commands and forward build, run, inspection, and upload work.
-int main(int argc, char **argv) {
+i32 main(i32 argc, char **argv) {
     if (argc == 1 || (argc == 2 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "help") == 0))) {
         usage();
         return EXIT_SUCCESS;
@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
         BoxManifest *manifest = BoxManifest_load(argv[2]);
         if (manifest == nullptr)
             return EXIT_FAILURE;
-        int status = BoxManifest_export(manifest, argv[3]);
+        i32 status = BoxManifest_export(manifest, argv[3]);
         BoxManifest_free(manifest);
         if (status == 0)
             puts(argv[3]);

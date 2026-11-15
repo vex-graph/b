@@ -30,7 +30,7 @@
 #include <stdlib.h>
 
 // Byte-compile project Python sources with the cache redirected out of source.
-static int buildPython(const char *project, char **output) {
+static i32 buildPython(const char *project, char **output) {
     bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.py", &count, &ok);
@@ -55,7 +55,7 @@ static int buildPython(const char *project, char **output) {
     for (bytes i = 0; i < count; ++i)
         arguments[n++] = sources[i];
     char **environment = Util_environmentWith("PYTHONPYCACHEPREFIX", *output);
-    int status = Util_executeWithEnvironment(arguments, environment);
+    i32 status = Util_executeWithEnvironment(arguments, environment);
     Util_freeEnvironment(environment);
     free(arguments);
     free(directory);
@@ -64,15 +64,15 @@ static int buildPython(const char *project, char **output) {
 }
 
 // Execute the source file with Python and forward the remaining arguments.
-static int runPython(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runPython(const char *file, i32 argc, char **argv, bool buildArtifact) {
     (discard) buildArtifact; // interpreted: instance and exec both run the source
     char **arguments = Util_allocate(((bytes) argc + 3) * sizeof(char*));
     bytes n = 0;
     arguments[n++] = "python3";
     arguments[n++] = (char*) file;
-    for (int i = 0; i < argc; ++i)
+    for (i32 i = 0; i < argc; ++i)
         arguments[n++] = argv[i];
-    int status = Util_execute(arguments);
+    i32 status = Util_execute(arguments);
     free(arguments);
     return status;
 }

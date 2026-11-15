@@ -143,7 +143,7 @@ char *Util_realPath(const char *path, char *resolved) {
 }
 
 // Inspect a path without following a Windows reparse point.
-int Util_lstat(const char *path, struct stat *information) {
+i32 Util_lstat(const char *path, struct stat *information) {
     if (path == nullptr || information == nullptr) {
         errno = EINVAL;
         return -1;
@@ -163,16 +163,16 @@ int Util_lstat(const char *path, struct stat *information) {
 }
 
 // Adapt scandir's comparator to qsort's standard callback signature.
-static int compareEntryPointers(const_any left, const_any right) {
+static i32 compareEntryPointers(const_any left, const_any right) {
     const struct dirent *const *leftEntry = left;
     const struct dirent *const *rightEntry = right;
     return strcmp((*(*leftEntry)).d_name, (*(*rightEntry)).d_name);
 }
 
 // Enumerate directory entries into separately owned records in name order.
-int Util_scandir(const char *directory, struct dirent ***entries,
-                 int (*filter)(const struct dirent *),
-                 int (*compare)(const struct dirent **, const struct dirent **)) {
+i32 Util_scandir(const char *directory, struct dirent ***entries,
+                 i32 (*filter)(const struct dirent *),
+                 i32 (*compare)(const struct dirent **, const struct dirent **)) {
     if (directory == nullptr || entries == nullptr) {
         errno = EINVAL;
         return -1;
@@ -243,17 +243,17 @@ int Util_scandir(const char *directory, struct dirent ***entries,
         }
     }
     *entries = items;
-    return (int) count;
+    return (i32) count;
 }
 
 // Compare directory names in byte order for deterministic inventory results.
-int Util_alphasort(const struct dirent **left, const struct dirent **right) {
+i32 Util_alphasort(const struct dirent **left, const struct dirent **right) {
     return strcmp((*(*left)).d_name, (*(*right)).d_name);
 }
 #endif
 
 // Create exactly one directory; unlike Util_makeDirectory, an existing path fails.
-int Util_createDirectory(const char *path, int mode) {
+i32 Util_createDirectory(const char *path, i32 mode) {
 #ifdef _WIN32
     (discard) mode;
     return _mkdir(path);
@@ -263,7 +263,7 @@ int Util_createDirectory(const char *path, int mode) {
 }
 
 // Set POSIX file mode bits where available; Windows has no executable mode bits.
-int Util_setFileMode(int descriptor, int mode) {
+i32 Util_setFileMode(i32 descriptor, i32 mode) {
 #ifdef _WIN32
     (discard) descriptor;
     (discard) mode;
@@ -281,7 +281,7 @@ bool Util_fileContains(const char *path, const char *needle) {
         return false;
     bool found = false;
     if (fseek(input, 0, SEEK_END) == 0) {
-        long size = ftell(input);
+        i64 size = ftell(input);
         if (size >= 0 && fseek(input, 0, SEEK_SET) == 0) {
             char *text = Util_allocate((bytes) size + 1);
             bytes got = fread(text, 1, (bytes) size, input);
@@ -300,7 +300,7 @@ char *Util_readText(const char *path) {
         return nullptr;
     char *text = nullptr;
     if (fseek(input, 0, SEEK_END) == 0) {
-        long size = ftell(input);
+        i64 size = ftell(input);
         if (size >= 0 && fseek(input, 0, SEEK_SET) == 0) {
             text = Util_allocate((bytes) size + 1);
             if (fread(text, 1, (bytes) size, input) != (bytes) size) {
@@ -320,21 +320,21 @@ bool Util_endsWith(const char *text, const char *suffix) {
 }
 
 // Wait for a child and translate its exit or signal into a process status.
-static int reap(int child) {
+static i32 reap(i32 child) {
 #ifdef _WIN32
     DWORD status = 0;
-    DWORD wait_result = WaitForSingleObject((HANDLE)(intptr_t) child, INFINITE);
+    DWORD wait_result = WaitForSingleObject((HANDLE)(pointer) child, INFINITE);
     if (wait_result != WAIT_OBJECT_0) {
         THROW("cannot wait for child: %lu", GetLastError());
         return EXIT_FAILURE;
     }
-    if (!GetExitCodeProcess((HANDLE)(intptr_t) child, &status)) {
+    if (!GetExitCodeProcess((HANDLE)(pointer) child, &status)) {
         THROW("cannot get exit code: %lu", GetLastError());
         return EXIT_FAILURE;
     }
-    return (int) status;
+    return (i32) status;
 #else
-    int status;
+    i32 status;
     while (waitpid(child, &status, 0) < 0) {
         if (errno == EINTR)
             continue;
@@ -381,7 +381,7 @@ static char *buildCommandLine(char **arguments) {
 #endif
 
 // Spawn an argv command with the supplied environment and return its status.
-int Util_executeWithEnvironment(char **arguments, char **environment) {
+i32 Util_executeWithEnvironment(char **arguments, char **environment) {
 #ifdef _WIN32
     (discard) environment;
     char *cmdline = buildCommandLine(arguments);
@@ -401,12 +401,12 @@ int Util_executeWithEnvironment(char **arguments, char **environment) {
     }
     free(cmdline);
     CloseHandle(pi.hThread);
-    int status = reap((int)(intptr_t) pi.hProcess);
+    i32 status = reap((i32)(pointer) pi.hProcess);
     CloseHandle(pi.hProcess);
     return status;
 #else
     pid_t child;
-    int error = posix_spawnp(&child, arguments[0], nullptr, nullptr, arguments, environment);
+    i32 error = posix_spawnp(&child, arguments[0], nullptr, nullptr, arguments, environment);
     if (error != 0) {
         THROW("cannot launch %s: %s", arguments[0], strerror(error));
         return EXIT_FAILURE;
@@ -416,12 +416,12 @@ int Util_executeWithEnvironment(char **arguments, char **environment) {
 }
 
 // Spawn an argv command with the process's inherited environment.
-int Util_execute(char **arguments) {
+i32 Util_execute(char **arguments) {
     return Util_executeWithEnvironment(arguments, environ);
 }
 
 // Spawn a build command while routing its stdout to stderr for clean path output.
-int Util_executeBuild(char **arguments) {
+i32 Util_executeBuild(char **arguments) {
 #ifdef _WIN32
     char *cmdline = buildCommandLine(arguments);
     if (cmdline == nullptr)
@@ -444,12 +444,12 @@ int Util_executeBuild(char **arguments) {
     }
     free(cmdline);
     CloseHandle(pi.hThread);
-    int status = reap((int)(intptr_t) pi.hProcess);
+    i32 status = reap((i32)(pointer) pi.hProcess);
     CloseHandle(pi.hProcess);
     return status;
 #else
     posix_spawn_file_actions_t actions;
-    int error = posix_spawn_file_actions_init(&actions);
+    i32 error = posix_spawn_file_actions_init(&actions);
     if (error != 0) {
         THROW("cannot initialize build output: %s", strerror(error));
         return EXIT_FAILURE;
@@ -468,7 +468,7 @@ int Util_executeBuild(char **arguments) {
 }
 
 // Append caller arguments to a fixed argv prefix and execute without a shell.
-int Util_runCommand(char **prefix, bytes prefixCount, int argc, char **argv) {
+i32 Util_runCommand(char **prefix, bytes prefixCount, i32 argc, char **argv) {
     bytes limit = SIZE_MAX / sizeof(char*);
     if (prefix == nullptr || prefixCount == 0 || argc < 0 ||
         (bytes) argc >= limit || prefixCount > limit - (bytes) argc - 1 ||
@@ -479,15 +479,15 @@ int Util_runCommand(char **prefix, bytes prefixCount, int argc, char **argv) {
     char **arguments = Util_allocate((prefixCount + (bytes) argc + 1) * sizeof(char*));
     for (bytes i = 0; i < prefixCount; ++i)
         arguments[i] = prefix[i];
-    for (int i = 0; i < argc; ++i)
+    for (i32 i = 0; i < argc; ++i)
         arguments[prefixCount + (bytes) i] = argv[i];
-    int status = Util_execute(arguments);
+    i32 status = Util_execute(arguments);
     free(arguments);
     return status;
 }
 
 // Run a checker once per matched source and return the project path on success.
-int Util_checkSources(const char *project, const char *pattern, char **prefix, bytes prefixCount, char **output) {
+i32 Util_checkSources(const char *project, const char *pattern, char **prefix, bytes prefixCount, char **output) {
     if (project == nullptr || pattern == nullptr || output == nullptr || prefix == nullptr ||
         prefixCount == 0 || prefixCount > SIZE_MAX / sizeof(char*) - 2 || prefix[0] == nullptr) {
         THROW("invalid source checker input or argument count");
@@ -501,7 +501,7 @@ int Util_checkSources(const char *project, const char *pattern, char **prefix, b
     char **arguments = Util_allocate((prefixCount + 2) * sizeof(char*));
     for (bytes i = 0; i < prefixCount; ++i)
         arguments[i] = prefix[i];
-    int status = 0;
+    i32 status = 0;
     for (bytes i = 0; i < count && status == 0; ++i) {
         arguments[prefixCount] = sources[i];
         status = Util_executeBuild(arguments);
@@ -527,11 +527,11 @@ bool Util_makeDirectory(char *path) {
         char saved = *part;
         *part = 0;
 #ifdef _WIN32
-        int error = _mkdir(path); // Windows: create directory, fail on existing.
+        i32 error = _mkdir(path); // Windows: create directory, fail on existing.
         struct _stat info;
         bool valid = error == 0 || (errno == EEXIST && _stat(path, &info) == 0 && (info.st_mode & _S_IFDIR));
 #else
-        int error = mkdir(path, 0755); // POSIX: create directory, fail on existing.
+        i32 error = mkdir(path, 0755); // POSIX: create directory, fail on existing.
         struct stat info;
         bool valid = error == 0 || (errno == EEXIST && stat(path, &info) == 0 && S_ISDIR(info.st_mode));
 #endif
@@ -605,7 +605,7 @@ char *Util_outputDirectory(const char *project) {
     }
     // FNV-1a constants define the path-identity hash, not configurable limits.
     u64 hash = UINT64_C(14695981039346656037);
-    for (const unsigned char *p = (const unsigned char*) project; *p; ++p)
+    for (const u8 *p = (const u8*) project; *p; ++p)
         hash = (hash ^ *p) * UINT64_C(1099511628211);
     char suffix[sizeof "/out/" + sizeof(u64) * 2];
     snprintf(suffix, sizeof suffix, "/out/%016" PRIx64, hash);
@@ -652,7 +652,7 @@ char **Util_collectSources(const char *project, const char *extension, bytes *co
         return nullptr;
     }
     struct dirent **entries = nullptr;
-    int entryCount = Util_scandir(project, &entries, nullptr, Util_alphasort);
+    i32 entryCount = Util_scandir(project, &entries, nullptr, Util_alphasort);
     if (entryCount < 0) {
         THROW("cannot enumerate sources in %s", project);
         return nullptr;
@@ -660,7 +660,7 @@ char **Util_collectSources(const char *project, const char *extension, bytes *co
     char **sources = nullptr;
     bytes total = 0, capacity = 0;
     bool valid = true;
-    for (int index = 0; index < entryCount; ++index) {
+    for (i32 index = 0; index < entryCount; ++index) {
         const char *name = (*entries[index]).d_name;
         bool matches = false;
         const char *selector = pattern + 2;
@@ -727,7 +727,7 @@ char **Util_collectSources(const char *project, const char *extension, bytes *co
         }
         sources[total++] = path;
     }
-    for (int index = 0; index < entryCount; ++index)
+    for (i32 index = 0; index < entryCount; ++index)
         free(entries[index]);
     free(entries);
     if (!valid || total == 0) {
@@ -756,13 +756,13 @@ char **Util_collectSources(const char *project, const char *extension, bytes *co
     char *pattern = Util_combine(escaped, extension);
     free(escaped);
     glob_t files = {0};
-    int flags = 0;
+    i32 flags = 0;
 #ifdef GLOB_BRACE
     // BSD/GNU glob supports native adapter extension sets; directory braces
     // were escaped above and never participate in expansion.
     flags = GLOB_BRACE;
 #endif
-    int found = glob(pattern, flags, nullptr, &files);
+    i32 found = glob(pattern, flags, nullptr, &files);
     free(pattern);
     if (found != 0) {
         THROW("cannot enumerate sources in %s", project);

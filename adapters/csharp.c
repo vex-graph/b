@@ -31,7 +31,7 @@
 #include <stdlib.h>
 
 // Build one .NET file-based C# application into an external managed output path.
-static int compileCsharp(const char *project, const char *file, char **output) {
+static i32 compileCsharp(const char *project, const char *file, char **output) {
     char *directory = Util_outputDirectory(project);
     if (directory == nullptr)
         return EXIT_FAILURE;
@@ -40,20 +40,20 @@ static int compileCsharp(const char *project, const char *file, char **output) {
     char *arguments[] = { "dotnet", "build", (char*) file, "--output", target,
         "--nologo", "--verbosity", "quiet", "-p:AssemblyName=program",
         "-p:UseAppHost=false", nullptr, nullptr };
-    int status = Util_executeBuild(arguments);
+    i32 status = Util_executeBuild(arguments);
     free(target);
     free(directory);
     return status;
 }
 
 // Require exactly one top-level C# source and build it as a file application.
-static int buildCsharp(const char *project, char **output) {
+static i32 buildCsharp(const char *project, char **output) {
     bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.cs", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
-    int status = EXIT_FAILURE;
+    i32 status = EXIT_FAILURE;
     if (count != 1)
         THROW("C# directory build needs exactly one file-based .cs entry; csproj discovery is not implemented");
     else
@@ -63,10 +63,10 @@ static int buildCsharp(const char *project, char **output) {
 }
 
 // Use dotnet's file runner in instance mode or build and launch the DLL in exec mode.
-static int runCsharp(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runCsharp(const char *file, i32 argc, char **argv, bool buildArtifact) {
     char *project = Util_projectDirectory(file);
     char *output = nullptr;
-    int status = buildArtifact ? compileCsharp(project, file, &output) : 0;
+    i32 status = buildArtifact ? compileCsharp(project, file, &output) : 0;
     if (status == 0) {
         char **arguments = Util_allocate(((bytes) argc + 7) * sizeof(char*));
         bytes n = 0;
@@ -80,7 +80,7 @@ static int runCsharp(const char *file, int argc, char **argv, bool buildArtifact
             arguments[n++] = "--no-launch-profile";
             arguments[n++] = "--";
         }
-        for (int i = 0; i < argc; ++i)
+        for (i32 i = 0; i < argc; ++i)
             arguments[n++] = argv[i];
         status = Util_execute(arguments);
         free(arguments);

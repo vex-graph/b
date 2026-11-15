@@ -210,7 +210,7 @@ static bool addFile(TerritoryWalk *walk, const char *root, const char *directory
 // Emit one JSON string, escaping what cannot appear literally in a path.
 static fn escape(FILE *file, const char *text) {
     fputc('"', file);
-    for (const unsigned char *cursor = (const unsigned char*) text; *cursor != '\0'; ++cursor) {
+    for (const u8 *cursor = (const u8*) text; *cursor != '\0'; ++cursor) {
         if (*cursor == '"' || *cursor == '\\') {
             fputc('\\', file);
             fputc(*cursor, file);
@@ -235,13 +235,13 @@ static bool inventory(const char *root, TerritoryWalk *walk) {
         char **directories = (*walk).directories;
         const char *current = directories[index];
         struct dirent **entries = nullptr;
-        int total = scandir(current, &entries, nullptr, alphasort);
+        i32 total = scandir(current, &entries, nullptr, alphasort);
         if (total < 0) {
             THROW("cannot read %s: %s", current, strerror(errno));
             return false;
         }
         bool ok = true;
-        for (int entryIndex = 0; entryIndex < total && ok; ++entryIndex) {
+        for (i32 entryIndex = 0; entryIndex < total && ok; ++entryIndex) {
             struct dirent *entry = entries[entryIndex];
             const char *name = (*entry).d_name;
             if (excluded(name)) {
@@ -291,7 +291,7 @@ static bool inventory(const char *root, TerritoryWalk *walk) {
                 free(path);
             }
         }
-        for (int entryIndex = 0; entryIndex < total; ++entryIndex)
+        for (i32 entryIndex = 0; entryIndex < total; ++entryIndex)
             free(entries[entryIndex]);
         free(entries);
         if (!ok)
@@ -539,7 +539,7 @@ bool Territory_buildAll(const char *startDirectory) {
             continue;
         }
         char *output = nullptr;
-        int status = app ? (*adapter).build(absolute, &output)
+        i32 status = app ? (*adapter).build(absolute, &output)
                          : (*adapter).archive(absolute, &output);
         if (status == 0)
             ++succeeded;
@@ -584,8 +584,8 @@ static char *displayNameOf(const char *name) {
 }
 
 // Release a directory listing that a writer kept alive while reading its sources.
-static fn freeEntries(struct dirent **entries, int total) {
-    for (int index = 0; index < total; ++index)
+static fn freeEntries(struct dirent **entries, i32 total) {
+    for (i32 index = 0; index < total; ++index)
         free(entries[index]);
     free(entries);
 }
@@ -621,7 +621,7 @@ bool Territory_writeAssembly(const char *directory, const char *version, const c
         return false;
     }
     struct dirent **entries = nullptr;
-    int total = scandir(here, &entries, nullptr, alphasort);
+    i32 total = scandir(here, &entries, nullptr, alphasort);
     if (total < 0) {
         THROW("cannot read %s: %s", here, strerror(errno));
         free(path);
@@ -630,7 +630,7 @@ bool Territory_writeAssembly(const char *directory, const char *version, const c
     }
     const Adapter *adapter = nullptr;
     bool mixed = false;
-    for (int index = 0; index < total; ++index) {
+    for (i32 index = 0; index < total; ++index) {
         const Adapter *claimed = Adapter_forFile((*entries[index]).d_name);
         if (claimed == nullptr)
             continue;
@@ -694,7 +694,7 @@ bool Territory_writeAssembly(const char *directory, const char *version, const c
     keyText(file, "entry"); escape(file, entryName); fputs(",\n    ", file);
     keyText(file, "sources"); fputs("[", file);
     bool firstSource = true;
-    for (int index = 0; index < total; ++index) {
+    for (i32 index = 0; index < total; ++index) {
         const Adapter *claimed = Adapter_forFile((*entries[index]).d_name);
         if (claimed == nullptr || (*claimed).build != (*adapter).build)
             continue;

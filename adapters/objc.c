@@ -22,7 +22,7 @@
 #include <stdlib.h>
 
 // Compile Objective-C sources with ARC/Foundation on the supported Apple host.
-static int compileObjc(const char *project, char **sources, bytes count, char **output) {
+static i32 compileObjc(const char *project, char **sources, bytes count, char **output) {
 #ifndef __APPLE__
     (discard) project;
     (discard) sources;
@@ -62,26 +62,26 @@ static int compileObjc(const char *project, char **sources, bytes count, char **
     arguments[n++] = *output;
     for (bytes i = 0; i < count; ++i)
         arguments[n++] = sources[i];
-    int status = Util_executeBuild(arguments);
+    i32 status = Util_executeBuild(arguments);
     free(arguments);
     return status;
 #endif
 }
 
 // Discover top-level Objective-C files and compile them into one program.
-static int buildObjc(const char *project, char **output) {
+static i32 buildObjc(const char *project, char **output) {
     bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.m", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
-    int status = compileObjc(project, sources, count, output);
+    i32 status = compileObjc(project, sources, count, output);
     Util_freeSources(sources, count);
     return status;
 }
 
 // Compile one Objective-C source for exec mode and launch it with caller arguments.
-static int runObjc(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runObjc(const char *file, i32 argc, char **argv, bool buildArtifact) {
     if (!buildArtifact) {
         THROW("Objective-C has no source runtime; use b.sh run exec");
         return EXIT_FAILURE;
@@ -89,7 +89,7 @@ static int runObjc(const char *file, int argc, char **argv, bool buildArtifact) 
     char *project = Util_projectDirectory(file);
     char *output = nullptr;
     char *sources[] = { (char*) file };
-    int status = compileObjc(project, sources, 1, &output);
+    i32 status = compileObjc(project, sources, 1, &output);
     if (status == 0) {
         char *prefix[] = { output };
         status = Util_runCommand(prefix, 1, argc, argv);

@@ -27,13 +27,13 @@ static const char *tool(const char *variable, const char *fallback) {
 }
 
 // Parse-check each top-level Lua file without evaluating it.
-static int buildLua(const char *project, char **output) {
+static i32 buildLua(const char *project, char **output) {
     char *prefix[] = { (char*) tool("LUAC", "luac"), "-p" };
     return Util_checkSources(project, "/*.lua", prefix, 2, output);
 }
 
 // Run a canonicalized Lua script and forward its arguments to the interpreter.
-static int runLua(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runLua(const char *file, i32 argc, char **argv, bool buildArtifact) {
     (discard) buildArtifact;
     char *path = realpath(file, nullptr);
     if (path == nullptr) {
@@ -41,7 +41,7 @@ static int runLua(const char *file, int argc, char **argv, bool buildArtifact) {
         return EXIT_FAILURE;
     }
     char *prefix[] = { (char*) tool("LUA", "lua"), "--", path };
-    int status = Util_runCommand(prefix, 3, argc, argv);
+    i32 status = Util_runCommand(prefix, 3, argc, argv);
     free(path);
     return status;
 }

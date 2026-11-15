@@ -30,7 +30,7 @@
 #include <string.h>
 
 // Compile Java sources into the project's external classes directory.
-static int compileJava(const char *project, char **sources, bytes count, char **output) {
+static i32 compileJava(const char *project, char **sources, bytes count, char **output) {
     char *directory = Util_outputDirectory(project);
     if (directory == nullptr)
         return EXIT_FAILURE;
@@ -46,7 +46,7 @@ static int compileJava(const char *project, char **sources, bytes count, char **
     arguments[n++] = *output;
     for (bytes i = 0; i < count; ++i)
         arguments[n++] = sources[i];
-    int status = Util_execute(arguments);
+    i32 status = Util_execute(arguments);
     free(arguments);
     free(directory);
     return status;
@@ -63,34 +63,34 @@ static char *mainClass(const char *file) {
 }
 
 // Discover top-level Java sources and compile them into the shared classes output.
-static int buildJava(const char *project, char **output) {
+static i32 buildJava(const char *project, char **output) {
     bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.java", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
-    int status = compileJava(project, sources, count, output);
+    i32 status = compileJava(project, sources, count, output);
     Util_freeSources(sources, count);
     return status;
 }
 
 // Launch via the JDK source runner or compile then execute the filename class.
-static int runJava(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runJava(const char *file, i32 argc, char **argv, bool buildArtifact) {
     if (!buildArtifact) {
         char **arguments = Util_allocate(((bytes) argc + 3) * sizeof(char*));
         bytes n = 0;
         arguments[n++] = "java";
         arguments[n++] = (char*) file;
-        for (int i = 0; i < argc; ++i)
+        for (i32 i = 0; i < argc; ++i)
             arguments[n++] = argv[i];
-        int status = Util_execute(arguments);
+        i32 status = Util_execute(arguments);
         free(arguments);
         return status;
     }
     char *project = Util_projectDirectory(file);
     char *output = nullptr;
     char *sources[1] = { (char*) file };
-    int status = compileJava(project, sources, 1, &output);
+    i32 status = compileJava(project, sources, 1, &output);
     if (status == 0) {
         char *main = mainClass(file);
         char **arguments = Util_allocate(((bytes) argc + 5) * sizeof(char*));
@@ -99,7 +99,7 @@ static int runJava(const char *file, int argc, char **argv, bool buildArtifact) 
         arguments[n++] = "-cp";
         arguments[n++] = output;
         arguments[n++] = main;
-        for (int i = 0; i < argc; ++i)
+        for (i32 i = 0; i < argc; ++i)
             arguments[n++] = argv[i];
         status = Util_execute(arguments);
         free(arguments);

@@ -19,13 +19,13 @@
  */
 
 // Syntax-check supported top-level JavaScript module files with Node.
-static int buildJavascript(const char *project, char **output) {
+static i32 buildJavascript(const char *project, char **output) {
     char *prefix[] = { "node", "--check" };
     return Util_checkSources(project, "/*.{js,mjs,cjs}", prefix, 2, output);
 }
 
 // Run the selected JavaScript source with Node and forward program arguments.
-static int runJavascript(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runJavascript(const char *file, i32 argc, char **argv, bool buildArtifact) {
     (discard) buildArtifact;
     char *prefix[] = { "node", (char*) file };
     return Util_runCommand(prefix, 2, argc, argv);

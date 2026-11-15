@@ -212,7 +212,7 @@ static char *boardFromHeader(const char *sketch) {
 }
 
 // Compile for the declared board and optionally return its pinned identifier.
-static int compileSketch(const char *sketch, const char *fqbn, char **output, char **outBoard) {
+static i32 compileSketch(const char *sketch, const char *fqbn, char **output, char **outBoard) {
     char *board = boardFromHeader(sketch);
     if (board == nullptr)
         return EXIT_FAILURE;
@@ -230,7 +230,7 @@ static int compileSketch(const char *sketch, const char *fqbn, char **output, ch
     char *build = Util_combine(directory, "/arduino-build");
     char *arguments[] = { (char*) cli(), "compile", "--fqbn", board,
         "--build-path", build, "--output-dir", *output, (char*) sketch, nullptr, nullptr };
-    int status = Util_executeBuild(arguments);
+    i32 status = Util_executeBuild(arguments);
     free(build);
     free(directory);
     // Pin the admitted board through upload; do not re-read changing metadata.
@@ -242,12 +242,12 @@ static int compileSketch(const char *sketch, const char *fqbn, char **output, ch
 }
 
 // Build the selected sketch using its required b_build board declaration.
-static int buildArduino(const char *project, char **output) {
+static i32 buildArduino(const char *project, char **output) {
     return compileSketch(project, nullptr, output, nullptr);
 }
 
 // Reject host execution because Arduino sketches require an explicit hardware upload.
-static int runArduino(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runArduino(const char *file, i32 argc, char **argv, bool buildArtifact) {
     (discard) file;
     (discard) argc;
     (discard) argv;
@@ -257,14 +257,14 @@ static int runArduino(const char *file, int argc, char **argv, bool buildArtifac
 }
 
 // Validate upload options, compile the sketch, then flash its explicitly chosen port.
-int Arduino_upload(int argc, char **argv) {
+i32 Arduino_upload(i32 argc, char **argv) {
     const char *fqbn = nullptr;
     const char *port = nullptr;
     if (argc < 1) {
         THROW("upload needs a sketch and --port");
         return EXIT_FAILURE;
     }
-    for (int i = 1; i < argc; i += 2) {
+    for (i32 i = 1; i < argc; i += 2) {
         if (i + 1 >= argc || *argv[i + 1] == '\0') {
             THROW("upload flag requires a nonempty value");
             return EXIT_FAILURE;
@@ -287,7 +287,7 @@ int Arduino_upload(int argc, char **argv) {
         return EXIT_FAILURE;
     char *output = nullptr;
     char *board = nullptr;
-    int status = compileSketch(sketch, fqbn, &output, &board);
+    i32 status = compileSketch(sketch, fqbn, &output, &board);
     if (status == 0) {
         char *arguments[] = { (char*) cli(), "upload", "--fqbn", board,
             "--port", (char*) port, "--input-dir", output, sketch, nullptr, nullptr };

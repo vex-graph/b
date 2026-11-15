@@ -30,7 +30,7 @@ static const char *tool() {
 }
 
 // Build one Go file or the selected project package into b.sh's external state.
-static int compileGo(const char *project, const char *file, char **output) {
+static i32 compileGo(const char *project, const char *file, char **output) {
     char *directory = Util_outputDirectory(project);
     if (directory == nullptr)
         return EXIT_FAILURE;
@@ -38,7 +38,7 @@ static int compileGo(const char *project, const char *file, char **output) {
     free(directory);
     char *arguments[] = { (char*) tool(), "-C", (char*) project, "build", "-o", artifact,
         (char*) (file != nullptr ? file : "."), nullptr, nullptr };
-    int status = Util_executeBuild(arguments);
+    i32 status = Util_executeBuild(arguments);
     if (status == 0)
         *output = artifact;
     else
@@ -47,18 +47,18 @@ static int compileGo(const char *project, const char *file, char **output) {
 }
 
 // Build the selected Go package without creating or modifying module metadata.
-static int buildGo(const char *project, char **output) {
+static i32 buildGo(const char *project, char **output) {
     return compileGo(project, nullptr, output);
 }
 
 // Run a Go source file through go run or compile it before native execution.
-static int runGo(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runGo(const char *file, i32 argc, char **argv, bool buildArtifact) {
     char *path = realpath(file, nullptr);
     if (path == nullptr) {
         THROW("Go source cannot be resolved");
         return EXIT_FAILURE;
     }
-    int status;
+    i32 status;
     if (buildArtifact) {
         char *project = Util_projectDirectory(path);
         char *output = nullptr;

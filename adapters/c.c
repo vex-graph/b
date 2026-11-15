@@ -99,7 +99,7 @@ static char **assemblyIncludes(const char *project, bytes *count, bool *ok) {
 static char *baseNameOf(const char *path);
 static char *stemOf(const char *path);
 
-static int compileC(const char *project, char **sources, bytes count, const char *name, char **output) {
+static i32 compileC(const char *project, char **sources, bytes count, const char *name, char **output) {
     if (count > SIZE_MAX / sizeof(char*) - 20) {
         THROW("source argument count overflow");
         return EXIT_FAILURE;
@@ -306,7 +306,7 @@ static int compileC(const char *project, char **sources, bytes count, const char
         arguments[n++] = sources[i];
     for (bytes i = 0; i < depSrcTotal; ++i)
         arguments[n++] = depSources[i];
-    int status = Util_execute(arguments);
+    i32 status = Util_execute(arguments);
     for (bytes i = 0; i < includeCount; ++i)
         free(paths[i]);
     free(paths);
@@ -362,7 +362,7 @@ static char *programEntry(const char *project, bytes *count) {
 
 // Compile one program: the named entry plus every sibling that is not itself an
 // entry. A unit's shared helpers therefore link into each of its programs.
-static int compileEntry(const char *project, const char *entry, char **output) {
+static i32 compileEntry(const char *project, const char *entry, char **output) {
     bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.c", &count, &ok);
@@ -379,7 +379,7 @@ static int compileEntry(const char *project, const char *entry, char **output) {
             chosen[chosenCount++] = sources[i];
     }
     char *stem = stemOf(entry);
-    int status = EXIT_FAILURE;
+    i32 status = EXIT_FAILURE;
     if (chosenCount == 0)
         THROW("no C sources to compile in %s", project);
     else
@@ -391,7 +391,7 @@ static int compileEntry(const char *project, const char *entry, char **output) {
     return status;
 }
 
-static int buildC(const char *project, char **output) {
+static i32 buildC(const char *project, char **output) {
     bytes count = 0;
     bool ok = false;
     char **sources = Util_collectSources(project, "/*.c", &count, &ok);
@@ -401,7 +401,7 @@ static int buildC(const char *project, char **output) {
     for (bytes i = 0; i < count; ++i)
         if (hasEntry(sources[i]))
             ++programs;
-    int status = EXIT_SUCCESS;
+    i32 status = EXIT_SUCCESS;
     if (programs == 0) {
         THROW("unit %s has no program entry; it is a library", project);
         status = EXIT_FAILURE;
@@ -412,7 +412,7 @@ static int buildC(const char *project, char **output) {
         if (!hasEntry(sources[i]))
             continue;
         char *one = nullptr;
-        int result = compileEntry(project, sources[i], &one);
+        i32 result = compileEntry(project, sources[i], &one);
         if (result != 0) {
             status = result;
             free(one);
@@ -440,7 +440,7 @@ static int buildC(const char *project, char **output) {
 }
 
 // Compile a source entry for exec mode and launch it with the caller's arguments.
-static int runC(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runC(const char *file, i32 argc, char **argv, bool buildArtifact) {
     if (!buildArtifact) {
         THROW("C has no source runtime; use b.sh run exec to compile then launch");
         return EXIT_FAILURE;
@@ -463,13 +463,13 @@ static int runC(const char *file, int argc, char **argv, bool buildArtifact) {
         }
     }
     char *output = nullptr;
-    int status = EXIT_FAILURE;
+    i32 status = EXIT_FAILURE;
     if (entry != nullptr)
         status = compileEntry(project, entry, &output);
     if (status == 0) {
         char **arguments = Util_allocate(((bytes) argc + 2) * sizeof(char*));
         arguments[0] = output;
-        for (int i = 0; i < argc; ++i)
+        for (i32 i = 0; i < argc; ++i)
             arguments[i + 1] = argv[i];
         status = Util_execute(arguments);
         free(arguments);

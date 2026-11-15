@@ -8,8 +8,8 @@
 // STRUCT FIELDS:
 //   const char *name       CLI adapter name ("c", "cmake", "npm", ...)
 //   const char *extension  file selector: suffix, exact manifest basename or null
-//   int (*build)(project, output)          compile a directory's sources
-//   int (*run)(file, argc, argv, buildArtifact)  run one file
+//   i32 (*build)(project, output)          compile a directory's sources
+//   i32 (*run)(file, argc, argv, buildArtifact)  run one file
 //   const char *tools          comma-separated executable requirements
 //   const char *capabilities   human-readable supported operations
 
@@ -29,15 +29,15 @@
  * const char *name — CLI adapter name.
  * const char *extension — file selector: leading dot means suffix; otherwise
  *     exact basename (Cargo.toml/package.json); nullptr disables file discovery.
- * int (*build)(const char *project, char **output) — build/check a directory;
+ * i32 (*build)(const char *project, char **output) — build/check a directory;
  *     output is allocated on success and released by the caller.
- * int (*run)(const char *file, int argc, char **argv, bool buildArtifact) —
+ * i32 (*run)(const char *file, i32 argc, char **argv, bool buildArtifact) —
  *     direct runtime or compile-then-run operation, with borrowed arguments.
  * const char *tools — comma-separated tools; ENV=default permits an override.
  * const char *capabilities — adapter-owned operation/scope description.
  * char *(*entry)(const char *project) — owned path of the source file holding the
  *     program entry point; nullptr means none (library or interpreted units).
- * int (*archive)(const char *project, char **output) — build a library unit into
+ * i32 (*archive)(const char *project, char **output) — build a library unit into
  *     its archive; output is allocated on success, nullptr means the adapter has
  *     no library form and the unit is reported as skipped.
  * PUBLIC: Adapter_forName; Adapter_forFile; Adapter_count; Adapter_at
@@ -51,12 +51,12 @@
 typedef struct Adapter {
     const char *name;
     const char *extension;
-    int (*build)(const char *project, char **output);
-    int (*run)(const char *file, int argc, char **argv, bool buildArtifact);
+    i32 (*build)(const char *project, char **output);
+    i32 (*run)(const char *file, i32 argc, char **argv, bool buildArtifact);
     const char *tools;
     const char *capabilities;
     char *(*entry)(const char *project);
-    int (*archive)(const char *project, char **output);
+    i32 (*archive)(const char *project, char **output);
 } Adapter;
 
 const Adapter *Adapter_forName(const char *name);

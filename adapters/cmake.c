@@ -24,7 +24,7 @@
 #include <sys/stat.h>
 
 // Configure and build a declared CMake project in b.sh's external build directory.
-static int buildCmake(const char *project, char **output) {
+static i32 buildCmake(const char *project, char **output) {
     char *manifest = Util_combine(project, "/CMakeLists.txt");
     struct stat info;
     bool valid = stat(manifest, &info) == 0 && S_ISREG(info.st_mode);
@@ -39,7 +39,7 @@ static int buildCmake(const char *project, char **output) {
     *output = Util_combine(directory, "/cmake");
     free(directory);
     char *configure[] = { "cmake", "-S", (char*) project, "-B", *output, nullptr, nullptr };
-    int status = Util_executeBuild(configure);
+    i32 status = Util_executeBuild(configure);
     if (status == 0) {
         char *build[] = { "cmake", "--build", *output, nullptr, nullptr };
         status = Util_executeBuild(build);
@@ -48,7 +48,7 @@ static int buildCmake(const char *project, char **output) {
 }
 
 // Reject source execution because CMake does not identify a unique runnable target.
-static int runCmake(const char *file, int argc, char **argv, bool buildArtifact) {
+static i32 runCmake(const char *file, i32 argc, char **argv, bool buildArtifact) {
     (discard) file;
     (discard) argc;
     (discard) argv;
