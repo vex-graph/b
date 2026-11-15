@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/objc.h"
 #include "b.h"
 

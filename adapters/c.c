@@ -45,7 +45,6 @@ static char *joinPath(const char *directory, const char *name) {
  * No owned class state; temporary argv/path/source lists are freed per call.
  */
 
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 

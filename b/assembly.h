@@ -1,7 +1,7 @@
 #ifndef ASSEMBLY_H
 #define ASSEMBLY_H
 
-#include <stdbool.h>
+#include "vex.h"
 #include <stdio.h>
 
 /* Load and validate b.assembly.json against workspace.json.

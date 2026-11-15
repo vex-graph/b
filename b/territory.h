@@ -33,7 +33,6 @@
  * claim leaves no workspace file behind.
  */
 
-#include <stdbool.h>
 
 char *Territory_find(const char *startDirectory);
 char *Territory_workspacePath(const char *root);

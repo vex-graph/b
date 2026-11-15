@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "inspect.h"
 #include "b.h"
 #include "adapters/lang/adapter.h"

@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/javascript.h"
 #include "b.h"
 

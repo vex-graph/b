@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/sql.h"
 #include "b.h"
 

@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/npm.h"
 #include "b.h"
 

@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/typescript.h"
 #include "b.h"
 

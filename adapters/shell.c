@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/shell.h"
 #include "b.h"
 

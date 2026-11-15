@@ -16,7 +16,6 @@
 #include <unistd.h>
 
 
-#include "vex.h"
 
 ;;DEFINITION
 /* The mode word is the verb's whole decision. exec builds the artifact first;

@@ -1,7 +1,7 @@
 #ifndef BUILD_H
 #define BUILD_H
 
-#include <stdbool.h>
+#include "vex.h"
 #include <stdio.h>
 
 /* Build a single source file into .b/out/<name> using assembly.json for

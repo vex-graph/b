@@ -1,5 +1,5 @@
+#include "vex.h"
 #include "b.h"
-#include "util/platform.h"
 
 ;;DEFINITION
 /* New command/check helpers reject invalid cold inputs before array access.

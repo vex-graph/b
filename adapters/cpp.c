@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/cpp.h"
 #include "b.h"
 
@@ -17,7 +18,6 @@
  * Temporary paths/source lists/argv freed; native child status preserved.
  */
 
-#include <stdint.h>
 #include <stdlib.h>
 
 // Compile the provided C++23 sources into one external native executable.

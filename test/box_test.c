@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "box.h"
 #include "b.h"
 

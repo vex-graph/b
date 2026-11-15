@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/zig.h"
 #include "b.h"
 

@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/php.h"
 #include "b.h"
 

@@ -16,7 +16,6 @@
 #include "adapters/lang/adapter.h"
 #include "b.h"
 
-#include "vex.h"
 
 ;;DEFINITION
 /* The walk is cold and total: every directory under the claimed root is read

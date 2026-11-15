@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/html.h"
 #include "b.h"
 

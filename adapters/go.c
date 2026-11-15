@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/go.h"
 #include "b.h"
 

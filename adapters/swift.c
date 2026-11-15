@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/swift.h"
 #include "b.h"
 
@@ -16,7 +17,6 @@
  * Paths/argv are temporary, source strings borrowed; child exit status propagates.
  */
 
-#include <stdint.h>
 #include <stdlib.h>
 
 // Compile the supplied Swift sources into an external native executable.

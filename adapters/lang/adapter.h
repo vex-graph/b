@@ -47,8 +47,6 @@
  * No ownership transfer of records; no allocation during registry lookup.
  */
 
-#include <stdbool.h>
-#include <stddef.h>
 
 typedef struct Adapter {
     const char *name;

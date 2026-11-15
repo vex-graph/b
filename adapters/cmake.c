@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/cmake.h"
 #include "b.h"
 

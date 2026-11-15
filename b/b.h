@@ -34,8 +34,6 @@
  * No owned class or persistent state; callers release successful allocations.
  */
 
-#include <stdbool.h>
-#include <stddef.h>
 #include <stdio.h>
 
 #ifdef _WIN32

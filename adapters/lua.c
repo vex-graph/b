@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/lua.h"
 #include "b.h"
 

@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/cargo.h"
 #include "b.h"
 

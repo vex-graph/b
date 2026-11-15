@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/metal.h"
 #include "b.h"
 

@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/glsl.h"
 #include "b.h"
 

@@ -1,3 +1,4 @@
+#include "vex.h"
 #include "adapters/lang/workspace.h"
 #include "adapters/lang/adapter.h"
 #include "b.h"
@@ -27,7 +28,6 @@
  */
 #include <dirent.h>
 #include <errno.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
