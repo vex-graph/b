@@ -5,6 +5,13 @@
 /* Defined below; used by both the unit and the dependency compiles. */
 static fn appendExternalIncludes(char *command, bytes capacity, bytes *length);
 
+/* A source defines a program entry when it declares main. The ecosystem spells
+ * the return type `i32`; a vendored or generated file may still say `int`. */
+static bool textDefinesEntry(const char *text)
+{
+    return strstr(text, "int main(") != nullptr || strstr(text, "i32 main(") != nullptr;
+}
+
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -385,7 +392,7 @@ static fn appendDependencyObjects(char *objects, bytes capacity, bytes *used,
         bytes read = fread(contents, 1, sizeof(contents) - 1, source);
         contents[read] = '\0';
         fclose(source);
-        if (strstr(contents, "int main(") != nullptr)
+        if (textDefinesEntry(contents))
             continue;
 
         const char *relative = line;
@@ -661,7 +668,7 @@ bool Build_file(const char *source_path, const char *assembly_path,
                 bytes length = fread(text, 1, sizeof(text) - 1, probe);
                 text[length] = '\0';
                 fclose(probe);
-                definesMain = strstr(text, "int main(") != nullptr;
+                definesMain = textDefinesEntry(text);
             }
             if (isEntry || !definesMain)
             {
