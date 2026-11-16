@@ -23,6 +23,9 @@ static char *joinPath(const char *directory, const char *name) {
     return path;
 }
 
+;;GETTER
+static inline const char *dirent_d_name(const struct dirent *self) { return (*self).d_name; }
+
 ;;DEFINITION
 /* C compilation produces one native executable from supplied sources, using
  * the selected CC executable, strict C23 warnings and platform baseline flags.
@@ -140,14 +143,15 @@ static i32 compileC(const char *project, char **sources, bytes count, const char
             bytes subCount = 0;
             rewinddir(dir);
             while ((e = readdir(dir)) != nullptr) {
-                if (strcmp((*e).d_name, ".") == 0 || strcmp((*e).d_name, "..") == 0) continue;
-                char *full = joinPath(cur, (*e).d_name);
+                const char *name = dirent_d_name(e);
+                if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) continue;
+                char *full = joinPath(cur, name);
                 struct stat st;
                 if (stat(full, &st) == 0 && S_ISDIR(st.st_mode)) {
                     if (subCount < 256) subdirs[subCount++] = full;
                     else free(full);
                 } else if (stat(full, &st) == 0 && S_ISREG(st.st_mode)) {
-                    char *ext = strrchr((*e).d_name, '.');
+                    char *ext = strrchr(name, '.');
                     if (ext && strcmp(ext, ".h") == 0) hasHeader = true;
                     if (ext && strcmp(ext, ".c") == 0) hasC = true;
                     free(full);

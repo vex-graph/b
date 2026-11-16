@@ -97,6 +97,9 @@ static bool glob_match(const char *pattern, const char *str)
     return (*pattern == '\0' && *str == '\0');
 }
 
+;;GETTER
+static inline const char *dirent_d_name(const struct dirent *self) { return (*self).d_name; }
+
 /* Recursive directory walk collecting files matching glob pattern. */
 static fn walk_glob(const char *dir, const char *pattern, const char *prefix,
                       char items[][512], bytes *n, bytes max)
@@ -107,10 +110,11 @@ static fn walk_glob(const char *dir, const char *pattern, const char *prefix,
     struct dirent *e;
     while ((e = readdir(d)) != nullptr)
     {
-        if (strcmp((*e).d_name, ".") == 0 || strcmp((*e).d_name, "..") == 0)
+        const char *name = dirent_d_name(e);
+        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
             continue;
         char full[4096];
-        snprintf(full, sizeof(full), "%s/%s", dir, (*e).d_name);
+        snprintf(full, sizeof(full), "%s/%s", dir, name);
         struct stat st;
         if (stat(full, &st) != 0)
             continue;
@@ -1175,19 +1179,42 @@ static bool walkWorkspace(const char *text, bool (*fn)(any , const char *, const
     return true;
 }
 
+;;GETTER
+static inline bytes WorkspaceBuild_headerCount(const WorkspaceBuild *self) { return (*self).headerCount; }
+;;SETTER
+static inline fn WorkspaceBuild_setHeaderCount(WorkspaceBuild *self, bytes count) { (*self).headerCount = count; }
+;;GETTER
+static inline char **WorkspaceBuild_headerDirectories(const WorkspaceBuild *self) { return (*self).headerDirectories; }
+;;SETTER
+static inline fn WorkspaceBuild_setHeaderDirectories(WorkspaceBuild *self, char **dirs) { (*self).headerDirectories = dirs; }
+;;GETTER
+static inline const char *WorkspaceBuild_root(const WorkspaceBuild *self) { return (*self).root; }
+;;GETTER
+static inline bytes WorkspaceBuild_compiled(const WorkspaceBuild *self) { return (*self).compiled; }
+;;SETTER
+static inline fn WorkspaceBuild_setCompiled(WorkspaceBuild *self, bytes compiled) { (*self).compiled = compiled; }
+;;GETTER
+static inline bytes WorkspaceBuild_failed(const WorkspaceBuild *self) { return (*self).failed; }
+;;SETTER
+static inline fn WorkspaceBuild_setFailed(WorkspaceBuild *self, bytes failed) { (*self).failed = failed; }
+
 static bool rememberHeaderDirectory(WorkspaceBuild *build, const char *directory)
 {
-    for (bytes index = 0; index < (*build).headerCount; ++index)
-        if (strcmp((*build).headerDirectories[index], directory) == 0)
+    bytes count = WorkspaceBuild_headerCount(build);
+    char **dirs = WorkspaceBuild_headerDirectories(build);
+    for (bytes index = 0; index < count; ++index)
+        if (strcmp(dirs[index], directory) == 0)
             return true;
-    any grown = realloc((*build).headerDirectories, ((*build).headerCount + 1) * sizeof(char*));
+    any grown = realloc(dirs, (count + 1) * sizeof(char*));
     if (grown == nullptr)
         return false;
-    (*build).headerDirectories = grown;
-    (*build).headerDirectories[(*build).headerCount] = strdup(directory);
-    if ((*build).headerDirectories[(*build).headerCount] == nullptr)
+    WorkspaceBuild_setHeaderDirectories(build, grown);
+    dirs = WorkspaceBuild_headerDirectories(build);
+    char *copy = strdup(directory);
+    if (copy == nullptr)
         return false;
-    (*build).headerCount += 1;
+    dirs[count] = copy;
+    WorkspaceBuild_setHeaderCount(build, count + 1);
     return true;
 }
 
@@ -1205,7 +1232,7 @@ static bool scanHeaderDirectories(WorkspaceBuild *build, const char *absolute, c
     struct dirent *entry;
     while ((entry = readdir(directory)) != nullptr)
     {
-        const char *name = (*entry).d_name;
+        const char *name = dirent_d_name(entry);
         if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
             continue;
         if (strcmp(name, ".git") == 0 || strcmp(name, ".b") == 0 || strcmp(name, "node_modules") == 0)
@@ -1296,9 +1323,10 @@ static bool compileSource(any context, const char *directory, const char *name)
     char source[4096];
     char objectDirectory[4096];
     char object[4096];
-    snprintf(source, sizeof(source), "%s/%s/%s", (*build).root,
+    const char *root = WorkspaceBuild_root(build);
+    snprintf(source, sizeof(source), "%s/%s/%s", root,
              strcmp(directory, ".") == 0 ? "" : directory, name);
-    snprintf(objectDirectory, sizeof(objectDirectory), "%s/.b/obj/%s", (*build).root,
+    snprintf(objectDirectory, sizeof(objectDirectory), "%s/.b/obj/%s", root,
              strcmp(directory, ".") == 0 ? "root" : directory);
     snprintf(object, sizeof(object), "%s/%.*s.o", objectDirectory,
              (i32) (dot - name), name);
@@ -1334,7 +1362,7 @@ static bool compileSource(any context, const char *directory, const char *name)
     while (walked[0] != '\0')
     {
         char ancestor[4096];
-        snprintf(ancestor, sizeof(ancestor), "%s/%s", (*build).root, walked);
+        snprintf(ancestor, sizeof(ancestor), "%s/%s", root, walked);
         length += (bytes) snprintf(command + length, sizeof(command) - length, " -I");
         appendQuoted(command, sizeof(command), &length, ancestor);
         char *cut = strrchr(walked, '/');
@@ -1343,26 +1371,28 @@ static bool compileSource(any context, const char *directory, const char *name)
         *cut = '\0';
     }
     char localDirectory[4096];
-    snprintf(localDirectory, sizeof(localDirectory), "%s", (*build).root);
+    snprintf(localDirectory, sizeof(localDirectory), "%s", root);
     length += (bytes) snprintf(command + length, sizeof(command) - length, " -I");
     appendQuoted(command, sizeof(command), &length, localDirectory);
 
     char rootInclude[4096];
-    snprintf(rootInclude, sizeof(rootInclude), "%s", (*build).root);
+    snprintf(rootInclude, sizeof(rootInclude), "%s", root);
     length += (bytes) snprintf(command + length, sizeof(command) - length, " -I");
     appendQuoted(command, sizeof(command), &length, rootInclude);
-    for (bytes index = 0; index < (*build).headerCount; ++index)
+    bytes headerCount = WorkspaceBuild_headerCount(build);
+    char *const *headerDirectories = WorkspaceBuild_headerDirectories(build);
+    for (bytes index = 0; index < headerCount; ++index)
     {
         char include[4096];
-        snprintf(include, sizeof(include), "%s/%s", (*build).root, (*build).headerDirectories[index]);
+        snprintf(include, sizeof(include), "%s/%s", root, headerDirectories[index]);
         length += (bytes) snprintf(command + length, sizeof(command) - length, " -I");
         appendQuoted(command, sizeof(command), &length, include);
     }
 
     if (system(command) == 0)
-        (*build).compiled += 1;
+        WorkspaceBuild_setCompiled(build, WorkspaceBuild_compiled(build) + 1);
     else
-        (*build).failed += 1;
+        WorkspaceBuild_setFailed(build, WorkspaceBuild_failed(build) + 1);
     return true;
 }
 
@@ -1418,7 +1448,7 @@ bool Build_workspace(const char *workspacePath, FILE *out)
         struct dirent *entry;
         while ((entry = readdir(top)) != nullptr)
         {
-            const char *name = (*entry).d_name;
+            const char *name = dirent_d_name(entry);
             if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
                 continue;
             if (strcmp(name, ".git") == 0 || strcmp(name, ".b") == 0 || strcmp(name, "node_modules") == 0)

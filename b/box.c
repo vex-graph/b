@@ -264,6 +264,87 @@ static bool parseSchemaVersion(const char **cursor, i32 *out) {
     return parseInteger(cursor, "schemaVersion", out);
 }
 
+;;GETTER
+static inline const char *dirent_d_name(const struct dirent *self) { return (*self).d_name; }
+;;GETTER
+static inline i32 *BoxManifest_schemaVersionPtr(BoxManifest *self) { return &(*self).schemaVersion; }
+;;SETTER
+static inline fn BoxManifest_setSchemaVersion(BoxManifest *self, i32 v) { (*self).schemaVersion = v; }
+;;GETTER
+static inline char *BoxManifest_baseDirectory(const BoxManifest *self) { return (*self).baseDirectory; }
+;;SETTER
+static inline fn BoxManifest_setBaseDirectory(BoxManifest *self, char *v) { (*self).baseDirectory = v; }
+;;GETTER
+static inline char *BoxManifest_identifier(const BoxManifest *self) { return (*self).identifier; }
+;;GETTER
+static inline char **BoxManifest_identifierPtr(BoxManifest *self) { return &(*self).identifier; }
+;;GETTER
+static inline char *BoxManifest_name(const BoxManifest *self) { return (*self).name; }
+;;GETTER
+static inline char **BoxManifest_namePtr(BoxManifest *self) { return &(*self).name; }
+;;GETTER
+static inline char *BoxManifest_version(const BoxManifest *self) { return (*self).version; }
+;;GETTER
+static inline char **BoxManifest_versionPtr(BoxManifest *self) { return &(*self).version; }
+;;GETTER
+static inline char *BoxManifest_publisher(const BoxManifest *self) { return (*self).publisher; }
+;;GETTER
+static inline char **BoxManifest_publisherPtr(BoxManifest *self) { return &(*self).publisher; }
+;;GETTER
+static inline char *BoxManifest_description(const BoxManifest *self) { return (*self).description; }
+;;GETTER
+static inline char **BoxManifest_descriptionPtr(BoxManifest *self) { return &(*self).description; }
+;;GETTER
+static inline char *BoxManifest_license(const BoxManifest *self) { return (*self).license; }
+;;GETTER
+static inline char **BoxManifest_licensePtr(BoxManifest *self) { return &(*self).license; }
+;;GETTER
+static inline char *BoxManifest_homepage(const BoxManifest *self) { return (*self).homepage; }
+;;GETTER
+static inline char **BoxManifest_homepagePtr(BoxManifest *self) { return &(*self).homepage; }
+;;GETTER
+static inline char *BoxManifest_icon(const BoxManifest *self) { return (*self).icon; }
+;;GETTER
+static inline char **BoxManifest_iconPtr(BoxManifest *self) { return &(*self).icon; }
+;;GETTER
+static inline char *BoxManifest_entry(const BoxManifest *self) { return (*self).entry; }
+;;GETTER
+static inline char **BoxManifest_entryPtr(BoxManifest *self) { return &(*self).entry; }
+;;GETTER
+static inline char *BoxManifest_statePolicy(const BoxManifest *self) { return (*self).statePolicy; }
+;;GETTER
+static inline char **BoxManifest_statePolicyPtr(BoxManifest *self) { return &(*self).statePolicy; }
+;;SETTER
+static inline fn BoxManifest_setStatePolicy(BoxManifest *self, char *v) { (*self).statePolicy = v; }
+;;GETTER
+static inline char **BoxManifest_authors(const BoxManifest *self) { return (*self).authors; }
+;;GETTER
+static inline char ***BoxManifest_authorsPtr(BoxManifest *self) { return &(*self).authors; }
+;;GETTER
+static inline bytes BoxManifest_authorCount(const BoxManifest *self) { return (*self).authorCount; }
+;;GETTER
+static inline bytes *BoxManifest_authorCountPtr(BoxManifest *self) { return &(*self).authorCount; }
+;;GETTER
+static inline char **BoxManifest_sources(const BoxManifest *self) { return (*self).sources; }
+;;GETTER
+static inline char ***BoxManifest_sourcesPtr(BoxManifest *self) { return &(*self).sources; }
+;;GETTER
+static inline char **BoxManifest_destinations(const BoxManifest *self) { return (*self).destinations; }
+;;GETTER
+static inline char ***BoxManifest_destinationsPtr(BoxManifest *self) { return &(*self).destinations; }
+;;GETTER
+static inline bytes BoxManifest_fileCount(const BoxManifest *self) { return (*self).fileCount; }
+;;SETTER
+static inline fn BoxManifest_setFileCount(BoxManifest *self, bytes v) { (*self).fileCount = v; }
+;;GETTER
+static inline char **BoxManifest_formats(const BoxManifest *self) { return (*self).formats; }
+;;GETTER
+static inline char ***BoxManifest_formatsPtr(BoxManifest *self) { return &(*self).formats; }
+;;GETTER
+static inline bytes BoxManifest_formatCount(const BoxManifest *self) { return (*self).formatCount; }
+;;GETTER
+static inline bytes *BoxManifest_formatCountPtr(BoxManifest *self) { return &(*self).formatCount; }
+
 // Parse the application object and copy its declared fields.
 static bool parseApplication(const char **cursor, BoxManifest *manifest) {
     if (!expectCharacter(cursor, '{', "application"))
@@ -289,35 +370,35 @@ static bool parseApplication(const char **cursor, BoxManifest *manifest) {
         bool *seen = nullptr;
         if (strcmp(key, "id") == 0) {
             field = "application.id";
-            target = &(*manifest).identifier;
+            target = BoxManifest_identifierPtr(manifest);
             seen = &identifierSeen;
         } else if (strcmp(key, "name") == 0) {
             field = "application.name";
-            target = &(*manifest).name;
+            target = BoxManifest_namePtr(manifest);
             seen = &nameSeen;
         } else if (strcmp(key, "version") == 0) {
             field = "application.version";
-            target = &(*manifest).version;
+            target = BoxManifest_versionPtr(manifest);
             seen = &versionSeen;
         } else if (strcmp(key, "publisher") == 0) {
             field = "application.publisher";
-            target = &(*manifest).publisher;
+            target = BoxManifest_publisherPtr(manifest);
             seen = &publisherSeen;
         } else if (strcmp(key, "description") == 0) {
             field = "application.description";
-            target = &(*manifest).description;
+            target = BoxManifest_descriptionPtr(manifest);
             seen = &descriptionSeen;
         } else if (strcmp(key, "license") == 0) {
             field = "application.license";
-            target = &(*manifest).license;
+            target = BoxManifest_licensePtr(manifest);
             seen = &licenseSeen;
         } else if (strcmp(key, "homepage") == 0) {
             field = "application.homepage";
-            target = &(*manifest).homepage;
+            target = BoxManifest_homepagePtr(manifest);
             seen = &homepageSeen;
         } else if (strcmp(key, "icon") == 0) {
             field = "application.icon";
-            target = &(*manifest).icon;
+            target = BoxManifest_iconPtr(manifest);
             seen = &iconSeen;
         }
         if (target != nullptr) {
@@ -338,7 +419,7 @@ static bool parseApplication(const char **cursor, BoxManifest *manifest) {
                 return false;
             }
             authorsSeen = true;
-            bool parsed = parseStringArray(cursor, "application.authors", &(*manifest).authors, &(*manifest).authorCount);
+            bool parsed = parseStringArray(cursor, "application.authors", BoxManifest_authorsPtr(manifest), BoxManifest_authorCountPtr(manifest));
             free(key);
             if (!parsed)
                 return false;
@@ -454,7 +535,7 @@ static bool parsePayload(const char **cursor, BoxManifest *manifest) {
                 parsed = false;
             } else {
                 entrySeen = true;
-                parsed = parseString(cursor, "payload.entry", &(*manifest).entry);
+                parsed = parseString(cursor, "payload.entry", BoxManifest_entryPtr(manifest));
             }
         } else if (strcmp(key, "files") == 0) {
             if (filesSeen) {
@@ -471,8 +552,8 @@ static bool parsePayload(const char **cursor, BoxManifest *manifest) {
                     } else {
                         // sources and destinations are parallel lists: keep separate
                         // counters so each entry lands at the same index.
-                        bytes sourceCount = (*manifest).fileCount;
-                        bytes destinationCount = (*manifest).fileCount;
+                        bytes sourceCount = BoxManifest_fileCount(manifest);
+                        bytes destinationCount = sourceCount;
                         while (true) {
                             char *source = nullptr, *destination = nullptr;
                             if (!parseFileEntry(cursor, &source, &destination)) {
@@ -481,21 +562,22 @@ static bool parsePayload(const char **cursor, BoxManifest *manifest) {
                                 parsed = false;
                                 break;
                             }
-                            if (!appendText(&(*manifest).sources, &sourceCount, source)) {
+                            if (!appendText(BoxManifest_sourcesPtr(manifest), &sourceCount, source)) {
                                 free(source);
                                 free(destination);
                                 parsed = false;
                                 break;
                             }
-                            if (!appendText(&(*manifest).destinations, &destinationCount, destination)) {
-                                free((*manifest).sources[sourceCount - 1]);
-                                (*manifest).sources[sourceCount - 1] = nullptr;
+                            if (!appendText(BoxManifest_destinationsPtr(manifest), &destinationCount, destination)) {
+                                char **sources = BoxManifest_sources(manifest);
+                                free(sources[sourceCount - 1]);
+                                sources[sourceCount - 1] = nullptr;
                                 sourceCount -= 1;
                                 free(destination);
                                 parsed = false;
                                 break;
                             }
-                            (*manifest).fileCount = sourceCount;
+                            BoxManifest_setFileCount(manifest, sourceCount);
                             position = skipSpace(*cursor);
                             if (*position == ',') {
                                 *cursor = position + 1;
@@ -572,7 +654,7 @@ static bool parseRoot(const char **cursor, BoxManifest *manifest) {
                 parsed = false;
             } else {
                 versionSeen = true;
-                parsed = parseSchemaVersion(cursor, &(*manifest).schemaVersion);
+                parsed = parseSchemaVersion(cursor, BoxManifest_schemaVersionPtr(manifest));
             }
         } else if (strcmp(key, "application") == 0) {
             if (applicationSeen) {
@@ -604,7 +686,7 @@ static bool parseRoot(const char **cursor, BoxManifest *manifest) {
                 parsed = false;
             } else {
                 formatsSeen = true;
-                parsed = parseStringArray(cursor, "formats", &(*manifest).formats, &(*manifest).formatCount);
+                parsed = parseStringArray(cursor, "formats", BoxManifest_formatsPtr(manifest), BoxManifest_formatCountPtr(manifest));
             }
         } else if (strcmp(key, "statePolicy") == 0) {
             if (stateSeen) {
@@ -612,7 +694,7 @@ static bool parseRoot(const char **cursor, BoxManifest *manifest) {
                 parsed = false;
             } else {
                 stateSeen = true;
-                parsed = parseString(cursor, "statePolicy", &(*manifest).statePolicy);
+                parsed = parseString(cursor, "statePolicy", BoxManifest_statePolicyPtr(manifest));
             }
         } else {
             THROW("manifest: unknown root key: %s", key);
@@ -722,12 +804,14 @@ static bool validateRelativePath(const char *text, const char *field) {
 
 // Validate the requested export formats against the known id set.
 static bool validateFormats(const BoxManifest *self, const char *field) {
-    if ((*self).formatCount == 0) {
+    bytes formatCount = BoxManifest_formatCount(self);
+    if (formatCount == 0) {
         THROW("manifest: formats must declare at least one export format");
         return false;
     }
-    for (bytes index = 0; index < (*self).formatCount; ++index) {
-        const char *format = (*self).formats[index];
+    char **formats = BoxManifest_formats(self);
+    for (bytes index = 0; index < formatCount; ++index) {
+        const char *format = formats[index];
         if (format == nullptr || *format == '\0' || strlen(format) > BOX_FORMAT_MAX) {
             THROW("manifest: formats contains an invalid entry");
             return false;
@@ -753,17 +837,20 @@ static const char *baseNameOf(const char *path) {
 
 // Require every declared payload destination to be distinct before exporting.
 static bool validateDestinations(const BoxManifest *self) {
-    const char *entryName = baseNameOf((*self).entry);
-    for (bytes index = 0; index < (*self).fileCount; ++index) {
-        const char *destination = (*self).destinations[index] != nullptr
-            ? (*self).destinations[index] : baseNameOf((*self).sources[index]);
+    const char *entryName = baseNameOf(BoxManifest_entry(self));
+    bytes fileCount = BoxManifest_fileCount(self);
+    char **sources = BoxManifest_sources(self);
+    char **destinations = BoxManifest_destinations(self);
+    for (bytes index = 0; index < fileCount; ++index) {
+        const char *destination = destinations[index] != nullptr
+            ? destinations[index] : baseNameOf(sources[index]);
         if (strcmp(destination, entryName) == 0) {
-            THROW("manifest: payload entry and %s share one export destination: %s", (*self).sources[index], destination);
+            THROW("manifest: payload entry and %s share one export destination: %s", sources[index], destination);
             return false;
         }
         for (bytes other = 0; other < index; ++other) {
-            const char *earlier = (*self).destinations[other] != nullptr
-                ? (*self).destinations[other] : baseNameOf((*self).sources[other]);
+            const char *earlier = destinations[other] != nullptr
+                ? destinations[other] : baseNameOf(sources[other]);
             if (strcmp(earlier, destination) == 0) {
                 THROW("manifest: payload.files declares the same destination twice: %s", destination);
                 return false;
@@ -775,47 +862,56 @@ static bool validateDestinations(const BoxManifest *self) {
 
 // Validate the parsed manifest and report the first defect loudly.
 static bool validateManifest(BoxManifest *manifest) {
-    if (!validateIdentifier((*manifest).identifier))
+    if (!validateIdentifier(BoxManifest_identifier(manifest)))
         return false;
-    if ((*manifest).name == nullptr) {
+    const char *name = BoxManifest_name(manifest);
+    if (name == nullptr) {
         THROW("manifest: application.name is required");
         return false;
     }
-    bytes nameLength = strlen((*manifest).name);
+    bytes nameLength = strlen(name);
     if (nameLength == 0 || nameLength > BOX_TEXT_MAX) {
         THROW("manifest: application.name must be 1..%u characters", BOX_TEXT_MAX);
         return false;
     }
-    if (!validateVersion((*manifest).version))
+    if (!validateVersion(BoxManifest_version(manifest)))
         return false;
-    if ((*manifest).description != nullptr && strlen((*manifest).description) > BOX_DESCRIPTION_MAX) {
+    const char *description = BoxManifest_description(manifest);
+    if (description != nullptr && strlen(description) > BOX_DESCRIPTION_MAX) {
         THROW("manifest: application.description exceeds %u characters", BOX_DESCRIPTION_MAX);
         return false;
     }
-    if ((*manifest).icon != nullptr && !validateRelativePath((*manifest).icon, "application.icon"))
+    const char *icon = BoxManifest_icon(manifest);
+    if (icon != nullptr && !validateRelativePath(icon, "application.icon"))
         return false;
-    if (!validateRelativePath((*manifest).entry, "payload.entry"))
+    if (!validateRelativePath(BoxManifest_entry(manifest), "payload.entry"))
         return false;
-    for (bytes index = 0; index < (*manifest).authorCount; ++index) {
-        const char *author = (*manifest).authors[index];
+    bytes authorCount = BoxManifest_authorCount(manifest);
+    char **authors = BoxManifest_authors(manifest);
+    for (bytes index = 0; index < authorCount; ++index) {
+        const char *author = authors[index];
         if (author == nullptr || *author == '\0' || strlen(author) > BOX_TEXT_MAX) {
             THROW("manifest: application.authors entries must be 1..%u characters", BOX_TEXT_MAX);
             return false;
         }
     }
-    for (bytes index = 0; index < (*manifest).fileCount; ++index) {
-        const char *source = (*manifest).sources[index];
+    bytes fileCount = BoxManifest_fileCount(manifest);
+    char **sources = BoxManifest_sources(manifest);
+    char **destinations = BoxManifest_destinations(manifest);
+    for (bytes index = 0; index < fileCount; ++index) {
+        const char *source = sources[index];
         if (!validateRelativePath(source, "payload.files source"))
             return false;
-        const char *destination = (*manifest).destinations[index];
+        const char *destination = destinations[index];
         if (destination != nullptr && !validateRelativePath(destination, "payload.files destination"))
             return false;
     }
-    if ((*manifest).statePolicy == nullptr)
-        (*manifest).statePolicy = copyText("clean");
-    if ((*manifest).statePolicy == nullptr)
+    if (BoxManifest_statePolicy(manifest) == nullptr)
+        BoxManifest_setStatePolicy(manifest, copyText("clean"));
+    const char *statePolicy = BoxManifest_statePolicy(manifest);
+    if (statePolicy == nullptr)
         return false;
-    if (strcmp((*manifest).statePolicy, "clean") != 0) {
+    if (strcmp(statePolicy, "clean") != 0) {
         THROW("manifest: statePolicy must be \"clean\"; exporting machine or user state is not implemented");
         return false;
     }
@@ -885,9 +981,10 @@ static bool removeTree(const char *path) {
         bool removed = true;
         struct dirent *entry;
         while ((entry = readdir(directory)) != nullptr) {
-            if (strcmp((*entry).d_name, ".") == 0 || strcmp((*entry).d_name, "..") == 0)
+            const char *name = dirent_d_name(entry);
+            if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
                 continue;
-            char *child = joinPath(path, (*entry).d_name);
+            char *child = joinPath(path, name);
             if (child == nullptr) {
                 removed = false;
                 break;
@@ -1008,10 +1105,11 @@ static bool copyTree(const char *source, const char *target, bytes depth) {
     bool copied = true;
     struct dirent *entry;
     while (copied && (entry = readdir(directory)) != nullptr) {
-        if (strcmp((*entry).d_name, ".") == 0 || strcmp((*entry).d_name, "..") == 0)
+        const char *name = dirent_d_name(entry);
+        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
             continue;
-        char *childSource = joinPath(source, (*entry).d_name);
-        char *childTarget = childSource == nullptr ? nullptr : joinPath(target, (*entry).d_name);
+        char *childSource = joinPath(source, name);
+        char *childTarget = childSource == nullptr ? nullptr : joinPath(target, name);
         if (childTarget == nullptr) {
             free(childSource);
             copied = false;
@@ -1187,10 +1285,10 @@ BoxManifest *BoxManifest_load(const char *path) {
         return nullptr;
     }
     memset(manifest, 0, sizeof(BoxManifest));
-    (*manifest).schemaVersion = 1;   // locked: there is only one schema
-    (*manifest).baseDirectory = parentOf(path);
+    BoxManifest_setSchemaVersion(manifest, 1);   // locked: there is only one schema
+    BoxManifest_setBaseDirectory(manifest, parentOf(path));
     const char *cursor = text;
-    bool valid = (*manifest).baseDirectory != nullptr && parseRoot(&cursor, manifest);
+    bool valid = BoxManifest_baseDirectory(manifest) != nullptr && parseRoot(&cursor, manifest);
     if (valid && *skipSpace(cursor) != '\0') {
         THROW("manifest has unexpected trailing content");
         valid = false;
@@ -1209,21 +1307,22 @@ BoxManifest *BoxManifest_load(const char *path) {
 fn BoxManifest_free(BoxManifest *self) {
     if (self == nullptr)
         return;
-    free((*self).baseDirectory);
-    free((*self).identifier);
-    free((*self).name);
-    free((*self).version);
-    free((*self).publisher);
-    free((*self).description);
-    free((*self).license);
-    free((*self).homepage);
-    free((*self).icon);
-    free((*self).entry);
-    free((*self).statePolicy);
-    freeTextList((*self).authors, (*self).authorCount);
-    freeTextList((*self).sources, (*self).fileCount);
-    freeTextList((*self).destinations, (*self).fileCount);
-    freeTextList((*self).formats, (*self).formatCount);
+    free(BoxManifest_baseDirectory(self));
+    free(BoxManifest_identifier(self));
+    free(BoxManifest_name(self));
+    free(BoxManifest_version(self));
+    free(BoxManifest_publisher(self));
+    free(BoxManifest_description(self));
+    free(BoxManifest_license(self));
+    free(BoxManifest_homepage(self));
+    free(BoxManifest_icon(self));
+    free(BoxManifest_entry(self));
+    free(BoxManifest_statePolicy(self));
+    freeTextList(BoxManifest_authors(self), BoxManifest_authorCount(self));
+    bytes fileCount = BoxManifest_fileCount(self);
+    freeTextList(BoxManifest_sources(self), fileCount);
+    freeTextList(BoxManifest_destinations(self), fileCount);
+    freeTextList(BoxManifest_formats(self), BoxManifest_formatCount(self));
     free(self);
 }
 
@@ -1233,13 +1332,17 @@ i32 BoxManifest_export(const BoxManifest *self, const char *destination) {
         THROW("export requires a loaded manifest and a destination path");
         return EXIT_FAILURE;
     }
-    for (bytes index = 0; index < (*self).formatCount; ++index) {
-        if (strcmp((*self).formats[index], BOX_FORMAT_PORTABLE) != 0) {
-            THROW("export format is not implemented yet: %s (only %s is available)", (*self).formats[index], BOX_FORMAT_PORTABLE);
+    bytes formatCount = BoxManifest_formatCount(self);
+    char **formats = BoxManifest_formats(self);
+    for (bytes index = 0; index < formatCount; ++index) {
+        if (strcmp(formats[index], BOX_FORMAT_PORTABLE) != 0) {
+            THROW("export format is not implemented yet: %s (only %s is available)", formats[index], BOX_FORMAT_PORTABLE);
             return EXIT_FAILURE;
         }
     }
-    char *entrySource = joinPath((*self).baseDirectory, (*self).entry);
+    const char *baseDir = BoxManifest_baseDirectory(self);
+    const char *entry = BoxManifest_entry(self);
+    char *entrySource = joinPath(baseDir, entry);
     if (entrySource == nullptr)
         return EXIT_FAILURE;
     struct stat info;
@@ -1248,25 +1351,28 @@ i32 BoxManifest_export(const BoxManifest *self, const char *destination) {
         free(entrySource);
         return EXIT_FAILURE;
     }
+    bytes fileCount = BoxManifest_fileCount(self);
+    char **sources = BoxManifest_sources(self);
+    char **destinations = BoxManifest_destinations(self);
     if (S_ISDIR(info.st_mode)) {
-        const char *entryName = baseNameOf((*self).entry);
+        const char *entryName = baseNameOf(entry);
         bytes nameLength = strlen(entryName);
-        for (bytes index = 0; index < (*self).fileCount; ++index) {
-            const char *destination = (*self).destinations[index] != nullptr
-                ? (*self).destinations[index] : baseNameOf((*self).sources[index]);
-            if (strncmp(destination, entryName, nameLength) == 0 &&
-                (destination[nameLength] == '\0' || destination[nameLength] == '/')) {
-                THROW("payload file destination is inside the entry directory: %s", destination);
+        for (bytes index = 0; index < fileCount; ++index) {
+            const char *destName = destinations[index] != nullptr
+                ? destinations[index] : baseNameOf(sources[index]);
+            if (strncmp(destName, entryName, nameLength) == 0 &&
+                (destName[nameLength] == '\0' || destName[nameLength] == '/')) {
+                THROW("payload file destination is inside the entry directory: %s", destName);
                 free(entrySource);
                 return EXIT_FAILURE;
             }
         }
     }
-    for (bytes index = 0; index < (*self).fileCount; ++index) {
-        char *source = joinPath((*self).baseDirectory, (*self).sources[index]);
+    for (bytes index = 0; index < fileCount; ++index) {
+        char *source = joinPath(baseDir, sources[index]);
         bool available = source != nullptr && lstat(source, &info) == 0 && !S_ISLNK(info.st_mode);
         if (!available) {
-            THROW("payload file is unavailable or a symbolic link: %s", source != nullptr ? source : (*self).sources[index]);
+            THROW("payload file is unavailable or a symbolic link: %s", source != nullptr ? source : sources[index]);
             free(source);
             free(entrySource);
             return EXIT_FAILURE;
@@ -1300,19 +1406,19 @@ i32 BoxManifest_export(const BoxManifest *self, const char *destination) {
         return EXIT_FAILURE;
     }
     bool copied = true;
-    char *entryTarget = joinPath(staging, baseNameOf((*self).entry));
+    char *entryTarget = joinPath(staging, baseNameOf(entry));
     if (entryTarget == nullptr)
         copied = false;
     else
         copied = copyTree(entrySource, entryTarget, 0);
-    for (bytes index = 0; index < (*self).fileCount && copied; ++index) {
-        char *source = joinPath((*self).baseDirectory, (*self).sources[index]);
+    for (bytes index = 0; index < fileCount && copied; ++index) {
+        char *source = joinPath(baseDir, sources[index]);
         if (source == nullptr) {
             copied = false;
             break;
         }
-        const char *declared = (*self).destinations[index];
-        char *target = joinPath(staging, declared != nullptr ? declared : baseNameOf((*self).sources[index]));
+        const char *declared = destinations[index];
+        char *target = joinPath(staging, declared != nullptr ? declared : baseNameOf(sources[index]));
         if (target == nullptr)
             copied = false;
         else
@@ -1356,21 +1462,26 @@ fn BoxManifest_toString(const BoxManifest *self, char *dest, bytes capacity, boo
         emitText(dest, capacity, &used, outTruncated, "nullptr");
         return;
     }
-    emitText(dest, capacity, &used, outTruncated, (*self).name != nullptr ? (*self).name : "unnamed");
+    const char *name = BoxManifest_name(self);
+    const char *version = BoxManifest_version(self);
+    const char *identifier = BoxManifest_identifier(self);
+    const char *entry = BoxManifest_entry(self);
+    const char *statePolicy = BoxManifest_statePolicy(self);
+    emitText(dest, capacity, &used, outTruncated, name != nullptr ? name : "unnamed");
     emitText(dest, capacity, &used, outTruncated, " ");
-    emitText(dest, capacity, &used, outTruncated, (*self).version != nullptr ? (*self).version : "unversioned");
+    emitText(dest, capacity, &used, outTruncated, version != nullptr ? version : "unversioned");
     emitText(dest, capacity, &used, outTruncated, " [");
-    emitText(dest, capacity, &used, outTruncated, (*self).identifier != nullptr ? (*self).identifier : "unidentified");
+    emitText(dest, capacity, &used, outTruncated, identifier != nullptr ? identifier : "unidentified");
     emitText(dest, capacity, &used, outTruncated, "] entry=");
-    emitText(dest, capacity, &used, outTruncated, (*self).entry != nullptr ? (*self).entry : "missing");
+    emitText(dest, capacity, &used, outTruncated, entry != nullptr ? entry : "missing");
     emitText(dest, capacity, &used, outTruncated, " authors=");
-    emitCount(dest, capacity, &used, outTruncated, (*self).authorCount);
+    emitCount(dest, capacity, &used, outTruncated, BoxManifest_authorCount(self));
     emitText(dest, capacity, &used, outTruncated, " files=");
-    emitCount(dest, capacity, &used, outTruncated, (*self).fileCount);
+    emitCount(dest, capacity, &used, outTruncated, BoxManifest_fileCount(self));
     emitText(dest, capacity, &used, outTruncated, " formats=");
-    emitList(dest, capacity, &used, outTruncated, (*self).formats, (*self).formatCount);
+    emitList(dest, capacity, &used, outTruncated, BoxManifest_formats(self), BoxManifest_formatCount(self));
     emitText(dest, capacity, &used, outTruncated, " state=");
-    emitText(dest, capacity, &used, outTruncated, (*self).statePolicy != nullptr ? (*self).statePolicy : "unset");
+    emitText(dest, capacity, &used, outTruncated, statePolicy != nullptr ? statePolicy : "unset");
 }
 
 // Dump this class's own fields in declaration order; one layer, no recursion.
@@ -1388,41 +1499,55 @@ fn BoxManifest_toStringStruct(const BoxManifest *self, char *dest, bytes capacit
         emitText(dest, capacity, &used, outTruncated, "nullptr");
         return;
     }
+    const char *baseDir = BoxManifest_baseDirectory(self);
+    const char *identifier = BoxManifest_identifier(self);
+    const char *name = BoxManifest_name(self);
+    const char *version = BoxManifest_version(self);
+    const char *publisher = BoxManifest_publisher(self);
+    const char *description = BoxManifest_description(self);
+    const char *license = BoxManifest_license(self);
+    const char *homepage = BoxManifest_homepage(self);
+    const char *icon = BoxManifest_icon(self);
+    const char *entry = BoxManifest_entry(self);
+    const char *statePolicy = BoxManifest_statePolicy(self);
+    bytes authorCount = BoxManifest_authorCount(self);
+    bytes fileCount = BoxManifest_fileCount(self);
+    bytes formatCount = BoxManifest_formatCount(self);
     emitText(dest, capacity, &used, outTruncated, "{baseDirectory: ");
-    emitQuoted(dest, capacity, &used, outTruncated, (*self).baseDirectory != nullptr ? (*self).baseDirectory : "");
+    emitQuoted(dest, capacity, &used, outTruncated, baseDir != nullptr ? baseDir : "");
     emitText(dest, capacity, &used, outTruncated, ", identifier: ");
-    emitQuoted(dest, capacity, &used, outTruncated, (*self).identifier != nullptr ? (*self).identifier : "");
+    emitQuoted(dest, capacity, &used, outTruncated, identifier != nullptr ? identifier : "");
     emitText(dest, capacity, &used, outTruncated, ", name: ");
-    emitQuoted(dest, capacity, &used, outTruncated, (*self).name != nullptr ? (*self).name : "");
+    emitQuoted(dest, capacity, &used, outTruncated, name != nullptr ? name : "");
     emitText(dest, capacity, &used, outTruncated, ", version: ");
-    emitQuoted(dest, capacity, &used, outTruncated, (*self).version != nullptr ? (*self).version : "");
+    emitQuoted(dest, capacity, &used, outTruncated, version != nullptr ? version : "");
     emitText(dest, capacity, &used, outTruncated, ", publisher: ");
-    emitQuoted(dest, capacity, &used, outTruncated, (*self).publisher != nullptr ? (*self).publisher : "");
+    emitQuoted(dest, capacity, &used, outTruncated, publisher != nullptr ? publisher : "");
     emitText(dest, capacity, &used, outTruncated, ", description: ");
-    emitQuoted(dest, capacity, &used, outTruncated, (*self).description != nullptr ? (*self).description : "");
+    emitQuoted(dest, capacity, &used, outTruncated, description != nullptr ? description : "");
     emitText(dest, capacity, &used, outTruncated, ", license: ");
-    emitQuoted(dest, capacity, &used, outTruncated, (*self).license != nullptr ? (*self).license : "");
+    emitQuoted(dest, capacity, &used, outTruncated, license != nullptr ? license : "");
     emitText(dest, capacity, &used, outTruncated, ", homepage: ");
-    emitQuoted(dest, capacity, &used, outTruncated, (*self).homepage != nullptr ? (*self).homepage : "");
+    emitQuoted(dest, capacity, &used, outTruncated, homepage != nullptr ? homepage : "");
     emitText(dest, capacity, &used, outTruncated, ", icon: ");
-    emitQuoted(dest, capacity, &used, outTruncated, (*self).icon != nullptr ? (*self).icon : "");
+    emitQuoted(dest, capacity, &used, outTruncated, icon != nullptr ? icon : "");
     emitText(dest, capacity, &used, outTruncated, ", entry: ");
-    emitQuoted(dest, capacity, &used, outTruncated, (*self).entry != nullptr ? (*self).entry : "");
+    emitQuoted(dest, capacity, &used, outTruncated, entry != nullptr ? entry : "");
     emitText(dest, capacity, &used, outTruncated, ", statePolicy: ");
-    emitQuoted(dest, capacity, &used, outTruncated, (*self).statePolicy != nullptr ? (*self).statePolicy : "");
+    emitQuoted(dest, capacity, &used, outTruncated, statePolicy != nullptr ? statePolicy : "");
     emitText(dest, capacity, &used, outTruncated, ", authors: ");
-    emitList(dest, capacity, &used, outTruncated, (*self).authors, (*self).authorCount);
+    emitList(dest, capacity, &used, outTruncated, BoxManifest_authors(self), authorCount);
     emitText(dest, capacity, &used, outTruncated, ", authorCount: ");
-    emitCount(dest, capacity, &used, outTruncated, (*self).authorCount);
+    emitCount(dest, capacity, &used, outTruncated, authorCount);
     emitText(dest, capacity, &used, outTruncated, ", sources: ");
-    emitList(dest, capacity, &used, outTruncated, (*self).sources, (*self).fileCount);
+    emitList(dest, capacity, &used, outTruncated, BoxManifest_sources(self), fileCount);
     emitText(dest, capacity, &used, outTruncated, ", destinations: ");
-    emitList(dest, capacity, &used, outTruncated, (*self).destinations, (*self).fileCount);
+    emitList(dest, capacity, &used, outTruncated, BoxManifest_destinations(self), fileCount);
     emitText(dest, capacity, &used, outTruncated, ", fileCount: ");
-    emitCount(dest, capacity, &used, outTruncated, (*self).fileCount);
+    emitCount(dest, capacity, &used, outTruncated, fileCount);
     emitText(dest, capacity, &used, outTruncated, ", formats: ");
-    emitList(dest, capacity, &used, outTruncated, (*self).formats, (*self).formatCount);
+    emitList(dest, capacity, &used, outTruncated, BoxManifest_formats(self), formatCount);
     emitText(dest, capacity, &used, outTruncated, ", formatCount: ");
-    emitCount(dest, capacity, &used, outTruncated, (*self).formatCount);
+    emitCount(dest, capacity, &used, outTruncated, formatCount);
     emitText(dest, capacity, &used, outTruncated, "}");
 }

@@ -142,6 +142,9 @@ char *Util_realPath(const char *path, char *resolved) {
     return canonical;
 }
 
+;;SETTER
+static inline fn Stat_setSt_mode(struct stat *self, mode_t mode) { (*self).st_mode = mode; }
+
 // Inspect a path without following a Windows reparse point.
 i32 Util_lstat(const char *path, struct stat *information) {
     if (path == nullptr || information == nullptr) {
@@ -156,11 +159,14 @@ i32 Util_lstat(const char *path, struct stat *information) {
     if ((attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
         if (stat(path, information) != 0)
             memset(information, 0, sizeof *information);
-        (*information).st_mode = S_IFLNK;
+        Stat_setSt_mode(information, S_IFLNK);
         return 0;
     }
     return stat(path, information);
 }
+
+;;GETTER
+static inline const char *dirent_d_name(const struct dirent *self) { return (*self).d_name; }
 
 // Adapt scandir's comparator to qsort's standard callback signature.
 static i32 compareEntryPointers(const_any left, const_any right) {
@@ -661,7 +667,7 @@ char **Util_collectSources(const char *project, const char *extension, bytes *co
     bytes total = 0, capacity = 0;
     bool valid = true;
     for (i32 index = 0; index < entryCount; ++index) {
-        const char *name = (*entries[index]).d_name;
+        const char *name = dirent_d_name(entries[index]);
         bool matches = false;
         const char *selector = pattern + 2;
         if (*selector == '{') {

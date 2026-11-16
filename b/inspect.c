@@ -64,10 +64,19 @@ static char *findTool(const char *tool) {
     return found;
 }
 
+;;GETTER
+static inline const char *Adapter_name(const Adapter *self) { return (*self).name; }
+;;GETTER
+static inline const char *Adapter_capabilities(const Adapter *self) { return (*self).capabilities; }
+;;GETTER
+static inline const char *Adapter_tools(const Adapter *self) { return (*self).tools; }
+;;GETTER
+static inline const char *Adapter_extension(const Adapter *self) { return (*self).extension; }
+
 // Print one adapter's requirements and report whether all tools are present.
 static bool inspectAdapter(const Adapter *adapter) {
-    printf("%s: %s\n", (*adapter).name, (*adapter).capabilities);
-    char *requirements = Util_combine((*adapter).tools, "");
+    printf("%s: %s\n", Adapter_name(adapter), Adapter_capabilities(adapter));
+    char *requirements = Util_combine(Adapter_tools(adapter), "");
     char *requirement = requirements;
     bool ready = true;
     while (true) {
@@ -98,9 +107,10 @@ static bool inspectAdapter(const Adapter *adapter) {
 i32 Inspect_adapters() {
     for (bytes i = 0; i < Adapter_count(); ++i) {
         const Adapter *adapter = Adapter_at(i);
-        printf("%-12s %-14s %s [tools: %s]\n", (*adapter).name,
-            (*adapter).extension != nullptr ? (*adapter).extension : "(project)",
-            (*adapter).capabilities, (*adapter).tools);
+        const char *ext = Adapter_extension(adapter);
+        printf("%-12s %-14s %s [tools: %s]\n", Adapter_name(adapter),
+            ext != nullptr ? ext : "(project)",
+            Adapter_capabilities(adapter), Adapter_tools(adapter));
     }
     return EXIT_SUCCESS;
 }

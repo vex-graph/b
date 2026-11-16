@@ -82,6 +82,90 @@ typedef struct TerritoryWalk {
     bytes excluded;
 } TerritoryWalk;
 
+;;GETTER
+static inline const char *dirent_d_name(const struct dirent *self) { return (*self).d_name; }
+;;GETTER
+static inline const char *Adapter_name(const Adapter *self) { return (*self).name; }
+;;GETTER
+static inline i32 (*Adapter_build(const Adapter *self))(const char *, char **) { return (*self).build; }
+;;GETTER
+static inline i32 (*Adapter_archive(const Adapter *self))(const char *, char **) { return (*self).archive; }
+;;GETTER
+static inline char *(*Adapter_entry(const Adapter *self))(const char *) { return (*self).entry; }
+
+;;GETTER
+static inline char *TerritoryUnit_directory(const TerritoryUnit *self) { return (*self).directory; }
+;;SETTER
+static inline fn TerritoryUnit_setDirectory(TerritoryUnit *self, char *directory) { (*self).directory = directory; }
+;;GETTER
+static inline char **TerritoryUnit_names(const TerritoryUnit *self) { return (*self).names; }
+;;SETTER
+static inline fn TerritoryUnit_setNames(TerritoryUnit *self, char **names) { (*self).names = names; }
+;;GETTER
+static inline bytes TerritoryUnit_count(const TerritoryUnit *self) { return (*self).count; }
+;;SETTER
+static inline fn TerritoryUnit_setCount(TerritoryUnit *self, bytes count) { (*self).count = count; }
+;;GETTER
+static inline bytes *TerritoryUnit_capacityPtr(TerritoryUnit *self) { return &(*self).capacity; }
+;;SETTER
+static inline fn TerritoryUnit_setCapacity(TerritoryUnit *self, bytes capacity) { (*self).capacity = capacity; }
+
+;;GETTER
+static inline char *TerritoryFiles_directory(const TerritoryFiles *self) { return (*self).directory; }
+;;GETTER
+static inline char **TerritoryFiles_names(const TerritoryFiles *self) { return (*self).names; }
+;;SETTER
+static inline fn TerritoryFiles_setNames(TerritoryFiles *self, char **names) { (*self).names = names; }
+;;GETTER
+static inline bytes TerritoryFiles_count(const TerritoryFiles *self) { return (*self).count; }
+;;SETTER
+static inline fn TerritoryFiles_setCount(TerritoryFiles *self, bytes count) { (*self).count = count; }
+;;GETTER
+static inline bytes *TerritoryFiles_capacityPtr(TerritoryFiles *self) { return &(*self).capacity; }
+
+;;GETTER
+static inline char **TerritoryWalk_directories(const TerritoryWalk *self) { return (*self).directories; }
+;;SETTER
+static inline fn TerritoryWalk_setDirectories(TerritoryWalk *self, char **directories) { (*self).directories = directories; }
+;;GETTER
+static inline bytes TerritoryWalk_directoryCount(const TerritoryWalk *self) { return (*self).directoryCount; }
+;;SETTER
+static inline fn TerritoryWalk_setDirectoryCount(TerritoryWalk *self, bytes count) { (*self).directoryCount = count; }
+;;GETTER
+static inline bytes *TerritoryWalk_directoryCapacityPtr(TerritoryWalk *self) { return &(*self).directoryCapacity; }
+;;GETTER
+static inline TerritoryUnit *TerritoryWalk_units(const TerritoryWalk *self) { return (*self).units; }
+;;SETTER
+static inline fn TerritoryWalk_setUnits(TerritoryWalk *self, TerritoryUnit *units) { (*self).units = units; }
+;;GETTER
+static inline bytes TerritoryWalk_unitCount(const TerritoryWalk *self) { return (*self).unitCount; }
+;;SETTER
+static inline fn TerritoryWalk_setUnitCount(TerritoryWalk *self, bytes count) { (*self).unitCount = count; }
+;;GETTER
+static inline bytes *TerritoryWalk_unitCapacityPtr(TerritoryWalk *self) { return &(*self).unitCapacity; }
+;;GETTER
+static inline TerritoryFiles *TerritoryWalk_tree(const TerritoryWalk *self) { return (*self).tree; }
+;;SETTER
+static inline fn TerritoryWalk_setTree(TerritoryWalk *self, TerritoryFiles *tree) { (*self).tree = tree; }
+;;GETTER
+static inline bytes TerritoryWalk_treeCount(const TerritoryWalk *self) { return (*self).treeCount; }
+;;SETTER
+static inline fn TerritoryWalk_setTreeCount(TerritoryWalk *self, bytes count) { (*self).treeCount = count; }
+;;GETTER
+static inline bytes *TerritoryWalk_treeCapacityPtr(TerritoryWalk *self) { return &(*self).treeCapacity; }
+;;GETTER
+static inline bytes TerritoryWalk_files(const TerritoryWalk *self) { return (*self).files; }
+;;SETTER
+static inline fn TerritoryWalk_setFiles(TerritoryWalk *self, bytes files) { (*self).files = files; }
+;;GETTER
+static inline bytes TerritoryWalk_sources(const TerritoryWalk *self) { return (*self).sources; }
+;;SETTER
+static inline fn TerritoryWalk_setSources(TerritoryWalk *self, bytes sources) { (*self).sources = sources; }
+;;GETTER
+static inline bytes TerritoryWalk_excluded(const TerritoryWalk *self) { return (*self).excluded; }
+;;SETTER
+static inline fn TerritoryWalk_setExcluded(TerritoryWalk *self, bytes excluded) { (*self).excluded = excluded; }
+
 // Grow a cold slot array with overflow checks, preserving old storage on error.
 static bool grow(bytes count, bytes size, bytes *capacity, any *storage) {
     if (count < *capacity)
@@ -124,22 +208,22 @@ static fn normalize(char *path) {
 
 // Return the unit owning one directory, appending a new unit when absent.
 static TerritoryUnit *unitFor(TerritoryWalk *walk, const char *directory) {
-    bytes count = (*walk).unitCount;
-    TerritoryUnit *units = (*walk).units;
+    bytes count = TerritoryWalk_unitCount(walk);
+    TerritoryUnit *units = TerritoryWalk_units(walk);
     for (bytes index = 0; index < count; ++index)
-        if (strcmp(units[index].directory, directory) == 0)
+        if (strcmp(TerritoryUnit_directory(&units[index]), directory) == 0)
             return &units[index];
     any storage = units;
-    if (!grow(count, sizeof(TerritoryUnit), &(*walk).unitCapacity, &storage))
+    if (!grow(count, sizeof(TerritoryUnit), TerritoryWalk_unitCapacityPtr(walk), &storage))
         return nullptr;
-    (*walk).units = storage;
-    units = (*walk).units;
+    TerritoryWalk_setUnits(walk, storage);
+    units = TerritoryWalk_units(walk);
     TerritoryUnit *unit = &units[count];
-    (*walk).unitCount = count + 1;
-    (*unit).directory = Util_combine(directory, "");
-    (*unit).names = nullptr;
-    (*unit).count = 0;
-    (*unit).capacity = 0;
+    TerritoryWalk_setUnitCount(walk, count + 1);
+    TerritoryUnit_setDirectory(unit, Util_combine(directory, ""));
+    TerritoryUnit_setNames(unit, nullptr);
+    TerritoryUnit_setCount(unit, 0);
+    TerritoryUnit_setCapacity(unit, 0);
     return unit;
 }
 
@@ -148,14 +232,14 @@ static bool addSource(TerritoryWalk *walk, const char *directory, const char *na
     TerritoryUnit *unit = unitFor(walk, directory);
     if (unit == nullptr)
         return false;
-    bytes count = (*unit).count;
-    any storage = (*unit).names;
-    if (!grow(count, sizeof(char*), &(*unit).capacity, &storage))
+    bytes count = TerritoryUnit_count(unit);
+    any storage = TerritoryUnit_names(unit);
+    if (!grow(count, sizeof(char*), TerritoryUnit_capacityPtr(unit), &storage))
         return false;
-    (*unit).names = storage;
-    (*unit).names[count] = Util_combine(name, "");
-    (*unit).count = count + 1;
-    (*walk).sources = (*walk).sources + 1;
+    TerritoryUnit_setNames(unit, storage);
+    TerritoryUnit_names(unit)[count] = Util_combine(name, "");
+    TerritoryUnit_setCount(unit, count + 1);
+    TerritoryWalk_setSources(walk, TerritoryWalk_sources(walk) + 1);
     return true;
 }
 
@@ -173,37 +257,37 @@ static char *relative(const char *root, const char *directory) {
 // layer, the names inside it are the second.
 static bool addFile(TerritoryWalk *walk, const char *root, const char *directory, const char *name) {
     char *path = relative(root, directory);
-    bytes count = (*walk).treeCount;
-    TerritoryFiles *tree = (*walk).tree;
+    bytes count = TerritoryWalk_treeCount(walk);
+    TerritoryFiles *tree = TerritoryWalk_tree(walk);
     bytes index = 0;
-    while (index < count && strcmp(tree[index].directory, path) != 0)
+    while (index < count && strcmp(TerritoryFiles_directory(&tree[index]), path) != 0)
         ++index;
     if (index == count) {
         any storage = tree;
-        if (!grow(count, sizeof(TerritoryFiles), &(*walk).treeCapacity, &storage)) {
+        if (!grow(count, sizeof(TerritoryFiles), TerritoryWalk_treeCapacityPtr(walk), &storage)) {
             free(path);
             return false;
         }
-        (*walk).tree = storage;
-        tree = (*walk).tree;
+        TerritoryWalk_setTree(walk, storage);
+        tree = TerritoryWalk_tree(walk);
         tree[count].directory = path;
         tree[count].names = nullptr;
         tree[count].count = 0;
         tree[count].capacity = 0;
-        (*walk).treeCount = count + 1;
+        TerritoryWalk_setTreeCount(walk, count + 1);
     } else {
         free(path);
     }
     TerritoryFiles *entry = &tree[index];
-    bytes nameCount = (*entry).count;
-    any names = (*entry).names;
-    if (!grow(nameCount, sizeof(char*), &(*entry).capacity, &names))
+    bytes nameCount = TerritoryFiles_count(entry);
+    any names = TerritoryFiles_names(entry);
+    if (!grow(nameCount, sizeof(char*), TerritoryFiles_capacityPtr(entry), &names))
         return false;
-    (*entry).names = names;
-    char **grown = (*entry).names;
+    TerritoryFiles_setNames(entry, names);
+    char **grown = TerritoryFiles_names(entry);
     grown[nameCount] = Util_combine(name, "");
-    (*entry).count = nameCount + 1;
-    (*walk).files = (*walk).files + 1;
+    TerritoryFiles_setCount(entry, nameCount + 1);
+    TerritoryWalk_setFiles(walk, TerritoryWalk_files(walk) + 1);
     return true;
 }
 
@@ -225,14 +309,14 @@ static fn escape(FILE *file, const char *text) {
 
 // Read every directory under the root once and record each unit it finds.
 static bool inventory(const char *root, TerritoryWalk *walk) {
-    any storage = (*walk).directories;
-    if (!grow((*walk).directoryCount, sizeof(char*), &(*walk).directoryCapacity, &storage))
+    any storage = TerritoryWalk_directories(walk);
+    if (!grow(TerritoryWalk_directoryCount(walk), sizeof(char*), TerritoryWalk_directoryCapacityPtr(walk), &storage))
         return false;
-    (*walk).directories = storage;
-    (*walk).directories[0] = Util_combine(root, "");
-    (*walk).directoryCount = 1;
-    for (bytes index = 0; index < (*walk).directoryCount; ++index) {
-        char **directories = (*walk).directories;
+    TerritoryWalk_setDirectories(walk, storage);
+    TerritoryWalk_directories(walk)[0] = Util_combine(root, "");
+    TerritoryWalk_setDirectoryCount(walk, 1);
+    for (bytes index = 0; index < TerritoryWalk_directoryCount(walk); ++index) {
+        char **directories = TerritoryWalk_directories(walk);
         const char *current = directories[index];
         struct dirent **entries = nullptr;
         i32 total = scandir(current, &entries, nullptr, alphasort);
@@ -243,10 +327,10 @@ static bool inventory(const char *root, TerritoryWalk *walk) {
         bool ok = true;
         for (i32 entryIndex = 0; entryIndex < total && ok; ++entryIndex) {
             struct dirent *entry = entries[entryIndex];
-            const char *name = (*entry).d_name;
+            const char *name = dirent_d_name(entry);
             if (excluded(name)) {
                 if (strcmp(name, ".") != 0 && strcmp(name, "..") != 0)
-                    (*walk).excluded = (*walk).excluded + 1;
+                    TerritoryWalk_setExcluded(walk, TerritoryWalk_excluded(walk) + 1);
                 continue;
             }
             char *prefix = Util_combine(current, "/");
@@ -260,14 +344,14 @@ static bool inventory(const char *root, TerritoryWalk *walk) {
                 break;
             }
             if (S_ISDIR(information.st_mode)) {
-                bytes count = (*walk).directoryCount;
-                any next = (*walk).directories;
-                ok = grow(count, sizeof(char*), &(*walk).directoryCapacity, &next);
-                (*walk).directories = next;
+                bytes count = TerritoryWalk_directoryCount(walk);
+                any next = TerritoryWalk_directories(walk);
+                ok = grow(count, sizeof(char*), TerritoryWalk_directoryCapacityPtr(walk), &next);
+                TerritoryWalk_setDirectories(walk, next);
                 if (ok) {
-                    char **grown = (*walk).directories;
+                    char **grown = TerritoryWalk_directories(walk);
                     grown[count] = path;
-                    (*walk).directoryCount = count + 1;
+                    TerritoryWalk_setDirectoryCount(walk, count + 1);
                 } else {
                     free(path);
                 }
@@ -283,11 +367,11 @@ static bool inventory(const char *root, TerritoryWalk *walk) {
                         free(directory);
                     }
                 } else {
-                    (*walk).excluded = (*walk).excluded + 1;
+                    TerritoryWalk_setExcluded(walk, TerritoryWalk_excluded(walk) + 1);
                 }
                 free(path);
             } else {
-                (*walk).excluded = (*walk).excluded + 1;
+                TerritoryWalk_setExcluded(walk, TerritoryWalk_excluded(walk) + 1);
                 free(path);
             }
         }
@@ -326,13 +410,15 @@ static bool inScope(const char *directory, const char *scope) {
 // from different families make a unit mixed.
 static UnitVerdict classify(const TerritoryUnit *unit, const Adapter **adapter) {
     *adapter = nullptr;
-    for (bytes source = 0; source < (*unit).count; ++source) {
-        const Adapter *claimed = Adapter_forFile((*unit).names[source]);
+    bytes count = TerritoryUnit_count(unit);
+    char *const *names = TerritoryUnit_names(unit);
+    for (bytes source = 0; source < count; ++source) {
+        const Adapter *claimed = Adapter_forFile(names[source]);
         if (claimed == nullptr)
             continue;
         if (*adapter == nullptr)
             *adapter = claimed;
-        else if ((**adapter).build != (*claimed).build)
+        else if (Adapter_build(*adapter) != Adapter_build(claimed))
             return UNIT_MIXED;
     }
     return UNIT_OK;
@@ -340,7 +426,8 @@ static UnitVerdict classify(const TerritoryUnit *unit, const Adapter **adapter) 
 
 // Ask the unit's adapter for the owned path of its entry source; nullptr means none.
 static char *entryOf(const Adapter *adapter, const char *absolute) {
-    return (*adapter).entry != nullptr ? (*adapter).entry(absolute) : nullptr;
+    char *(*entryFn)(const char *) = Adapter_entry(adapter);
+    return entryFn != nullptr ? entryFn(absolute) : nullptr;
 }
 
 // Write the generated fact file; the only writer of .b/workspace.json.
@@ -350,8 +437,8 @@ static bool emit(const char *path, const char *root, TerritoryWalk *walk) {
         THROW("cannot write %s: %s", path, strerror(errno));
         return false;
     }
-    bytes treeCount = (*walk).treeCount;
-    TerritoryFiles *tree = (*walk).tree;
+    bytes treeCount = TerritoryWalk_treeCount(walk);
+    TerritoryFiles *tree = TerritoryWalk_tree(walk);
     fprintf(file, "{\n  \"root\": ");
     escape(file, root);
     fprintf(file, ",\n  \"directories\": {");
@@ -416,25 +503,35 @@ char *Territory_workspacePath(const char *root) {
 
 // Release every slot of a walk; the caller owns the walk until this runs.
 static fn releaseWalk(TerritoryWalk *walk) {
-    for (bytes index = 0; index < (*walk).unitCount; ++index) {
-        TerritoryUnit *unit = &(*walk).units[index];
-        for (bytes source = 0; source < (*unit).count; ++source)
-            free((*unit).names[source]);
-        free((*unit).names);
-        free((*unit).directory);
+    bytes unitCount = TerritoryWalk_unitCount(walk);
+    TerritoryUnit *units = TerritoryWalk_units(walk);
+    for (bytes index = 0; index < unitCount; ++index) {
+        TerritoryUnit *unit = &units[index];
+        bytes count = TerritoryUnit_count(unit);
+        char **names = TerritoryUnit_names(unit);
+        for (bytes source = 0; source < count; ++source)
+            free(names[source]);
+        free(names);
+        free(TerritoryUnit_directory(unit));
     }
-    for (bytes index = 0; index < (*walk).directoryCount; ++index)
-        free((*walk).directories[index]);
-    for (bytes index = 0; index < (*walk).treeCount; ++index) {
-        TerritoryFiles *entry = &(*walk).tree[index];
-        for (bytes name = 0; name < (*entry).count; ++name)
-            free((*entry).names[name]);
-        free((*entry).names);
-        free((*entry).directory);
+    bytes dirCount = TerritoryWalk_directoryCount(walk);
+    char **dirs = TerritoryWalk_directories(walk);
+    for (bytes index = 0; index < dirCount; ++index)
+        free(dirs[index]);
+    bytes treeCount = TerritoryWalk_treeCount(walk);
+    TerritoryFiles *tree = TerritoryWalk_tree(walk);
+    for (bytes index = 0; index < treeCount; ++index) {
+        TerritoryFiles *entry = &tree[index];
+        bytes count = TerritoryFiles_count(entry);
+        char **names = TerritoryFiles_names(entry);
+        for (bytes name = 0; name < count; ++name)
+            free(names[name]);
+        free(names);
+        free(TerritoryFiles_directory(entry));
     }
-    free((*walk).units);
-    free((*walk).directories);
-    free((*walk).tree);
+    free(units);
+    free(dirs);
+    free(tree);
 }
 
 // Claim a directory: create the marker, walk it once, write the inventory.
@@ -519,34 +616,35 @@ bool Territory_buildAll(const char *startDirectory) {
     bytes scoped = 0, succeeded = 0, failed = 0, skipped = 0;
     for (bytes index = 0; ok && index < walk.unitCount; ++index) {
         TerritoryUnit *unit = &walk.units[index];
-        if (!inScope((*unit).directory, scope))
+        const char *unitDir = TerritoryUnit_directory(unit);
+        if (!inScope(unitDir, scope))
             continue;
         ++scoped;
         const Adapter *adapter = nullptr;
         if (classify(unit, &adapter) != UNIT_OK || adapter == nullptr) {
-            THROW("unit %s mixes adapters; move its sources into separate directories", (*unit).directory);
+            THROW("unit %s mixes adapters; move its sources into separate directories", unitDir);
             ++failed;
             continue;
         }
-        char *absolute = absoluteOf(root, (*unit).directory);
+        char *absolute = absoluteOf(root, unitDir);
         char *entry = entryOf(adapter, absolute);
         bool app = entry != nullptr;
         free(entry);
-        if (!app && (*adapter).archive == nullptr) {
-            printf("  skip %s (library: adapter %s has no archive step)\n", absolute, (*adapter).name);
+        if (!app && Adapter_archive(adapter) == nullptr) {
+            printf("  skip %s (library: adapter %s has no archive step)\n", absolute, Adapter_name(adapter));
             ++skipped;
             free(absolute);
             continue;
         }
         char *output = nullptr;
-        i32 status = app ? (*adapter).build(absolute, &output)
-                         : (*adapter).archive(absolute, &output);
+        i32 status = app ? Adapter_build(adapter)(absolute, &output)
+                         : Adapter_archive(adapter)(absolute, &output);
         if (status == 0)
             ++succeeded;
         else
             ++failed;
         printf("  %s %s (%s, %s)", status == 0 ? "ok  " : "FAIL", absolute,
-               app ? "app" : "library", (*adapter).name);
+               app ? "app" : "library", Adapter_name(adapter));
 
         if (status == 0 && output != nullptr)
             printf(" -> %s", output);
@@ -631,12 +729,12 @@ bool Territory_writeAssembly(const char *directory, const char *version, const c
     const Adapter *adapter = nullptr;
     bool mixed = false;
     for (i32 index = 0; index < total; ++index) {
-        const Adapter *claimed = Adapter_forFile((*entries[index]).d_name);
+        const Adapter *claimed = Adapter_forFile(dirent_d_name(entries[index]));
         if (claimed == nullptr)
             continue;
         if (adapter == nullptr)
             adapter = claimed;
-        else if ((*adapter).build != (*claimed).build)
+        else if (Adapter_build(adapter) != Adapter_build(claimed))
             mixed = true;
     }
     if (mixed) {
@@ -695,13 +793,14 @@ bool Territory_writeAssembly(const char *directory, const char *version, const c
     keyText(file, "sources"); fputs("[", file);
     bool firstSource = true;
     for (i32 index = 0; index < total; ++index) {
-        const Adapter *claimed = Adapter_forFile((*entries[index]).d_name);
-        if (claimed == nullptr || (*claimed).build != (*adapter).build)
+        const char *entryName = dirent_d_name(entries[index]);
+        const Adapter *claimed = Adapter_forFile(entryName);
+        if (claimed == nullptr || Adapter_build(claimed) != Adapter_build(adapter))
             continue;
         if (!firstSource)
             fputs(", ", file);
         firstSource = false;
-        escape(file, (*entries[index]).d_name);
+        escape(file, entryName);
     }
     fputs("],\n    ", file);
     keyText(file, "includes"); fputs("[", file);

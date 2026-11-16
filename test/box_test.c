@@ -83,13 +83,52 @@ static fn checkText(const char *log, const char *needle, bytes expected) {
     assert(countOf(log, needle) == expected);
 }
 
+;;GETTER
+static inline const char *dirent_d_name(const struct dirent *self) { return (*self).d_name; }
+;;GETTER
+static inline bytes BoxManifest_formatCount(const BoxManifest *self) { return (*self).formatCount; }
+;;GETTER
+static inline char *const *BoxManifest_formats(const BoxManifest *self) { return (*self).formats; }
+;;GETTER
+static inline const char *BoxManifest_entry(const BoxManifest *self) { return (*self).entry; }
+;;GETTER
+static inline const char *BoxManifest_statePolicy(const BoxManifest *self) { return (*self).statePolicy; }
+;;GETTER
+static inline u32 BoxManifest_schemaVersion(const BoxManifest *self) { return (*self).schemaVersion; }
+;;GETTER
+static inline const char *BoxManifest_baseDirectory(const BoxManifest *self) { return (*self).baseDirectory; }
+;;GETTER
+static inline const char *BoxManifest_identifier(const BoxManifest *self) { return (*self).identifier; }
+;;GETTER
+static inline const char *BoxManifest_name(const BoxManifest *self) { return (*self).name; }
+;;GETTER
+static inline const char *BoxManifest_version(const BoxManifest *self) { return (*self).version; }
+;;GETTER
+static inline const char *BoxManifest_publisher(const BoxManifest *self) { return (*self).publisher; }
+;;GETTER
+static inline const char *BoxManifest_license(const BoxManifest *self) { return (*self).license; }
+;;GETTER
+static inline const char *BoxManifest_homepage(const BoxManifest *self) { return (*self).homepage; }
+;;GETTER
+static inline const char *BoxManifest_icon(const BoxManifest *self) { return (*self).icon; }
+;;GETTER
+static inline bytes BoxManifest_authorCount(const BoxManifest *self) { return (*self).authorCount; }
+;;GETTER
+static inline char *const *BoxManifest_authors(const BoxManifest *self) { return (*self).authors; }
+;;GETTER
+static inline bytes BoxManifest_fileCount(const BoxManifest *self) { return (*self).fileCount; }
+;;GETTER
+static inline char *const *BoxManifest_sources(const BoxManifest *self) { return (*self).sources; }
+;;GETTER
+static inline char *const *BoxManifest_destinations(const BoxManifest *self) { return (*self).destinations; }
+
 // Assert that no private staging directory survived next to the destinations.
 static fn checkNoStaging(const char *directory) {
     DIR *tree = opendir(directory);
     assert(tree != nullptr);
     struct dirent *entry;
     while ((entry = readdir(tree)) != nullptr)
-        assert(strncmp((*entry).d_name, ".b.sh-box-staging-", 15) != 0);
+        assert(strncmp(dirent_d_name(entry), ".b.sh-box-staging-", 15) != 0);
     assert(closedir(tree) == 0);
 }
 
@@ -125,10 +164,10 @@ i32 main() {
     assert(strstr(created, "\"entry\": \"dist/myapp\"") != nullptr);
     BoxManifest *template = BoxManifest_load("created.json");
     assert(template != nullptr);
-    assert((*template).formatCount == 1);
-    assert(strcmp((*template).formats[0], "portable") == 0);
-    assert(strcmp((*template).entry, "dist/myapp") == 0);
-    assert(strcmp((*template).statePolicy, "clean") == 0);
+    assert(BoxManifest_formatCount(template) == 1);
+    assert(strcmp(BoxManifest_formats(template)[0], "portable") == 0);
+    assert(strcmp(BoxManifest_entry(template), "dist/myapp") == 0);
+    assert(strcmp(BoxManifest_statePolicy(template), "clean") == 0);
     free(created);
     BoxManifest_free(template);
     assert(BoxManifest_writeTemplate("created.json") == 1);
@@ -144,24 +183,24 @@ i32 main() {
         "\"targets\":[],\"formats\":[\"portable\"],\"statePolicy\":\"clean\"}");
     BoxManifest *manifest = BoxManifest_load("valid.json");
     assert(manifest != nullptr);
-    assert((*manifest).schemaVersion == 1);
-    assert(strcmp((*manifest).baseDirectory, ".") == 0);
-    assert(strcmp((*manifest).identifier, "com.example.portable") == 0);
-    assert(strcmp((*manifest).name, "Portable App") == 0);
-    assert(strcmp((*manifest).version, "2.3.4") == 0);
-    assert(strcmp((*manifest).publisher, "Example Studio") == 0);
-    assert(strcmp((*manifest).license, "MIT") == 0);
-    assert(strcmp((*manifest).homepage, "https://example.com") == 0);
-    assert(strcmp((*manifest).icon, "assets/icon.png") == 0);
-    assert((*manifest).authorCount == 2);
-    assert(strcmp((*manifest).authors[0], "Ada") == 0);
-    assert(strcmp((*manifest).authors[1], "Grace") == 0);
-    assert(strcmp((*manifest).entry, "dist/portable") == 0);
-    assert((*manifest).fileCount == 2);
-    assert(strcmp((*manifest).sources[0], "assets/logo.txt") == 0);
-    assert(strcmp((*manifest).destinations[0], "resources/logo.txt") == 0);
-    assert(strcmp((*manifest).sources[1], "assets/nested") == 0);
-    assert((*manifest).destinations[1] == nullptr);
+    assert(BoxManifest_schemaVersion(manifest) == 1);
+    assert(strcmp(BoxManifest_baseDirectory(manifest), ".") == 0);
+    assert(strcmp(BoxManifest_identifier(manifest), "com.example.portable") == 0);
+    assert(strcmp(BoxManifest_name(manifest), "Portable App") == 0);
+    assert(strcmp(BoxManifest_version(manifest), "2.3.4") == 0);
+    assert(strcmp(BoxManifest_publisher(manifest), "Example Studio") == 0);
+    assert(strcmp(BoxManifest_license(manifest), "MIT") == 0);
+    assert(strcmp(BoxManifest_homepage(manifest), "https://example.com") == 0);
+    assert(strcmp(BoxManifest_icon(manifest), "assets/icon.png") == 0);
+    assert(BoxManifest_authorCount(manifest) == 2);
+    assert(strcmp(BoxManifest_authors(manifest)[0], "Ada") == 0);
+    assert(strcmp(BoxManifest_authors(manifest)[1], "Grace") == 0);
+    assert(strcmp(BoxManifest_entry(manifest), "dist/portable") == 0);
+    assert(BoxManifest_fileCount(manifest) == 2);
+    assert(strcmp(BoxManifest_sources(manifest)[0], "assets/logo.txt") == 0);
+    assert(strcmp(BoxManifest_destinations(manifest)[0], "resources/logo.txt") == 0);
+    assert(strcmp(BoxManifest_sources(manifest)[1], "assets/nested") == 0);
+    assert(BoxManifest_destinations(manifest)[1] == nullptr);
 
     char value[512];
     bool truncated = true;

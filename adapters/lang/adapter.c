@@ -99,13 +99,18 @@ static const Adapter *const ADAPTERS[] = {
     &METAL_ADAPTER,
 };
 
+;;GETTER
+static inline const char *Adapter_name(const Adapter *self) { return (*self).name; }
+;;GETTER
+static inline const char *Adapter_extension(const Adapter *self) { return (*self).extension; }
+
 const Adapter *Adapter_forName(const char *name) {
     if (name == nullptr) {
         THROW("adapter name is null");
         return nullptr;
     }
     for (bytes i = 0; i < Adapter_count(); ++i)
-        if (strcmp((*ADAPTERS[i]).name, name) == 0)
+        if (strcmp(Adapter_name(ADAPTERS[i]), name) == 0)
             return ADAPTERS[i];
     return nullptr;
 }
@@ -119,7 +124,7 @@ const Adapter *Adapter_forFile(const char *path) {
     basename = basename != nullptr ? basename + 1 : path;
     for (bytes i = 0; i < Adapter_count(); ++i) {
         const Adapter *adapter = ADAPTERS[i];
-        const char *selector = (*adapter).extension;
+        const char *selector = Adapter_extension(adapter);
         if (selector == nullptr)
             continue;
         if (*selector == '.' ? Util_endsWith(basename, selector) : strcmp(basename, selector) == 0)

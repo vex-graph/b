@@ -43,6 +43,9 @@ static fn indent(FILE *out, i32 depth)
         fputs("    ", out);
 }
 
+;;GETTER
+static inline const char *dirent_d_name(const struct dirent *self) { return (*self).d_name; }
+
 /* Collect sorted entry names for a directory; caller frees. Returns count. */
 static bytes collect(const char *path, char ***out_names)
 {
@@ -54,21 +57,22 @@ static bytes collect(const char *path, char ***out_names)
     struct dirent *e;
     while ((e = readdir(d)) != nullptr)
     {
-        if (strcmp((*e).d_name, ".") == 0 || strcmp((*e).d_name, "..") == 0)
+        const char *name = dirent_d_name(e);
+        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
             continue;
         char full[4096];
-        snprintf(full, sizeof(full), "%s/%s", path, (*e).d_name);
+        snprintf(full, sizeof(full), "%s/%s", path, name);
         struct stat st;
         if (stat(full, &st) != 0)
             continue;
         if (S_ISDIR(st.st_mode))
         {
-            if (is_ignored_dir((*e).d_name))
+            if (is_ignored_dir(name))
                 continue;
         }
         else if (!S_ISREG(st.st_mode))
             continue;
-        else if (!is_compilable((*e).d_name))
+        else if (!is_compilable(name))
             continue;
 
         if (count == cap)
@@ -80,7 +84,7 @@ static bytes collect(const char *path, char ***out_names)
             names = tmp;
             cap = next;
         }
-        names[count] = strdup((*e).d_name);
+        names[count] = strdup(name);
         count++;
     }
     closedir(d);

@@ -35,6 +35,11 @@ static bool regularFile(const char *path) {
     return path != nullptr && stat(path, &info) == 0 && S_ISREG(info.st_mode);
 }
 
+;;GETTER
+static inline i32 (*Adapter_run(const Adapter *self))(const char *, i32, char **, bool) { return (*self).run; }
+;;GETTER
+static inline const char *Adapter_name(const Adapter *self) { return (*self).name; }
+
 // Dispatch a source file to its adapter or execute an existing native binary.
 // Refuses if the file lives outside a claimed territory.
 static i32 runFile(const char *input, bool buildArtifact, i32 argc, char **argv) {
@@ -43,8 +48,8 @@ static i32 runFile(const char *input, bool buildArtifact, i32 argc, char **argv)
         return EXIT_FAILURE;
     }
     const Adapter *adapter = Adapter_forFile(input);
-    if (adapter != nullptr && (*adapter).run == nullptr) {
-        THROW("adapter %s does not support running files", (*adapter).name);
+    if (adapter != nullptr && Adapter_run(adapter) == nullptr) {
+        THROW("adapter %s does not support running files", Adapter_name(adapter));
         return EXIT_FAILURE;
     }
     char *file = realpath(input, nullptr);
@@ -63,7 +68,7 @@ static i32 runFile(const char *input, bool buildArtifact, i32 argc, char **argv)
     }
     free(territoryRoot);
     if (adapter != nullptr)
-        return (*adapter).run(file, argc, argv, buildArtifact);
+        return Adapter_run(adapter)(file, argc, argv, buildArtifact);
     if (access(file, X_OK) != 0) {
         THROW("file is not an executable or a supported source: %s", input);
         free(file);

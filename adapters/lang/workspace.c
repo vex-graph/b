@@ -36,6 +36,27 @@
 typedef struct ScanSlot { char *path; bool owned; } ScanSlot;
 typedef struct BuildSlot { char *path; const Adapter *adapter; } BuildSlot;
 
+;;SETTER
+static inline fn ScanSlot_setPath(ScanSlot *self, char *path) { (*self).path = path; }
+;;SETTER
+static inline fn ScanSlot_setOwned(ScanSlot *self, bool owned) { (*self).owned = owned; }
+;;GETTER
+static inline char *BuildSlot_path(const BuildSlot *self) { return (*self).path; }
+;;SETTER
+static inline fn BuildSlot_setPath(BuildSlot *self, char *path) { (*self).path = path; }
+;;GETTER
+static inline const Adapter *BuildSlot_adapter(const BuildSlot *self) { return (*self).adapter; }
+;;SETTER
+static inline fn BuildSlot_setAdapter(BuildSlot *self, const Adapter *adapter) { (*self).adapter = adapter; }
+;;GETTER
+static inline const char *Adapter_name(const Adapter *self) { return (*self).name; }
+;;GETTER
+static inline const char *Adapter_tools(const Adapter *self) { return (*self).tools; }
+;;GETTER
+static inline i32 (*Adapter_build(const Adapter *self))(const char *, char **) { return (*self).build; }
+;;GETTER
+static inline const char *dirent_d_name(const struct dirent *self) { return (*self).d_name; }
+
 // Review thresholds are safety prompts, never hard rejection/collection limits.
 #define WORKSPACE_REVIEW_FILES 1000u
 #define WORKSPACE_REVIEW_UNITS 100u
@@ -92,15 +113,17 @@ static bool broad(const char *root) {
 static bool addUnit(char *path, const Adapter *adapter, BuildSlot **units, bytes *count, bytes *capacity) {
     for (bytes i = 0; i < *count; ++i) {
         BuildSlot *unit = &(*units)[i];
-        if (strcmp((*unit).path, path) != 0)
+        if (strcmp(BuildSlot_path(unit), path) != 0)
             continue;
-        const Adapter *prior = (*unit).adapter;
-        if ((*prior).build == (*adapter).build)
+        const Adapter *prior = BuildSlot_adapter(unit);
+        if (Adapter_build(prior) == Adapter_build(adapter))
             return true;
-        bool native = strcmp((*adapter).name, "c") == 0 || strcmp((*adapter).name, "objc") == 0 ||
-            strcmp((*adapter).name, "cpp") == 0 || strcmp((*adapter).name, "cxx") == 0 || strcmp((*adapter).name, "c++") == 0;
-        bool priorNative = strcmp((*prior).name, "c") == 0 || strcmp((*prior).name, "objc") == 0 ||
-            strcmp((*prior).name, "cpp") == 0 || strcmp((*prior).name, "cxx") == 0 || strcmp((*prior).name, "c++") == 0;
+        const char *adapterName = Adapter_name(adapter);
+        const char *priorName = Adapter_name(prior);
+        bool native = strcmp(adapterName, "c") == 0 || strcmp(adapterName, "objc") == 0 ||
+            strcmp(adapterName, "cpp") == 0 || strcmp(adapterName, "cxx") == 0 || strcmp(adapterName, "c++") == 0;
+        bool priorNative = strcmp(priorName, "c") == 0 || strcmp(priorName, "objc") == 0 ||
+            strcmp(priorName, "cpp") == 0 || strcmp(priorName, "cxx") == 0 || strcmp(priorName, "c++") == 0;
         if (native && priorNative) {
             // A directory that carries b's OWN manifest is explicit: the author
             // has named the unit, so the C/ObjC split is a decision, not an
@@ -121,8 +144,8 @@ static bool addUnit(char *path, const Adapter *adapter, BuildSlot **units, bytes
         return false;
     *units = storage;
     BuildSlot *unit = &(*units)[(*count)++];
-    (*unit).path = path;
-    (*unit).adapter = adapter;
+    BuildSlot_setPath(unit, path);
+    BuildSlot_setAdapter(unit, adapter);
     return true;
 }
 
@@ -146,7 +169,7 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
         // Detect competing native manifests before assigning loose sources.
         for (i32 i = 0; i < total && ok && !current.owned; ++i) {
             struct dirent *entry = entries[i];
-            const char *name = (*entry).d_name;
+            const char *name = dirent_d_name(entry);
             const char *backend = strcmp(name, "Cargo.toml") == 0 ? "cargo" :
                 strcmp(name, "package.json") == 0 ? "npm" :
                 strcmp(name, "CMakeLists.txt") == 0 ? "cmake" :
@@ -174,7 +197,7 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
             ok = addUnit(current.path, owner, units, unitCount, unitCapacity);
         for (i32 i = 0; i < total && ok; ++i) {
             struct dirent *entry = entries[i];
-            const char *name = (*entry).d_name;
+            const char *name = dirent_d_name(entry);
             if (ignored(name)) {
                 if (strcmp(name, ".") != 0 && strcmp(name, "..") != 0)
                     ++*skipped;
@@ -204,16 +227,17 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
                 *dirs = storage;
                 if (ok) {
                     ScanSlot *slot = &(*dirs)[(*dirCount)++];
-                    (*slot).path = path;
-                    (*slot).owned = current.owned || owner != nullptr;
+                    ScanSlot_setPath(slot, path);
+                    ScanSlot_setOwned(slot, current.owned || owner != nullptr);
                     path = nullptr;
                 }
             } else if (S_ISREG(info.st_mode)) {
                 ++*files;
                 const Adapter *adapter = Adapter_forFile(path);
                 if (!current.owned && owner == nullptr) {
-                    if (adapter == nullptr || strcmp((*adapter).name, "html") == 0 ||
-                        strcmp((*adapter).name, "web") == 0 || strcmp((*adapter).name, "sql") == 0)
+                    const char *adapterName = adapter ? Adapter_name(adapter) : nullptr;
+                    if (adapter == nullptr || strcmp(adapterName, "html") == 0 ||
+                        strcmp(adapterName, "web") == 0 || strcmp(adapterName, "sql") == 0)
                         ++*unassigned;
                     else
                         ok = addUnit(current.path, adapter, units, unitCount, unitCapacity);
@@ -259,7 +283,7 @@ i32 Workspace_command(i32 argc, char **argv) {
         }
     bytes dirCount = 1, dirCapacity = WORKSPACE_INITIAL_CAPACITY;
     ScanSlot *dirs = Util_allocate(dirCapacity * sizeof(ScanSlot));
-    (*dirs).path = root;
+    ScanSlot_setPath(dirs, root);
     BuildSlot *units = nullptr;
     bytes unitCount = 0, unitCapacity = 0, files = 0, unassigned = 0, skipped = 0;
     bool ok = assess(&dirs, &dirCount, &dirCapacity, &units, &unitCount, &unitCapacity,
@@ -271,8 +295,8 @@ i32 Workspace_command(i32 argc, char **argv) {
                files, dirCount, unitCount, unassigned, skipped);
         for (bytes i = 0; i < unitCount; ++i) {
             BuildSlot *unit = &units[i];
-            const Adapter *adapter = (*unit).adapter;
-            printf("  %s: %s [tools: %s]\n", (*adapter).name, (*unit).path, (*adapter).tools);
+            const Adapter *adapter = BuildSlot_adapter(unit);
+            printf("  %s: %s [tools: %s]\n", Adapter_name(adapter), BuildSlot_path(unit), Adapter_tools(adapter));
         }
         if (!plan && !confirmed && (broad(root) || files >= WORKSPACE_REVIEW_FILES || unitCount >= WORKSPACE_REVIEW_UNITS)) {
             THROW("broad workspace: review --plan then repeat with --confirm; sudo is not required");
@@ -283,11 +307,12 @@ i32 Workspace_command(i32 argc, char **argv) {
         bytes failed = 0;
         for (bytes i = 0; i < unitCount; ++i) {
             BuildSlot *unit = &units[i];
-            const Adapter *adapter = (*unit).adapter;
-            printf("[%zu/%zu] Building %s: %s\n", i + 1, unitCount, (*adapter).name, (*unit).path);
+            const Adapter *adapter = BuildSlot_adapter(unit);
+            const char *unitPath = BuildSlot_path(unit);
+            printf("[%zu/%zu] Building %s: %s\n", i + 1, unitCount, Adapter_name(adapter), unitPath);
             fflush(stdout);
             char *output = nullptr;
-            i32 status = (*adapter).build((*unit).path, &output);
+            i32 status = Adapter_build(adapter)(unitPath, &output);
             failed += status != 0;
             printf("Building %.0f%% — %s%s%s\n", 100.0 * (d64) (i + 1) / (d64) unitCount,
                    status == 0 ? "OK" : "FAIL", output == nullptr ? "" : ": ", output == nullptr ? "" : output);
