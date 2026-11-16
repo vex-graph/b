@@ -90,6 +90,16 @@ static bool runRows(Rows *rows) {
     return status == 0;
 }
 
+;;GETTER
+static i32 Rows_count(const Rows *rows) {
+    return (*rows).count;
+}
+
+;;GETTER
+static const char *Rows_item(const Rows *rows, i32 index) {
+    return (*rows).items[index];
+}
+
 // ── graph values ───────────────────────────────────────────────────────────
 
 typedef struct {
@@ -113,6 +123,25 @@ typedef struct {
     Rows sources;
     Rows generator;
 } GenStep;
+
+;;GETTER
+static const Rows *GraphTarget_sources(const GraphTarget *target) { return &(*target).sources; }
+;;GETTER
+static const Rows *GraphTarget_includes(const GraphTarget *target) { return &(*target).includes; }
+;;GETTER
+static const Rows *GraphTarget_definitions(const GraphTarget *target) { return &(*target).definitions; }
+;;GETTER
+static const Rows *GraphTarget_options(const GraphTarget *target) { return &(*target).options; }
+;;GETTER
+static const Rows *GraphTarget_links(const GraphTarget *target) { return &(*target).links; }
+;;GETTER
+static const Rows *GraphTarget_linkFlags(const GraphTarget *target) { return &(*target).linkFlags; }
+;;GETTER
+static const Rows *GraphTarget_generator(const GraphTarget *target) { return &(*target).generator; }
+;;GETTER
+static const Rows *GenStep_sources(const GenStep *step) { return &(*step).sources; }
+;;GETTER
+static const Rows *GenStep_generator(const GenStep *step) { return &(*step).generator; }
 
 typedef struct {
     GraphTarget *items;
@@ -601,12 +630,15 @@ static char *objectPath(const GraphTarget *target, const char *source) {
         THROW("cannot read source: %s", source);
         return nullptr;
     }
-    for (i32 i = 0; i < (*target).options.count; i++)
-        hash = hashText(hash, (*target).options.items[i]);
-    for (i32 i = 0; i < (*target).definitions.count; i++)
-        hash = hashText(hash, (*target).definitions.items[i]);
-    for (i32 i = 0; i < (*target).includes.count; i++)
-        hash = hashText(hash, (*target).includes.items[i]);
+    const Rows *options = GraphTarget_options(target);
+    const Rows *definitions = GraphTarget_definitions(target);
+    const Rows *includes = GraphTarget_includes(target);
+    for (i32 i = 0; i < Rows_count(options); i++)
+        hash = hashText(hash, Rows_item(options, i));
+    for (i32 i = 0; i < Rows_count(definitions); i++)
+        hash = hashText(hash, Rows_item(definitions, i));
+    for (i32 i = 0; i < Rows_count(includes); i++)
+        hash = hashText(hash, Rows_item(includes, i));
     const char *slash = strrchr(source, '/');
     const char *base = slash ? slash + 1 : source;
     char label[256];
@@ -636,12 +668,15 @@ static bool compileSource(const GraphTarget *target, const char *source, char **
         return false;
     Rows argv = {0};
     rowsPush(&argv, compilerName());
-    for (i32 i = 0; i < (*target).options.count; i++)
-        rowsPush(&argv, (*target).options.items[i]);
-    for (i32 i = 0; i < (*target).definitions.count; i++)
-        rowsPushf(&argv, "-D%s", (*target).definitions.items[i]);
-    for (i32 i = 0; i < (*target).includes.count; i++)
-        rowsPushf(&argv, "-I%s", (*target).includes.items[i]);
+    const Rows *options = GraphTarget_options(target);
+    const Rows *definitions = GraphTarget_definitions(target);
+    const Rows *includes = GraphTarget_includes(target);
+    for (i32 i = 0; i < Rows_count(options); i++)
+        rowsPush(&argv, Rows_item(options, i));
+    for (i32 i = 0; i < Rows_count(definitions); i++)
+        rowsPushf(&argv, "-D%s", Rows_item(definitions, i));
+    for (i32 i = 0; i < Rows_count(includes); i++)
+        rowsPushf(&argv, "-I%s", Rows_item(includes, i));
     if (Util_endsWith(source, ".m"))
         rowsPush(&argv, "-fobjc-arc");
     rowsPush(&argv, "-c");
@@ -657,7 +692,8 @@ static bool compileSource(const GraphTarget *target, const char *source, char **
 static bool generateExternal(const GraphTarget *target, const char *output) {
     if (access(output, F_OK) == 0)
         return true;
-    if ((*target).generator.count == 0) {
+    const Rows *generator = GraphTarget_generator(target);
+    if (Rows_count(generator) == 0) {
         THROW("external artifact is missing and has no generator: %s", output);
         return false;
     }
@@ -667,8 +703,8 @@ static bool generateExternal(const GraphTarget *target, const char *output) {
     if (!made)
         return false;
     Rows argv = {0};
-    for (i32 i = 0; i < (*target).generator.count; i++)
-        rowsPush(&argv, (*target).generator.items[i]);
+    for (i32 i = 0; i < Rows_count(generator); i++)
+        rowsPush(&argv, Rows_item(generator, i));
     bool ok = runRows(&argv);
     rowsFree(&argv);
     if (!ok) {
@@ -709,10 +745,13 @@ static bool linkTarget(Graph *graph, GraphTarget *target, const Rows *objects, c
         }
         rowsPush(&argv, "-o");
         rowsPush(&argv, output);
-        for (i32 i = 0; i < (*target).links.count; i++) {
-            i32 index = targetIndex(graph, (*target).links.items[i]);
+        const Rows *links = GraphTarget_links(target);
+        const Rows *linkFlags = GraphTarget_linkFlags(target);
+        for (i32 i = 0; i < Rows_count(links); i++) {
+            const char *linkName = Rows_item(links, i);
+            i32 index = targetIndex(graph, linkName);
             if (index < 0) {
-                THROW("link plan names an unknown target: %s", (*target).links.items[i]);
+                THROW("link plan names an unknown target: %s", linkName);
                 rowsFree(&argv);
                 return false;
             }
@@ -720,8 +759,8 @@ static bool linkTarget(Graph *graph, GraphTarget *target, const Rows *objects, c
             rowsPush(&argv, library);
             Util_release(library);
         }
-        for (i32 i = 0; i < (*target).linkFlags.count; i++)
-            rowsPush(&argv, (*target).linkFlags.items[i]);
+        for (i32 i = 0; i < Rows_count(linkFlags); i++)
+            rowsPush(&argv, Rows_item(linkFlags, i));
         ok = runRows(&argv);
     }
     rowsFree(&argv);
@@ -753,10 +792,12 @@ static u64 linkSignature(Graph *graph, GraphTarget *target, const Rows *objects)
     u64 hash = 1469598103934665603ull;
     for (i32 i = 0; i < (*objects).count; i++)
         hash = hashText(hash, (*objects).items[i]);
-    for (i32 i = 0; i < (*target).linkFlags.count; i++)
-        hash = hashText(hash, (*target).linkFlags.items[i]);
-    for (i32 i = 0; i < (*target).links.count; i++) {
-        i32 index = targetIndex(graph, (*target).links.items[i]);
+    const Rows *linkFlags = GraphTarget_linkFlags(target);
+    const Rows *links = GraphTarget_links(target);
+    for (i32 i = 0; i < Rows_count(linkFlags); i++)
+        hash = hashText(hash, Rows_item(linkFlags, i));
+    for (i32 i = 0; i < Rows_count(links); i++) {
+        i32 index = targetIndex(graph, Rows_item(links, i));
         if (index < 0)
             continue;
         GraphTarget *dep = &(*graph).items[index];
@@ -820,15 +861,18 @@ static bool runGenerated(Graph *graph) {
     for (i32 i = 0; i < (*graph).genCount; i++) {
         GenStep *step = &(*graph).gens[i];
         u64 hash = 1469598103934665603ull;
-        for (i32 s = 0; s < (*step).sources.count; s++) {
-            hash = hashText(hash, (*step).sources.items[s]);
-            if (!hashFile(&hash, (*step).sources.items[s])) {
-                THROW("cannot read generator input: %s", (*step).sources.items[s]);
+        const Rows *sources = GenStep_sources(step);
+        const Rows *generator = GenStep_generator(step);
+        for (i32 s = 0; s < Rows_count(sources); s++) {
+            const char *source = Rows_item(sources, s);
+            hash = hashText(hash, source);
+            if (!hashFile(&hash, source)) {
+                THROW("cannot read generator input: %s", source);
                 return false;
             }
         }
-        for (i32 g = 0; g < (*step).generator.count; g++)
-            hash = hashText(hash, (*step).generator.items[g]);
+        for (i32 g = 0; g < Rows_count(generator); g++)
+            hash = hashText(hash, Rows_item(generator, g));
         u64 key = hashText(1469598103934665603ull, (*step).output);
         char name[64];
         snprintf(name, sizeof name, "gen-%016llx", (u64) key);
@@ -848,8 +892,8 @@ static bool runGenerated(Graph *graph) {
         if (!made)
             return false;
         Rows argv = {0};
-        for (i32 g = 0; g < (*step).generator.count; g++)
-            rowsPush(&argv, (*step).generator.items[g]);
+        for (i32 g = 0; g < Rows_count(generator); g++)
+            rowsPush(&argv, Rows_item(generator, g));
         bool ok = runRows(&argv);
         rowsFree(&argv);
         if (!ok || access((*step).output, F_OK) != 0) {
@@ -876,14 +920,15 @@ static bool buildTarget(Graph *graph, GraphTarget *target) {
     }
     Rows objects = {0};
     bool ok = true;
-    for (i32 i = 0; i < (*target).sources.count && ok; i++) {
+    const Rows *sources = GraphTarget_sources(target);
+    for (i32 i = 0; i < Rows_count(sources) && ok; i++) {
         char *object = nullptr;
-        ok = compileSource(target, (*target).sources.items[i], &object);
+        ok = compileSource(target, Rows_item(sources, i), &object);
         if (ok)
             rowsPush(&objects, object);
         Util_release(object);
     }
-    if (ok && (*target).sources.count == 0 && strcmp(kind, "lib") != 0) {
+    if (ok && Rows_count(sources) == 0 && strcmp(kind, "lib") != 0) {
         THROW("target %s has no sources", (*target).name);
         ok = false;
     }
