@@ -337,8 +337,10 @@ static char *stemOf(const char *path) {
 }
 
 // A source declares a program entry when it defines main.
+// The ecosystem spells the return type `i32`; a vendored or generated file may
+// still say `int`, so both spellings count.
 static bool hasEntry(const char *source) {
-    return Util_fileContains(source, "int main(");
+    return Util_fileContains(source, "int main(") || Util_fileContains(source, "i32 main(");
 }
 
 // Find the unit's program entries. Returns the first one, owned, and counts all.
@@ -487,7 +489,7 @@ static char *entryC(const char *project) {
     char **sources = Util_collectSources(project, "/*.c", &count, &ok);
     char *found = nullptr;
     for (bytes i = 0; ok && i < count && found == nullptr; ++i)
-        if (Util_fileContains(sources[i], "int main("))
+        if (hasEntry(sources[i]))
             found = Util_combine(sources[i], "");
     Util_freeSources(sources, count);
     return found;
