@@ -1,5 +1,6 @@
 #include "vex.h"
 #include "generate.h"
+#include "b/b_str.h"
 
 #include <dirent.h>
 #include <stdio.h>
@@ -7,32 +8,37 @@
 #include <string.h>
 #include <sys/stat.h>
 
-static const char *COMPILABLE_EXTS[] = {
+;;DEFINITION
+/** Directory scanner and b.sh workspace generator for compilable source trees. */
+;;OVERVIEW
+/** MODULE: generate (vex/b/b/generate.c). Walks source folders, filters build dirs, and sorts entries. */
+
+static const utf8 *COMPILABLE_EXTS[] = {
     "c", "h", "m", "rs", "sh", "java", "cpp", "cc", "hpp",
     "s", "asm", "go", "zig", nullptr
 };
 
-static bool is_compilable(const char *name)
+static bool is_compilable(const utf8 *name)
 {
-    const char *dot = strrchr(name, '.');
+    const utf8 *dot = strrchr(name, '.');
     if (dot == nullptr || dot == name)
         return false;
-    const char *ext = dot + 1;
+    const utf8 *ext = dot + 1;
     for (bytes i = 0; COMPILABLE_EXTS[i] != nullptr; i++)
-        if (strcmp(COMPILABLE_EXTS[i], ext) == 0)
+        if (bStrEq(COMPILABLE_EXTS[i], ext))
             return true;
     return false;
 }
 
-static bool is_ignored_dir(const char *name)
+static bool is_ignored_dir(const utf8 *name)
 {
     if (name[0] == '.')
         return true;
-    if (strcmp(name, "node_modules") == 0)
+    if (bStrEq(name, "node_modules"))
         return true;
-    if (strcmp(name, "target") == 0)
+    if (bStrEq(name, "target"))
         return true;
-    if (strcmp(name, ".b") == 0)
+    if (bStrEq(name, ".b"))
         return true;
     return false;
 }
@@ -44,23 +50,26 @@ static fn indent(FILE *out, i32 depth)
 }
 
 ;;GETTER
-static inline const char *dirent_d_name(const struct dirent *self) { return (*self).d_name; }
+static inline const utf8 *dirent_d_name(const struct dirent *self)
+{
+    return (*self).d_name;
+}
 
 /* Collect sorted entry names for a directory; caller frees. Returns count. */
-static bytes collect(const char *path, char ***out_names)
+static bytes collect(const utf8 *path, utf8 ***out_names)
 {
     DIR *d = opendir(path);
     if (d == nullptr)
         return 0;
-    char **names = nullptr;
+    utf8 **names = nullptr;
     bytes count = 0, cap = 0;
     struct dirent *e;
     while ((e = readdir(d)) != nullptr)
     {
-        const char *name = dirent_d_name(e);
-        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+        const utf8 *name = dirent_d_name(e);
+        if (bStrEq(name, ".") || bStrEq(name, ".."))
             continue;
-        char full[4096];
+        utf8 full[4096];
         snprintf(full, sizeof(full), "%s/%s", path, name);
         struct stat st;
         if (stat(full, &st) != 0)
@@ -78,7 +87,7 @@ static bytes collect(const char *path, char ***out_names)
         if (count == cap)
         {
             bytes next = cap == 0 ? 16 : cap * 2;
-            char **tmp = realloc(names, next * sizeof(char*));
+            utf8 **tmp = realloc(names, next * sizeof(utf8*));
             if (tmp == nullptr)
                 break;
             names = tmp;
@@ -91,9 +100,9 @@ static bytes collect(const char *path, char ***out_names)
 
     for (bytes i = 1; i < count; i++)
     {
-        char *key = names[i];
+        utf8 *key = names[i];
         bytes j = i;
-        while (j > 0 && strcmp(names[j - 1], key) > 0)
+        while (j > 0 && bStrCmp(names[j - 1], key) > 0)
         {
             names[j] = names[j - 1];
             j--;
@@ -105,14 +114,14 @@ static bytes collect(const char *path, char ***out_names)
 }
 
 /* Returns true if directory contains at least one compilable file (recursively). */
-static bool has_compilable(const char *path)
+static bool has_compilable(const utf8 *path)
 {
-    char **names = nullptr;
+    utf8 **names = nullptr;
     bytes count = collect(path, &names);
     bool found = false;
     for (bytes i = 0; i < count; i++)
     {
-        char full[4096];
+        utf8 full[4096];
         snprintf(full, sizeof(full), "%s/%s", path, names[i]);
         struct stat st;
         stat(full, &st);
@@ -134,9 +143,9 @@ static bool has_compilable(const char *path)
 }
 
 /* Emit directory contents. Returns true if anything was emitted. */
-static bool emit(FILE *out, const char *path, i32 depth)
+static bool emit(FILE *out, const utf8 *path, i32 depth)
 {
-    char **names = nullptr;
+    utf8 **names = nullptr;
     bytes count = collect(path, &names);
     bool first = true;
     bool emitted = false;
@@ -144,7 +153,7 @@ static bool emit(FILE *out, const char *path, i32 depth)
     fputc('\n', out);
     for (bytes i = 0; i < count; i++)
     {
-        char full[4096];
+        utf8 full[4096];
         snprintf(full, sizeof(full), "%s/%s", path, names[i]);
         struct stat st;
         stat(full, &st);
@@ -165,7 +174,7 @@ static bool emit(FILE *out, const char *path, i32 depth)
         }
         else
         {
-            const char *dot = strrchr(names[i], '.');
+            const utf8 *dot = strrchr(names[i], '.');
             if (!first) { fputc(',', out); fputc('\n', out); }
             first = false;
             emitted = true;
@@ -179,12 +188,10 @@ static bool emit(FILE *out, const char *path, i32 depth)
         fputc('\n', out);
     indent(out, depth);
     fputc('}', out);
-    /* If nothing emitted, mark empty by returning false; but we already wrote {}. 
-       Caller checks has_compilable before calling, so empty dirs won't be emitted. */
     return emitted;
 }
 
-bool Generate_workspace(const char *root, FILE *out)
+bool Generate_workspace(const utf8 *root, FILE *out)
 {
     fprintf(out, "{\n");
     indent(out, 1);

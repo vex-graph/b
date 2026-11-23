@@ -1,9 +1,11 @@
-// CLASS: Breeze — the run/breeze verb: resolve a file, build it, execute it.
-// DEFINITION: run and breeze are one behaviour with two spellings. The verb
-// resolves the file's unit through the territory, asks its adapter to build or
-// interpret it, forwards the program's arguments literally, and returns the
-// child's exit status. It never runs a stale artifact after a failed build.
-// OVERVIEW: Breeze_command; PRIVATE: regularFile; runFile.
+/**
+ * CLASS: Breeze, the run/breeze verb: resolve a file, build it, execute it.
+ * DEFINITION: run and breeze are one behaviour with two spellings. The verb
+ * resolves the file's unit through the territory, asks its adapter to build or
+ * interpret it, forwards the program's arguments literally, and returns the
+ * child's exit status. It never runs a stale artifact after a failed build.
+ * OVERVIEW: Breeze_command; PRIVATE: regularFile; runFile.
+ */
 
 #pragma once
 
@@ -17,10 +19,10 @@
  * every path is caller-owned and released before return.
  */
 ;;OVERVIEW
-/* PUBLIC: Breeze_command — parse the optional exec|instance word, then dispatch
+/* PUBLIC: Breeze_command, parse the optional exec|instance word, then dispatch
  * one file. Exit status is the program's; a missing file, a missing territory or
  * an unsupported adapter is a cold rejection with no execution.
- * PRIVATE: regularFile — reject a path that is not a regular file; runFile —
+ * PRIVATE: regularFile, reject a path that is not a regular file; runFile,
  * adapter dispatch, else execute an existing native binary.
  */
-i32 Breeze_command(i32 argc, char **argv);
+i32 Breeze_command(i32 argc, utf8 **argv);

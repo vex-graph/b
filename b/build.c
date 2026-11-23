@@ -1,15 +1,22 @@
 #include "vex.h"
 #include "build.h"
+#include "b/build_internal.h"
+#include "b/b_str.h"
 #include "territory.h"
 
+;;DEFINITION
+/** Directory and workspace build orchestrator for b.sh compilation units. */
+;;OVERVIEW
+/** MODULE: build (vex/b/b/build.c). Resolves assembly manifests, compiles units, and links outputs. */
+
 /* Defined below; used by both the unit and the dependency compiles. */
-static fn appendExternalIncludes(char *command, bytes capacity, bytes *length);
+static fn appendExternalIncludes(utf8 *command, bytes capacity, bytes *length);
 
 /* A source defines a program entry when it declares main. The ecosystem spells
  * the return type `i32`; a vendored or generated file may still say `int`. */
-static bool textDefinesEntry(const char *text)
+static bool textDefinesEntry(const utf8 *text)
 {
-    return strstr(text, "int main(") != nullptr || strstr(text, "i32 main(") != nullptr;
+    return bStrFind(text, "int main(") != nullptr || bStrFind(text, "i32 main(") != nullptr;
 }
 
 #include <dirent.h>
@@ -19,7 +26,7 @@ static bool textDefinesEntry(const char *text)
 #include <sys/stat.h>
 #include <unistd.h>
 
-static char *read_file(const char *path)
+static utf8 *read_file(const utf8 *path)
 {
     FILE *f = fopen(path, "rb");
     if (f == nullptr)
@@ -32,7 +39,7 @@ static char *read_file(const char *path)
         fclose(f);
         return nullptr;
     }
-    char *buf = malloc((bytes)sz + 1);
+    utf8 *buf = malloc((bytes)sz + 1);
     if (buf == nullptr)
     {
         fclose(f);
@@ -45,7 +52,7 @@ static char *read_file(const char *path)
 }
 
 /* Glob matching: * (no slash), ** (any including slash). */
-static bool glob_match(const char *pattern, const char *str)
+static bool glob_match(const utf8 *pattern, const utf8 *str)
 {
     while (*pattern && *str)
     {
@@ -56,7 +63,7 @@ static bool glob_match(const char *pattern, const char *str)
                 pattern++;
             if (*pattern == '\0')
                 return true;
-            const char *s = str;
+            const utf8 *s = str;
             while (*s)
             {
                 if (glob_match(pattern, s))
@@ -68,7 +75,7 @@ static bool glob_match(const char *pattern, const char *str)
         else if (*pattern == '*')
         {
             pattern++;
-            const char *s = str;
+            const utf8 *s = str;
             while (*s && *s != '/')
             {
                 if (glob_match(pattern, s))
@@ -98,11 +105,14 @@ static bool glob_match(const char *pattern, const char *str)
 }
 
 ;;GETTER
-static inline const char *dirent_d_name(const struct dirent *self) { return (*self).d_name; }
+static inline const utf8 *dirent_d_name(const struct dirent *self)
+{
+    return (*self).d_name;
+}
 
 /* Recursive directory walk collecting files matching glob pattern. */
-static fn walk_glob(const char *dir, const char *pattern, const char *prefix,
-                      char items[][512], bytes *n, bytes max)
+static fn walk_glob(const utf8 *dir, const utf8 *pattern, const utf8 *prefix,
+                      utf8 items[][512], bytes *n, bytes max)
 {
     DIR *d = opendir(dir);
     if (d == nullptr)
@@ -110,10 +120,10 @@ static fn walk_glob(const char *dir, const char *pattern, const char *prefix,
     struct dirent *e;
     while ((e = readdir(d)) != nullptr)
     {
-        const char *name = dirent_d_name(e);
-        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+        const utf8 *name = dirent_d_name(e);
+        if (bStrEq(name, ".") || bStrEq(name, ".."))
             continue;
-        char full[4096];
+        utf8 full[4096];
         snprintf(full, sizeof(full), "%s/%s", dir, name);
         struct stat st;
         if (stat(full, &st) != 0)
@@ -124,15 +134,12 @@ static fn walk_glob(const char *dir, const char *pattern, const char *prefix,
         }
         else if (S_ISREG(st.st_mode))
         {
-            /* Build relative path from prefix. */
-            const char *rel = full + strlen(prefix);
+            const utf8 *rel = full + strlen(prefix);
             if (*rel == '/')
                 rel++;
             if (glob_match(pattern, rel) && *n < max)
             {
                 snprintf(items[*n], 512, "%s", full);
-                /* store relative path instead of full? keep full for compiler */
-                /* Actually store relative to cwd (prefix-stripped) */
                 snprintf(items[*n], 512, "%s", rel);
                 (*n)++;
             }
@@ -142,11 +149,10 @@ static fn walk_glob(const char *dir, const char *pattern, const char *prefix,
 }
 
 /* Expand a source spec (literal or glob) into file list. */
-static fn expand_source(const char *spec, char items[][512], bytes *n, bytes max)
+static fn expand_source(const utf8 *spec, utf8 items[][512], bytes *n, bytes max)
 {
-    if (strchr(spec, '*') || strchr(spec, '?'))
+    if (bStrFindChar(spec, '*') || bStrFindChar(spec, '?'))
     {
-        /* glob: walk from "." with pattern = spec */
         walk_glob(".", spec, ".", items, n, max);
     }
     else
@@ -161,19 +167,17 @@ static fn expand_source(const char *spec, char items[][512], bytes *n, bytes max
 }
 
 /* Find unit name containing source_path (or matching unit_name if source is a unit name). */
-static bool find_unit_name(const char *assembly, const char *key,
-                          char *unit_name, bytes name_sz)
+static bool find_unit_name(const utf8 *assembly, const utf8 *key,
+                          utf8 *unit_name, bytes name_sz)
 {
-    /* If key is a unit name directly, check it exists. */
-    char quoted[512];
+    utf8 quoted[512];
     snprintf(quoted, sizeof(quoted), "\"%s\"", key);
-    if (strstr(assembly, quoted) != nullptr)
+    if (bStrFind(assembly, quoted) != nullptr)
     {
-        /* verify it's a top-level key under assembly */
-        const char *a = strstr(assembly, "\"assembly\"");
+        const utf8 *a = bStrFind(assembly, "\"assembly\"");
         if (a)
         {
-            const char *p = strstr(a, quoted);
+            const utf8 *p = bStrFind(a, quoted);
             if (p && p > a)
             {
                 strncpy(unit_name, key, name_sz - 1);
@@ -182,14 +186,13 @@ static bool find_unit_name(const char *assembly, const char *key,
             }
         }
     }
-    /* Otherwise search by source path. */
-    const char *a = strstr(assembly, "\"assembly\"");
+    const utf8 *a = bStrFind(assembly, "\"assembly\"");
     if (a == nullptr)
         return false;
-    const char *o = strchr(a, '{');
+    const utf8 *o = bStrFindChar(a, '{');
     if (o == nullptr)
         return false;
-    const char *p = o + 1;
+    const utf8 *p = o + 1;
     i32 depth = 1;
     while (*p && depth >= 1)
     {
@@ -207,7 +210,7 @@ static bool find_unit_name(const char *assembly, const char *key,
             continue;
         }
         p++;
-        const char *kstart = p;
+        const utf8 *kstart = p;
         while (*p && *p != '"')
             p++;
         bytes klen = (bytes)(p - kstart);
@@ -224,9 +227,9 @@ static bool find_unit_name(const char *assembly, const char *key,
             p++;
             continue;
         }
-        const char *ustart = p;
+        const utf8 *ustart = p;
         i32 ud = 0;
-        const char *q = p;
+        const utf8 *q = p;
         while (*q)
         {
             if (*q == '{')
@@ -250,10 +253,10 @@ static bool find_unit_name(const char *assembly, const char *key,
             q++;
         }
         bytes blen = (bytes)(q - ustart + 1);
-        char *block = malloc(blen + 1);
+        utf8 *block = malloc(blen + 1);
         memcpy(block, ustart, blen);
         block[blen] = '\0';
-        if (strstr(block, key) != nullptr)
+        if (bStrFind(block, key) != nullptr)
         {
             if (klen < name_sz)
             {
@@ -269,19 +272,19 @@ static bool find_unit_name(const char *assembly, const char *key,
     return false;
 }
 
-static bool find_unit_block(const char *assembly, const char *unit_name,
-                           const char **start, const char **end)
+static bool find_unit_block(const utf8 *assembly, const utf8 *unit_name,
+                           const utf8 **start, const utf8 **end)
 {
-    char key[512];
+    utf8 key[512];
     snprintf(key, sizeof(key), "\"%s\"", unit_name);
-    const char *p = strstr(assembly, key);
+    const utf8 *p = bStrFind(assembly, key);
     if (p == nullptr)
         return false;
-    const char *o = strchr(p, '{');
+    const utf8 *o = bStrFindChar(p, '{');
     if (o == nullptr)
         return false;
     i32 depth = 0;
-    const char *q = o;
+    const utf8 *q = o;
     while (*q)
     {
         if (*q == '{')
@@ -311,15 +314,15 @@ static bool find_unit_block(const char *assembly, const char *unit_name,
     return false;
 }
 
-static fn collect_strings(const char *block, const char *field,
-                           char items[][512], bytes *n, bytes max)
+static fn collect_strings(const utf8 *block, const utf8 *field,
+                           utf8 items[][512], bytes *n, bytes max)
 {
-    char key[128];
+    utf8 key[128];
     snprintf(key, sizeof(key), "\"%s\"", field);
-    const char *p = strstr(block, key);
+    const utf8 *p = bStrFind(block, key);
     if (p == nullptr)
         return;
-    p = strchr(p, '[');
+    p = bStrFindChar(p, '[');
     if (p == nullptr)
         return;
     p++;
@@ -354,22 +357,20 @@ static fn collect_strings(const char *block, const char *field,
  * names). Those sources are compiled into .b/obj/deps/<path>/ and linked into
  * the unit, so a test links the R0 and R2 code it exercises. A source that
  * defines main() is skipped: the unit owns the entry point. */
-static fn appendDependencyObjects(char *objects, bytes capacity, bytes *used,
-                                    const char *territory, const char *dependency,
-                                    const char *objectBase, const char *includeFlags,
-                                    char amalgamatedList[][256], bytes amalgamatedCount)
+static fn appendDependencyObjects(utf8 *objects, bytes capacity, bytes *used,
+                                    const utf8 *territory, const utf8 *dependency,
+                                    const utf8 *objectBase, const utf8 *includeFlags,
+                                    utf8 amalgamatedList[][256], bytes amalgamatedCount)
 {
-    char listing[1024];
+    utf8 listing[1024];
     snprintf(listing, sizeof(listing), "%s/deps.list", objectBase);
-    char command[4096];
+    utf8 command[4096];
     snprintf(command, sizeof(command),
              "find '%s/%s' \\( -name '*.c' -o -name '*.m' \\) -not -path '*/.git/*' -not -path '*/.b/*' 2>/dev/null | sort > '%s'",
              territory, dependency, listing);
     if (system(command) != 0)
         return;
-    // The unit already compiles its own directory; the dependency sweep must
-    // stop at it or every symbol in a shared source is defined twice.
-    char here[4096];
+    utf8 here[4096];
     bytes hereLength = 0;
     if (getcwd(here, sizeof(here)) != nullptr)
         hereLength = strlen(here);
@@ -377,7 +378,7 @@ static fn appendDependencyObjects(char *objects, bytes capacity, bytes *used,
     FILE *file = fopen(listing, "r");
     if (file == nullptr)
         return;
-    char line[4096];
+    utf8 line[4096];
     while (fgets(line, sizeof(line), file) != nullptr)
     {
         bytes length = strlen(line);
@@ -385,72 +386,64 @@ static fn appendDependencyObjects(char *objects, bytes capacity, bytes *used,
             line[--length] = '\0';
         if (length == 0)
             continue;
-        if (hereLength > 0 && strncmp(line, here, hereLength) == 0
+        if (hereLength > 0 && bStrPrefixN(line, here, hereLength)
             && line[hereLength] == '/')
             continue;
 
         FILE *source = fopen(line, "rb");
         if (source == nullptr)
             continue;
-        static char contents[1 << 16];
+        static utf8 contents[1 << 16];
         bytes read = fread(contents, 1, sizeof(contents) - 1, source);
         contents[read] = '\0';
         fclose(source);
         if (textDefinesEntry(contents))
             continue;
 
-        const char *relative = line;
+        const utf8 *relative = line;
         bytes prefix = strlen(territory);
-        if (strncmp(line, territory, prefix) == 0)
+        if (bStrPrefixN(line, territory, prefix))
             relative = line + prefix + 1;
 
-        const char *leaf = strrchr(line, '/');
+        const utf8 *leaf = strrchr(line, '/');
         leaf = leaf != nullptr ? leaf + 1 : line;
 
-        // A unit source may paste this file in with #include "x.c". Compiling
-        // it again beside the unit would define every symbol twice.
         bool alreadyPasted = false;
         for (bytes a = 0; a < amalgamatedCount; ++a)
-            if (strcmp(leaf, amalgamatedList[a]) == 0)
+            if (bStrEq(leaf, amalgamatedList[a]))
                 alreadyPasted = true;
         if (alreadyPasted)
             continue;
 
-        // One directory, one feature: a shim and its C file live together, and
-        // the build picks one. A unit manifest that lists its sources is the
-        // authority for its own directory; a directory without one falls back
-        // to the platform-shim convention.
-        char directoryOf[4096];
+        utf8 directoryOf[4096];
         snprintf(directoryOf, sizeof(directoryOf), "%s", line);
-        char *lastSlash = strrchr(directoryOf, '/');
+        utf8 *lastSlash = strrchr(directoryOf, '/');
         if (lastSlash != nullptr)
             *lastSlash = '\0';
 
-        char manifestPath[4096];
+        utf8 manifestPath[4096];
         snprintf(manifestPath, sizeof(manifestPath), "%s/b.assembly.json", directoryOf);
         FILE *manifest = fopen(manifestPath, "rb");
         if (manifest != nullptr)
         {
-            static char manifestText[1 << 16];
+            static utf8 manifestText[1 << 16];
             bytes manifestLength = fread(manifestText, 1, sizeof(manifestText) - 1, manifest);
             manifestText[manifestLength] = '\0';
             fclose(manifest);
-            const char *sourcesKey = strstr(manifestText, "\"sources\"");
-            if (sourcesKey != nullptr && strstr(sourcesKey, leaf) == nullptr)
-                continue;   // this unit does not claim the file
+            const utf8 *sourcesKey = bStrFind(manifestText, "\"sources\"");
+            if (sourcesKey != nullptr && bStrFind(sourcesKey, leaf) == nullptr)
+                continue;
         }
         else
         {
-            // A portable .c the platform shim replaces: touchid.c beside
-            // touchid_cocoa.m compiles as the shim only on Apple.
-            const char *leafDot = strrchr(leaf, '.');
-            if (leafDot != nullptr && strcmp(leafDot, ".c") == 0)
+            const utf8 *leafDot = strrchr(leaf, '.');
+            if (leafDot != nullptr && bStrEq(leafDot, ".c"))
             {
-                static const char *shims[] = { "_cocoa.m", "_apple.m", "_macos.m", "_cocoa.c" };
+                static const utf8 *shims[] = { "_cocoa.m", "_apple.m", "_macos.m", "_cocoa.c" };
                 bool replaced = false;
                 for (bytes s = 0; s < sizeof(shims) / sizeof(shims[0]) && !replaced; ++s)
                 {
-                    char candidate[4096];
+                    utf8 candidate[4096];
                     snprintf(candidate, sizeof(candidate), "%s/%.*s%s", directoryOf,
                              (i32) (leafDot - leaf), leaf, shims[s]);
                     struct stat probe;
@@ -461,15 +454,15 @@ static fn appendDependencyObjects(char *objects, bytes capacity, bytes *used,
             }
         }
 
-        char object[4096];
+        utf8 object[4096];
         snprintf(object, sizeof(object), "%s/deps/%.*s.o", objectBase,
                  (i32) (strlen(relative) - 2), relative);
-        char directory[4096];
+        utf8 directory[4096];
         snprintf(directory, sizeof(directory), "%s", object);
-        char *slash = strrchr(directory, '/');
+        utf8 *slash = strrchr(directory, '/');
         if (slash != nullptr)
             *slash = '\0';
-        char make[8192];
+        utf8 make[8192];
         snprintf(make, sizeof(make), "mkdir -p '%s'", directory);
         if (system(make) != 0)
             continue;
@@ -480,7 +473,7 @@ static fn appendDependencyObjects(char *objects, bytes capacity, bytes *used,
                   && objectInfo.st_mtime >= sourceInfo.st_mtime;
         if (!fresh)
         {
-            char compile[16384];
+            utf8 compile[16384];
             snprintf(compile, sizeof(compile),
                      "clang -std=gnu23 -g -O0 -w %s -c '%s' -o '%s' 2>/dev/null",
                      includeFlags, line, object);
@@ -502,26 +495,26 @@ static fn appendDependencyObjects(char *objects, bytes capacity, bytes *used,
  * share one scope. The pattern is legitimate, but the included file must not
  * ALSO be compiled into the unit or every symbol it defines is a duplicate.
  * Record the basenames here so the compile loop can skip them and say so. */
-static fn noteAmalgamation(const char *path, char names[][256], bytes *count, bytes capacity)
+static fn noteAmalgamation(const utf8 *path, utf8 names[][256], bytes *count, bytes capacity)
 {
     FILE *file = fopen(path, "rb");
     if (file == nullptr)
         return;
-    static char text[1 << 18];
+    static utf8 text[1 << 18];
     bytes length = fread(text, 1, sizeof(text) - 1, file);
     text[length] = '\0';
     fclose(file);
-    const char *cursor = text;
-    while ((cursor = strstr(cursor, "#include \"")) != nullptr)
+    const utf8 *cursor = text;
+    while ((cursor = bStrFind(cursor, "#include \"")) != nullptr)
     {
         cursor += 10;
-        const char *end = strchr(cursor, '"');
+        const utf8 *end = bStrFindChar(cursor, '"');
         if (end == nullptr)
             break;
         bytes span = (bytes) (end - cursor);
-        if (span > 2 && (strncmp(end - 2, ".c", 2) == 0 || strncmp(end - 2, ".m", 2) == 0))
+        if (span > 2 && (bStrPrefix(end - 2, ".c") || bStrPrefix(end - 2, ".m")))
         {
-            const char *leaf = end;
+            const utf8 *leaf = end;
             while (leaf > cursor && *(leaf - 1) != '/')
                 --leaf;
             bytes leafLength = (bytes) (end - leaf);
@@ -536,25 +529,20 @@ static fn noteAmalgamation(const char *path, char names[][256], bytes *count, by
     }
 }
 
-bool Build_file(const char *source_path, const char *assembly_path,
-                const char *workspace_path, const char *out_dir, FILE *out)
+bool Build_file(const utf8 *source_path, const utf8 *assembly_path,
+                const utf8 *workspace_path, const utf8 *out_dir, FILE *out)
 {
     (discard) workspace_path;
-    char *asm_buf = read_file(assembly_path);
+    utf8 *asm_buf = read_file(assembly_path);
     if (asm_buf == nullptr)
     {
         fprintf(out, "build: cannot read %s\n", assembly_path);
         return false;
     }
-    // Manifest paths are workspace-relative, not shell-relative: the same
-    // manifest must build from the repository root or from its own directory.
-    char *territory = Territory_find(".");
-    const char *base = territory != nullptr ? territory : "";
+    utf8 *territory = Territory_find(".");
+    const utf8 *base = territory != nullptr ? territory : "";
 
-    // Output is territory-grounded too: every unit lands in <territory>/.b/out
-    // beside the application it builds for, never in a stray .b/ under a test
-    // directory.
-    char resolvedOut[4096];
+    utf8 resolvedOut[4096];
     if (out_dir != nullptr && out_dir[0] == '/')
         snprintf(resolvedOut, sizeof(resolvedOut), "%s", out_dir);
     else
@@ -562,8 +550,8 @@ bool Build_file(const char *source_path, const char *assembly_path,
                  out_dir != nullptr ? out_dir : ".b/out");
     out_dir = resolvedOut;
 
-    char unit_name[256];
-    const char *blk_start = nullptr, *blk_end = nullptr;
+    utf8 unit_name[256];
+    const utf8 *blk_start = nullptr, *blk_end = nullptr;
     bool singleUnit = false;
     if (find_unit_name(asm_buf, source_path, unit_name, sizeof(unit_name)))
     {
@@ -574,17 +562,14 @@ bool Build_file(const char *source_path, const char *assembly_path,
             return false;
         }
     }
-    else if (strstr(asm_buf, "\"application\"") != nullptr)
+    else if (bStrFind(asm_buf, "\"application\"") != nullptr)
     {
-        // A manifest with no "assembly" wrapper declares exactly one unit:
-        // the whole file is the block. This is the schema the repositories
-        // use, so `b build <unit>` must read it, not only the legacy wrapper.
-        const char *nameKey = strstr(asm_buf, "\"name\"");
-        const char *nameValue = nameKey != nullptr ? strchr(nameKey, ':') : nullptr;
+        const utf8 *nameKey = bStrFind(asm_buf, "\"name\"");
+        const utf8 *nameValue = nameKey != nullptr ? bStrFindChar(nameKey, ':') : nullptr;
         bytes written = 0;
         if (nameValue != nullptr)
         {
-            nameValue = strchr(nameValue, '"');
+            nameValue = bStrFindChar(nameValue, '"');
             if (nameValue != nullptr)
             {
                 ++nameValue;
@@ -606,18 +591,17 @@ bool Build_file(const char *source_path, const char *assembly_path,
         return false;
     }
     bytes blk_len = (bytes)(blk_end - blk_start);
-    char *block = malloc(blk_len + 1);
+    utf8 *block = malloc(blk_len + 1);
     memcpy(block, blk_start, blk_len);
     block[blk_len] = '\0';
 
     fprintf(out, "build: unit '%s'\n", unit_name);
 
-    /* Determine unit type. */
-    char unit_type[64] = "executable";
-    const char *tp = strstr(block, "\"type\"");
+    utf8 unit_type[64] = "executable";
+    const utf8 *tp = bStrFind(block, "\"type\"");
     if (tp != nullptr)
     {
-        tp = strchr(tp, ':');
+        tp = bStrFindChar(tp, ':');
         if (tp != nullptr)
         {
             tp++;
@@ -634,41 +618,36 @@ bool Build_file(const char *source_path, const char *assembly_path,
         }
     }
 
-    /* Collect sources (with glob expansion). */
-    char raw_sources[64][512];
+    utf8 raw_sources[64][512];
     bytes nraw = 0;
     collect_strings(block, "sources", raw_sources, &nraw, 64);
     if (nraw == 0)
         collect_strings(block, "entry", raw_sources, &nraw, 64);
 
-    // One executable, one entry point. A directory may hold several standalone
-    // test programs; the unit builds only the one it names as `entry`, plus any
-    // source that does not define main().
-    char entry_name[512] = "";
+    utf8 entry_name[512] = "";
     {
-        char declared[4][512];
+        utf8 declared[4][512];
         bytes declared_count = 0;
         collect_strings(block, "entry", declared, &declared_count, 4);
         if (declared_count > 0)
         {
-            const char *slash = strrchr(declared[0], '/');
+            const utf8 *slash = strrchr(declared[0], '/');
             snprintf(entry_name, sizeof(entry_name), "%s", slash != nullptr ? slash + 1 : declared[0]);
         }
     }
-    // "cli", "executable" and any other non-library type all link as programs.
-    if (strcmp(unit_type, "lib") != 0 && strcmp(unit_type, "module") != 0 && entry_name[0] != '\0')
+    if (!bStrEq(unit_type, "lib") && !bStrEq(unit_type, "module") && entry_name[0] != '\0')
     {
         bytes kept = 0;
         for (bytes i = 0; i < nraw; ++i)
         {
-            const char *slash = strrchr(raw_sources[i], '/');
-            const char *leaf = slash != nullptr ? slash + 1 : raw_sources[i];
-            bool isEntry = strcmp(leaf, entry_name) == 0;
+            const utf8 *slash = strrchr(raw_sources[i], '/');
+            const utf8 *leaf = slash != nullptr ? slash + 1 : raw_sources[i];
+            bool isEntry = bStrEq(leaf, entry_name);
             bool definesMain = false;
             FILE *probe = fopen(raw_sources[i], "rb");
             if (probe != nullptr)
             {
-                static char text[1 << 16];
+                static utf8 text[1 << 16];
                 bytes length = fread(text, 1, sizeof(text) - 1, probe);
                 text[length] = '\0';
                 fclose(probe);
@@ -682,45 +661,43 @@ bool Build_file(const char *source_path, const char *assembly_path,
         }
         nraw = kept;
     }
-    /* If unit has .rs sources, build via cargo. */
     bool has_rust = false;
     for (bytes i = 0; i < nraw; i++)
     {
-        const char *d = strrchr(raw_sources[i], '.');
-        if (d && strcmp(d + 1, "rs") == 0)
+        const utf8 *d = strrchr(raw_sources[i], '.');
+        if (d && bStrEq(d + 1, "rs"))
             has_rust = true;
     }
     if (has_rust)
     {
-        /* Find Cargo.toml from first .rs source. */
         for (bytes i = 0; i < nraw; i++)
         {
-            const char *d = strrchr(raw_sources[i], '.');
-            if (d && strcmp(d + 1, "rs") == 0)
+            const utf8 *d = strrchr(raw_sources[i], '.');
+            if (d && bStrEq(d + 1, "rs"))
             {
-                char tmp[1024];
+                utf8 tmp[1024];
                 strcpy(tmp, raw_sources[i]);
-                char *sl = strrchr(tmp, '/');
+                utf8 *sl = strrchr(tmp, '/');
                 if (sl)
                 {
                     *sl = '\0';
-                    char dir[1024];
+                    utf8 dir[1024];
                     strcpy(dir, tmp);
                     while (dir[0] != '\0')
                     {
-                        char cargo[1024];
+                        utf8 cargo[1024];
                         snprintf(cargo, sizeof(cargo), "%s/Cargo.toml", dir);
                         FILE *cf = fopen(cargo, "r");
                         if (cf)
                         {
                             fclose(cf);
-                            char cmd[2048];
+                            utf8 cmd[2048];
                             snprintf(cmd, sizeof(cmd), "cd %s && cargo build 2>&1", dir);
                             fprintf(out, "build: %s\n", cmd);
                             system(cmd);
                             break;
                         }
-                        char *s2 = strrchr(dir, '/');
+                        utf8 *s2 = strrchr(dir, '/');
                         if (s2)
                             *s2 = '\0';
                         else
@@ -734,7 +711,7 @@ bool Build_file(const char *source_path, const char *assembly_path,
 
 
 
-    char sources[256][512];
+    utf8 sources[256][512];
     bytes nsrc = 0;
     for (bytes i = 0; i < nraw; i++)
     {
@@ -748,38 +725,31 @@ bool Build_file(const char *source_path, const char *assembly_path,
         return false;
     }
 
-    /* Amalgamated sources: #include "x.c" is legal, being compiled twice is not. */
-    char amalgamated[32][256];
+    utf8 amalgamated[32][256];
     bytes namalgamated = 0;
     for (bytes i = 0; i < nsrc; i++)
         noteAmalgamation(sources[i], amalgamated, &namalgamated, 32);
     for (bytes i = 0; i < namalgamated; i++)
         fprintf(out, "build: amalgamating %s (included, not compiled separately)\n", amalgamated[i]);
 
-    /* Collect include roots (unit + deps). */
-    char include_flags[32768] = "";
+    utf8 include_flags[32768] = "";
     bytes if_used = 0;
 
-    // The territory root is always an include root: repository directories are
-    // spelled from there, and the floor adds `lib` for the `vex.h` door.
     if_used += (bytes)snprintf(include_flags + if_used, sizeof(include_flags) - if_used,
                                 " -I%s", base);
-    char roots[64][512];
+    utf8 roots[64][512];
     bytes nroots = 0;
     collect_strings(block, "include_roots", roots, &nroots, 64);
     for (bytes i = 0; i < nroots; i++)
         if_used += (bytes)snprintf(include_flags + if_used, sizeof(include_flags) - if_used,
                                     " -I%s/%s", base, roots[i]);
-    // A repository manifest spells include roots `includes`, and names its
-    // sibling repositories in `dependencies`. Both are plain include roots
-    // now that every repository is flat.
     collect_strings(block, "includes", roots, &nroots, 64);
     for (bytes i = 0; i < nroots; i++)
         if_used += (bytes)snprintf(include_flags + if_used, sizeof(include_flags) - if_used,
                                     " -I%s/%s", base, roots[i]);
     if (singleUnit)
     {
-        char declared[64][512];
+        utf8 declared[64][512];
         bytes ndeclared = 0;
         collect_strings(block, "dependencies", declared, &ndeclared, 64);
         for (bytes i = 0; i < ndeclared; i++)
@@ -787,21 +757,21 @@ bool Build_file(const char *source_path, const char *assembly_path,
                                         " -I%s/%s", base, declared[i]);
     }
 
-    char deps[64][512];
+    utf8 deps[64][512];
     bytes ndeps = 0;
     collect_strings(block, "deps", deps, &ndeps, 64);
     if (singleUnit)
         collect_strings(block, "dependencies", deps, &ndeps, 64);
     for (bytes d = 0; d < ndeps; d++)
     {
-        const char *ds = nullptr, *de = nullptr;
+        const utf8 *ds = nullptr, *de = nullptr;
         if (find_unit_block(asm_buf, deps[d], &ds, &de))
         {
             bytes dl = (bytes)(de - ds);
-            char *dblock = malloc(dl + 1);
+            utf8 *dblock = malloc(dl + 1);
             memcpy(dblock, ds, dl);
             dblock[dl] = '\0';
-            char droots[64][512];
+            utf8 droots[64][512];
             bytes ndr = 0;
             collect_strings(dblock, "include_roots", droots, &ndr, 64);
             for (bytes r = 0; r < ndr; r++)
@@ -811,153 +781,138 @@ bool Build_file(const char *source_path, const char *assembly_path,
         }
     }
 
-    // External SDK headers (Vulkan, Homebrew) apply to dependency sources too,
-    // not only to the workspace build.
     appendExternalIncludes(include_flags, sizeof(include_flags), &if_used);
 
-    /* Shader codegen: if "shaders" declared, generate headers into .b/gen. */
-    char shaders[64][512];
+    utf8 shaders[64][512];
     bytes nshaders = 0;
     collect_strings(block, "shaders", shaders, &nshaders, 64);
     if (nshaders > 0)
     {
-        char gen_dir[1024];
+        utf8 gen_dir[1024];
         snprintf(gen_dir, sizeof(gen_dir), "%s/../gen", out_dir);
-        /* resolve .b/gen */
-        char base_dir[1024];
+        utf8 base_dir[1024];
         strncpy(base_dir, out_dir, sizeof(base_dir) - 1);
         base_dir[sizeof(base_dir) - 1] = '\0';
-        char *sl = strrchr(base_dir, '/');
-        if (sl) *sl = '\0';
+        utf8 *sl = strrchr(base_dir, '/');
+        if (sl)
+            *sl = '\0';
         snprintf(gen_dir, sizeof(gen_dir), "%s/gen", base_dir);
-        char mk[2048];
+        utf8 mk[2048];
         snprintf(mk, sizeof(mk), "mkdir -p %s", gen_dir);
         system(mk);
 
         for (bytes i = 0; i < nshaders; i++)
         {
-            /* Expand glob if needed. */
-            char shader_files[256][512];
+            utf8 shader_files[256][512];
             bytes nsf = 0;
             expand_source(shaders[i], shader_files, &nsf, 256);
             for (bytes j = 0; j < nsf; j++)
             {
-                const char *src = shader_files[j];
-                const char *base = strrchr(src, '/');
+                const utf8 *src = shader_files[j];
+                const utf8 *base = strrchr(src, '/');
                 base = base ? base + 1 : src;
-                char name[256];
+                utf8 name[256];
                 strncpy(name, base, sizeof(name) - 1);
                 name[sizeof(name) - 1] = '\0';
-                /* replace dots with underscores for variable name */
-                for (char *c = name; *c; c++)
-                    if (*c == '.') *c = '_';
-                char stem[256];
+                for (utf8 *c = name; *c; c++)
+                    if (*c == '.')
+                        *c = '_';
+                utf8 stem[256];
                 strncpy(stem, base, sizeof(stem) - 1);
                 stem[sizeof(stem) - 1] = '\0';
-                for (char *c = stem; *c; c++)
-                    if (*c == '.') *c = '_';
+                for (utf8 *c = stem; *c; c++)
+                    if (*c == '.')
+                        *c = '_';
 
-                char spv[1024], hdr[1024];
-                /* header uses stem-without-extension + _spv.h; spv uses full stem */
-                char hdrstem[256];
+                utf8 spv[1024], hdr[1024];
+                utf8 hdrstem[256];
                 strcpy(hdrstem, stem);
-                /* Derive header name from original base name's first component */
-                char hname[256];
+                utf8 hname[256];
                 strcpy(hname, base);
-                char *hdot = strchr(hname, '.');
-                if (hdot) *hdot = '\0';
-                /* hname now = "quad" (for quad.vert) */
+                utf8 *hdot = bStrFindCharMut(hname, '.');
+                if (hdot)
+                    *hdot = '\0';
                 snprintf(spv, sizeof(spv), "%s/%s.spv", gen_dir, stem);
                 snprintf(hdr, sizeof(hdr), "%s/%s_spv.h", gen_dir, hname);
 
-                char cmd[4096];
-                /* glslc -> SPIR-V */
+                utf8 cmd[4096];
                 snprintf(cmd, sizeof(cmd), "glslc -I vex-lib/graphvex/src %s -o %s 2>&1", src, spv);
                 fprintf(out, "shader: %s\n", cmd);
                 system(cmd);
-                /* xxd -i -> C header */
                 snprintf(cmd, sizeof(cmd), "cd %s && xxd -i %s.spv > %s_spv.h 2>&1", gen_dir, stem, name);
                 fprintf(out, "shader: %s\n", cmd);
                 system(cmd);
             }
         }
-        /* Add .b/gen to include roots. */
         bytes gl = strlen(include_flags);
         snprintf(include_flags + gl, sizeof(include_flags) - gl, " -I%s", gen_dir);
     }
 
-    /* Create object dir. */
-    char base_dir[1024];
+    utf8 base_dir[1024];
     strncpy(base_dir, out_dir, sizeof(base_dir) - 1);
     base_dir[sizeof(base_dir) - 1] = '\0';
-    char *slash = strrchr(base_dir, '/');
+    utf8 *slash = strrchr(base_dir, '/');
     if (slash)
         *slash = '\0';
-    char obj_unit_dir[1024];
+    utf8 obj_unit_dir[1024];
     snprintf(obj_unit_dir, sizeof(obj_unit_dir), "%s/obj/%s", base_dir, unit_name);
-    char mkdir_cmd[2048];
+    utf8 mkdir_cmd[2048];
     snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s", obj_unit_dir);
     system(mkdir_cmd);
 
-    // The manifest's own compiler options, applied after the defaults so a
-    // unit can relax a warning it knowingly carries (deprecations in a legacy
-    // program file), instead of the build relaxing it for everyone.
-    char options[64][512];
+    utf8 options[64][512];
     bytes noptions = 0;
     collect_strings(block, "options", options, &noptions, 64);
-    char option_flags[2048] = "";
+    utf8 option_flags[2048] = "";
     bytes option_used = 0;
     for (bytes i = 0; i < noptions; ++i)
         option_used += (bytes)snprintf(option_flags + option_used, sizeof(option_flags) - option_used,
                                         " %s", options[i]);
 
-    /* Compile each source. */
-    char obj_files[262144] = "";
+    utf8 obj_files[262144] = "";
     bytes of_used = 0;
     for (bytes i = 0; i < nsrc; i++)
     {
-        const char *src = sources[i];
-        const char *ed = strrchr(src, '.');
-        const char *ext2 = ed ? ed + 1 : "";
-        if (strcmp(ext2, "rs") == 0)
-            continue; /* Rust handled by cargo separately */
-        const char *sourceLeaf = strrchr(src, '/');
+        const utf8 *src = sources[i];
+        const utf8 *ed = strrchr(src, '.');
+        const utf8 *ext2 = ed ? ed + 1 : "";
+        if (bStrEq(ext2, "rs"))
+            continue;
+        const utf8 *sourceLeaf = strrchr(src, '/');
         sourceLeaf = sourceLeaf != nullptr ? sourceLeaf + 1 : src;
         bool amalgamatedSource = false;
         for (bytes a = 0; a < namalgamated; ++a)
-            if (strcmp(sourceLeaf, amalgamated[a]) == 0)
+            if (bStrEq(sourceLeaf, amalgamated[a]))
                 amalgamatedSource = true;
         if (amalgamatedSource)
-            continue; /* pasted into the unit that includes it */
-        const char *base = strrchr(src, '/');
+            continue;
+        const utf8 *base = strrchr(src, '/');
         base = base ? base + 1 : src;
-        char obj_name[256];
+        utf8 obj_name[256];
         strncpy(obj_name, base, sizeof(obj_name) - 1);
         obj_name[sizeof(obj_name) - 1] = '\0';
-        char *dot = strrchr(obj_name, '.');
+        utf8 *dot = strrchr(obj_name, '.');
         if (dot)
             strcpy(dot, ".o");
         else
             strcat(obj_name, ".o");
 
-        char obj_path[1024];
+        utf8 obj_path[1024];
         snprintf(obj_path, sizeof(obj_path), "%s/%s", obj_unit_dir, obj_name);
 
-        char cmd[65536];
-        const char *edot = strrchr(src, '.');
-        const char *ext = edot ? edot + 1 : "";
-        /* Debuggable by default: CLion/LLDB reads these symbols, and the hot
-           module swap keeps them per image. B_CFLAGS overrides the default. */
-        const char *debug_flags = getenv("B_CFLAGS");
+        utf8 cmd[65536];
+        const utf8 *edot = strrchr(src, '.');
+        const utf8 *ext = edot ? edot + 1 : "";
+        const utf8 *debug_flags = getenv("B_CFLAGS");
         if (!debug_flags || !*debug_flags)
             debug_flags = "-g -O0";
-        if (strcmp(ext, "m") == 0)
+        if (bStrEq(ext, "m"))
         {
             snprintf(cmd, sizeof(cmd),
                      "clang -std=gnu23 -Wall -Wextra -Werror %s -c -x objective-c -fobjc-arc %s%s %s -o %s",
                      debug_flags, include_flags, option_flags, src, obj_path);
         }
-        else if (strcmp(ext, "rs") == 0)
+        else if (bStrEq(ext, "rs"))
         {
             snprintf(cmd, sizeof(cmd),
                      "rustc --crate-type staticlib -O %s -o %s",
@@ -983,8 +938,7 @@ bool Build_file(const char *source_path, const char *assembly_path,
         of_used += (bytes)snprintf(obj_files + of_used, sizeof(obj_files) - of_used, "%s", obj_path);
     }
 
-    /* Link dependency objects for an executable unit. */
-    if (strcmp(unit_type, "lib") != 0 && strcmp(unit_type, "module") != 0 && ndeps > 0)
+    if (!bStrEq(unit_type, "lib") && !bStrEq(unit_type, "module") && ndeps > 0)
     {
         for (bytes d = 0; d < ndeps; d++)
             appendDependencyObjects(obj_files, sizeof(obj_files), &of_used,
@@ -992,25 +946,20 @@ bool Build_file(const char *source_path, const char *assembly_path,
                                     amalgamated, namalgamated);
     }
 
-    /* Link or archive. */
-    char out_path[1024];
+    utf8 out_path[1024];
     i32 rc = 0;
-    if (strcmp(unit_type, "lib") == 0)
+    if (bStrEq(unit_type, "lib"))
     {
         snprintf(out_path, sizeof(out_path), "%s/lib%s.a", out_dir, unit_name);
-        char ar_cmd[524288];
+        utf8 ar_cmd[524288];
         snprintf(ar_cmd, sizeof(ar_cmd), "ar rcs %s %s", out_path, obj_files);
         fprintf(out, "build: %s\n", ar_cmd);
         rc = system(ar_cmd);
     }
-    else if (strcmp(unit_type, "module") == 0)
+    else if (bStrEq(unit_type, "module"))
     {
-        /* A reloadable application image. It links NO dep archives on purpose:
-           the host process already holds R1-R4, and -undefined dynamic_lookup
-           resolves the Frame and Panel symbols against it at load time. Linking
-           a second copy would be a shadow owner (Compose down, never rebuild). */
         snprintf(out_path, sizeof(out_path), "%s/%s.dylib", out_dir, unit_name);
-        char link_cmd[524288];
+        utf8 link_cmd[524288];
         snprintf(link_cmd, sizeof(link_cmd),
                  "clang -g -dynamiclib -fPIC -undefined dynamic_lookup %s -o %s",
                  obj_files, out_path);
@@ -1020,12 +969,8 @@ bool Build_file(const char *source_path, const char *assembly_path,
     else
     {
         snprintf(out_path, sizeof(out_path), "%s/%s", out_dir, unit_name);
-        /* Build dep library link flags. */
-        char dep_libs[4096] = "";
+        utf8 dep_libs[4096] = "";
         bytes dl_used = 0;
-        // A single-application manifest names dependencies as source roots;
-        // their objects are already on the link line. Asking for -l<name>
-        // would look for archives this build never produces.
         if (!singleUnit)
         {
             for (bytes d = 0; d < ndeps; d++)
@@ -1034,12 +979,7 @@ bool Build_file(const char *source_path, const char *assembly_path,
                                             " -L%s -l%s", out_dir, deps[d]);
             }
         }
-        char link_cmd[524288];
-        // -dead_strip drops the dependency code this unit never reaches: every
-        // repository is compiled whole, and an executable that uses a handful
-        // of its symbols should not carry the rest. Deliberately NOT applied to
-        // "module" units: their entry points are found by dlsym, so the linker
-        // sees them as unreachable and would strip the swap surface away.
+        utf8 link_cmd[524288];
         snprintf(link_cmd, sizeof(link_cmd),
                  "clang -g -dead_strip %s %s -o %s -framework Cocoa -framework Foundation -framework Metal -framework QuartzCore -framework IOKit -framework CoreVideo -framework CoreGraphics -framework IOSurface -framework Network -framework Security -framework AppKit -framework AVFoundation -framework CoreLocation -framework Contacts -framework EventKit -framework LocalAuthentication -framework Photos -framework UserNotifications -framework CoreMedia -framework CoreServices -framework SystemConfiguration -framework CoreFoundation -L/opt/homebrew/lib -lvulkan -lncurses -lcurl -lsqlite3 -lz -lm -lpthread", obj_files, dep_libs, out_path);
         fprintf(out, "build: %s\n", link_cmd);
@@ -1054,25 +994,22 @@ bool Build_file(const char *source_path, const char *assembly_path,
         return false;
     }
 
-    /* If type is "app", wrap binary in a macOS .app bundle. */
-    if (strcmp(unit_type, "app") == 0)
+    if (bStrEq(unit_type, "app"))
     {
-        char app_dir[1024];
+        utf8 app_dir[1024];
         snprintf(app_dir, sizeof(app_dir), "%s/%s.app", out_dir, unit_name);
-        char macos_dir[1024];
+        utf8 macos_dir[1024];
         snprintf(macos_dir, sizeof(macos_dir), "%s/Contents/MacOS", app_dir);
-        char mkdir_cmd[2048];
+        utf8 mkdir_cmd[2048];
         snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s", macos_dir);
         system(mkdir_cmd);
 
-        /* Copy binary. */
-        char cp_cmd[2048];
+        utf8 cp_cmd[2048];
         snprintf(cp_cmd, sizeof(cp_cmd), "cp %s %s/%s", out_path, macos_dir, unit_name);
         system(cp_cmd);
         chmod(macos_dir, 0755);
 
-        /* Generate Info.plist. */
-        char plist[2048];
+        utf8 plist[2048];
         snprintf(plist, sizeof(plist), "%s/Contents/Info.plist", app_dir);
         FILE *pf = fopen(plist, "w");
         if (pf)
@@ -1118,22 +1055,15 @@ bool Build_file(const char *source_path, const char *assembly_path,
  * unit argument consumes it. No assembly file, no --plan, no --confirm.
  * ------------------------------------------------------------------ */
 
-typedef struct
-{
-    const char *root;
-    char **headerDirectories;
-    bytes headerCount;
-    bytes compiled;
-    bytes failed;
-} WorkspaceBuild;
+
 
 /* Call fn(context, directory, name) for every file the inventory records. */
-static bool walkWorkspace(const char *text, bool (*fn)(any , const char *, const char *), any context)
+static bool walkWorkspace(const utf8 *text, bool (*fn)(any , const utf8 *, const utf8 *), any context)
 {
-    const char *cursor = strstr(text, "\"directories\"");
+    const utf8 *cursor = bStrFind(text, "\"directories\"");
     if (cursor == nullptr)
         return false;
-    cursor = strchr(cursor, '{');
+    cursor = bStrFindChar(cursor, '{');
     if (cursor == nullptr)
         return false;
     ++cursor;
@@ -1144,7 +1074,7 @@ static bool walkWorkspace(const char *text, bool (*fn)(any , const char *, const
         if (*cursor != '"')
             break;
         ++cursor;
-        char directory[512];
+        utf8 directory[512];
         bytes length = 0;
         while (*cursor != '"' && *cursor != '\0' && length + 1 < sizeof(directory))
             directory[length++] = *cursor++;
@@ -1163,7 +1093,7 @@ static bool walkWorkspace(const char *text, bool (*fn)(any , const char *, const
             if (*cursor != '"')
                 break;
             ++cursor;
-            char name[256];
+            utf8 name[256];
             bytes nameLength = 0;
             while (*cursor != '"' && *cursor != '\0' && nameLength + 1 < sizeof(name))
                 name[nameLength++] = *cursor++;
@@ -1180,37 +1110,64 @@ static bool walkWorkspace(const char *text, bool (*fn)(any , const char *, const
 }
 
 ;;GETTER
-static inline bytes WorkspaceBuild_headerCount(const WorkspaceBuild *self) { return (*self).headerCount; }
+static inline bytes WorkspaceBuild_headerCount(const WorkspaceBuild *self)
+{
+    return (*self).headerCount;
+}
 ;;SETTER
-static inline fn WorkspaceBuild_setHeaderCount(WorkspaceBuild *self, bytes count) { (*self).headerCount = count; }
+static inline fn WorkspaceBuild_setHeaderCount(WorkspaceBuild *self, bytes count)
+{
+    (*self).headerCount = count;
+}
 ;;GETTER
-static inline char **WorkspaceBuild_headerDirectories(const WorkspaceBuild *self) { return (*self).headerDirectories; }
+static inline utf8 **WorkspaceBuild_headerDirectories(const WorkspaceBuild *self)
+{
+    return (*self).headerDirectories;
+}
 ;;SETTER
-static inline fn WorkspaceBuild_setHeaderDirectories(WorkspaceBuild *self, char **dirs) { (*self).headerDirectories = dirs; }
+static inline fn WorkspaceBuild_setHeaderDirectories(WorkspaceBuild *self, utf8 **dirs)
+{
+    (*self).headerDirectories = dirs;
+}
 ;;GETTER
-static inline const char *WorkspaceBuild_root(const WorkspaceBuild *self) { return (*self).root; }
+static inline const utf8 *WorkspaceBuild_root(const WorkspaceBuild *self)
+{
+    return (*self).root;
+}
 ;;GETTER
-static inline bytes WorkspaceBuild_compiled(const WorkspaceBuild *self) { return (*self).compiled; }
+static inline bytes WorkspaceBuild_compiled(const WorkspaceBuild *self)
+{
+    return (*self).compiled;
+}
 ;;SETTER
-static inline fn WorkspaceBuild_setCompiled(WorkspaceBuild *self, bytes compiled) { (*self).compiled = compiled; }
+static inline fn WorkspaceBuild_setCompiled(WorkspaceBuild *self, bytes compiled)
+{
+    (*self).compiled = compiled;
+}
 ;;GETTER
-static inline bytes WorkspaceBuild_failed(const WorkspaceBuild *self) { return (*self).failed; }
+static inline bytes WorkspaceBuild_failed(const WorkspaceBuild *self)
+{
+    return (*self).failed;
+}
 ;;SETTER
-static inline fn WorkspaceBuild_setFailed(WorkspaceBuild *self, bytes failed) { (*self).failed = failed; }
+static inline fn WorkspaceBuild_setFailed(WorkspaceBuild *self, bytes failed)
+{
+    (*self).failed = failed;
+}
 
-static bool rememberHeaderDirectory(WorkspaceBuild *build, const char *directory)
+static bool rememberHeaderDirectory(WorkspaceBuild *build, const utf8 *directory)
 {
     bytes count = WorkspaceBuild_headerCount(build);
-    char **dirs = WorkspaceBuild_headerDirectories(build);
+    utf8 **dirs = WorkspaceBuild_headerDirectories(build);
     for (bytes index = 0; index < count; ++index)
-        if (strcmp(dirs[index], directory) == 0)
+        if (bStrEq(dirs[index], directory))
             return true;
-    any grown = realloc(dirs, (count + 1) * sizeof(char*));
+    any grown = realloc(dirs, (count + 1) * sizeof(utf8*));
     if (grown == nullptr)
         return false;
     WorkspaceBuild_setHeaderDirectories(build, grown);
     dirs = WorkspaceBuild_headerDirectories(build);
-    char *copy = strdup(directory);
+    utf8 *copy = strdup(directory);
     if (copy == nullptr)
         return false;
     dirs[count] = copy;
@@ -1223,7 +1180,7 @@ static bool rememberHeaderDirectory(WorkspaceBuild *build, const char *directory
  * The inventory lists runnable files only, so headers are discovered from the
  * filesystem instead. This is what makes `#include "net/websocket.h"` resolve
  * without any source spelling a parent hop. */
-static bool scanHeaderDirectories(WorkspaceBuild *build, const char *absolute, const char *relativePath)
+static bool scanHeaderDirectories(WorkspaceBuild *build, const utf8 *absolute, const utf8 *relativePath)
 {
     DIR *directory = opendir(absolute);
     if (directory == nullptr)
@@ -1232,19 +1189,19 @@ static bool scanHeaderDirectories(WorkspaceBuild *build, const char *absolute, c
     struct dirent *entry;
     while ((entry = readdir(directory)) != nullptr)
     {
-        const char *name = dirent_d_name(entry);
-        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+        const utf8 *name = dirent_d_name(entry);
+        if (bStrEq(name, ".") || bStrEq(name, ".."))
             continue;
-        if (strcmp(name, ".git") == 0 || strcmp(name, ".b") == 0 || strcmp(name, "node_modules") == 0)
+        if (bStrEq(name, ".git") || bStrEq(name, ".b") || bStrEq(name, "node_modules"))
             continue;
-        char child[4096];
+        utf8 child[4096];
         snprintf(child, sizeof(child), "%s/%s", absolute, name);
         struct stat information;
         if (lstat(child, &information) != 0)
             continue;
         if (S_ISDIR(information.st_mode))
         {
-            char childRelative[4096];
+            utf8 childRelative[4096];
             snprintf(childRelative, sizeof(childRelative), "%s/%s", relativePath, name);
             if (!scanHeaderDirectories(build, child, childRelative))
             {
@@ -1254,8 +1211,8 @@ static bool scanHeaderDirectories(WorkspaceBuild *build, const char *absolute, c
         }
         else if (S_ISREG(information.st_mode))
         {
-            const char *dot = strrchr(name, '.');
-            if (dot != nullptr && (strcmp(dot, ".h") == 0 || strcmp(dot, ".hpp") == 0))
+            const utf8 *dot = strrchr(name, '.');
+            if (dot != nullptr && (bStrEq(dot, ".h") || bStrEq(dot, ".hpp")))
                 hasHeader = true;
         }
     }
@@ -1266,7 +1223,7 @@ static bool scanHeaderDirectories(WorkspaceBuild *build, const char *absolute, c
 }
 
 /* Single-quote a path into a growing command line. */
-static fn appendQuoted(char *command, bytes capacity, bytes *length, const char *path)
+static fn appendQuoted(utf8 *command, bytes capacity, bytes *length, const utf8 *path)
 {
     bytes pathLength = strlen(path);
     if (*length + pathLength + 4 >= capacity)
@@ -1284,17 +1241,17 @@ static fn appendQuoted(char *command, bytes capacity, bytes *length, const char 
  * The ecosystem links against a few SDKs that never live inside the tree.
  * Honoured in order: an explicit B_INCLUDE directory, the LunarG convention
  * ($VULKAN_SDK/include), then the two Homebrew prefixes. A directory that is
- * absent is skipped, never a failure — an image that needs Vulkan and cannot
+ * absent is skipped, never a failure, an image that needs Vulkan and cannot
  * find it fails at its own #include, with its own words. */
-static fn appendExternalIncludes(char *command, bytes capacity, bytes *length)
+static fn appendExternalIncludes(utf8 *command, bytes capacity, bytes *length)
 {
-    char sdkInclude[4096];
-    const char *candidates[4];
+    utf8 sdkInclude[4096];
+    const utf8 *candidates[4];
     bytes count = 0;
-    const char *extra = getenv("B_INCLUDE");
+    const utf8 *extra = getenv("B_INCLUDE");
     if (extra != nullptr && *extra != '\0')
         candidates[count++] = extra;
-    const char *sdk = getenv("VULKAN_SDK");
+    const utf8 *sdk = getenv("VULKAN_SDK");
     if (sdk != nullptr && *sdk != '\0')
     {
         snprintf(sdkInclude, sizeof(sdkInclude), "%s/include", sdk);
@@ -1313,25 +1270,25 @@ static fn appendExternalIncludes(char *command, bytes capacity, bytes *length)
     }
 }
 
-static bool compileSource(any context, const char *directory, const char *name)
+static bool compileSource(any context, const utf8 *directory, const utf8 *name)
 {
     WorkspaceBuild *build = context;
-    const char *dot = strrchr(name, '.');
-    if (dot == nullptr || strcmp(dot, ".c") != 0)
+    const utf8 *dot = strrchr(name, '.');
+    if (dot == nullptr || !bStrEq(dot, ".c"))
         return true;
 
-    char source[4096];
-    char objectDirectory[4096];
-    char object[4096];
-    const char *root = WorkspaceBuild_root(build);
+    utf8 source[4096];
+    utf8 objectDirectory[4096];
+    utf8 object[4096];
+    const utf8 *root = WorkspaceBuild_root(build);
     snprintf(source, sizeof(source), "%s/%s/%s", root,
-             strcmp(directory, ".") == 0 ? "" : directory, name);
+             bStrEq(directory, ".") ? "" : directory, name);
     snprintf(objectDirectory, sizeof(objectDirectory), "%s/.b/obj/%s", root,
-             strcmp(directory, ".") == 0 ? "root" : directory);
+             bStrEq(directory, ".") ? "root" : directory);
     snprintf(object, sizeof(object), "%s/%.*s.o", objectDirectory,
              (i32) (dot - name), name);
 
-    char makeDirectory[8192];
+    utf8 makeDirectory[8192];
     bytes makeLength = 0;
     makeDirectory[0] = '\0';
     bytes prefixLength = (bytes) snprintf(makeDirectory, sizeof(makeDirectory), "mkdir -p ");
@@ -1341,7 +1298,7 @@ static bool compileSource(any context, const char *directory, const char *name)
     if (system(makeDirectory) != 0)
         return true;
 
-    static char command[262144];
+    static utf8 command[262144];
     bytes length = 0;
     command[0] = '\0';
     length = (bytes) snprintf(command, sizeof(command),
@@ -1353,37 +1310,33 @@ static bool compileSource(any context, const char *directory, const char *name)
 
     appendExternalIncludes(command, sizeof(command), &length);
 
-    // Nearest include root first, or a sibling repository with the same
-    // relative path shadows this one: graphvex's "compositor/compositor.h"
-    // must beat darling-framework's, and a source's own directory must beat
-    // both. This is what keeps a repository building against itself.
-    char walked[4096];
-    snprintf(walked, sizeof(walked), "%s", strcmp(directory, ".") == 0 ? "" : directory);
+    utf8 walked[4096];
+    snprintf(walked, sizeof(walked), "%s", bStrEq(directory, ".") ? "" : directory);
     while (walked[0] != '\0')
     {
-        char ancestor[4096];
+        utf8 ancestor[4096];
         snprintf(ancestor, sizeof(ancestor), "%s/%s", root, walked);
         length += (bytes) snprintf(command + length, sizeof(command) - length, " -I");
         appendQuoted(command, sizeof(command), &length, ancestor);
-        char *cut = strrchr(walked, '/');
+        utf8 *cut = strrchr(walked, '/');
         if (cut == nullptr)
             break;
         *cut = '\0';
     }
-    char localDirectory[4096];
+    utf8 localDirectory[4096];
     snprintf(localDirectory, sizeof(localDirectory), "%s", root);
     length += (bytes) snprintf(command + length, sizeof(command) - length, " -I");
     appendQuoted(command, sizeof(command), &length, localDirectory);
 
-    char rootInclude[4096];
+    utf8 rootInclude[4096];
     snprintf(rootInclude, sizeof(rootInclude), "%s", root);
     length += (bytes) snprintf(command + length, sizeof(command) - length, " -I");
     appendQuoted(command, sizeof(command), &length, rootInclude);
     bytes headerCount = WorkspaceBuild_headerCount(build);
-    char *const *headerDirectories = WorkspaceBuild_headerDirectories(build);
+    utf8 *const *headerDirectories = WorkspaceBuild_headerDirectories(build);
     for (bytes index = 0; index < headerCount; ++index)
     {
-        char include[4096];
+        utf8 include[4096];
         snprintf(include, sizeof(include), "%s/%s", root, headerDirectories[index]);
         length += (bytes) snprintf(command + length, sizeof(command) - length, " -I");
         appendQuoted(command, sizeof(command), &length, include);
@@ -1396,13 +1349,13 @@ static bool compileSource(any context, const char *directory, const char *name)
     return true;
 }
 
-bool Build_workspace(const char *workspacePath, FILE *out);
-bool Build_workspace(const char *workspacePath, FILE *out)
+bool Build_workspace(const utf8 *workspacePath, FILE *out);
+bool Build_workspace(const utf8 *workspacePath, FILE *out)
 {
-    char *text = read_file(workspacePath);
+    utf8 *text = read_file(workspacePath);
     if (text == nullptr)
     {
-        fprintf(out, "build: cannot read %s — run `b.sh generate` first\n", workspacePath);
+        fprintf(out, "build: cannot read %s, run `b.sh generate` first\n", workspacePath);
         return false;
     }
 
@@ -1413,14 +1366,14 @@ bool Build_workspace(const char *workspacePath, FILE *out)
     build.compiled = 0;
     build.failed = 0;
 
-    const char *rootKey = strstr(text, "\"root\"");
-    char root[4096] = ".";
+    const utf8 *rootKey = bStrFind(text, "\"root\"");
+    utf8 root[4096] = ".";
     if (rootKey != nullptr)
     {
-        const char *cursor = strchr(rootKey, ':');
+        const utf8 *cursor = bStrFindChar(rootKey, ':');
         if (cursor != nullptr)
         {
-            cursor = strchr(cursor, '"');
+            cursor = bStrFindChar(cursor, '"');
             if (cursor != nullptr)
             {
                 ++cursor;
@@ -1433,44 +1386,32 @@ bool Build_workspace(const char *workspacePath, FILE *out)
     }
     build.root = root;
 
-    /* Pass 1: include roots.
-     *
-     * Two levels, because a repository's sources are rooted at the repository,
-     * not at the header's own directory:
-     *   - every top-level directory is a root, so `c23/constructor.h`,
-     *     `lifetime/platform.h` and `nio/mem.h` resolve;
-     *   - every directory holding a header is also a root, for sources that
-     *     include a sibling by name.
-     */
     DIR *top = opendir(root);
     if (top != nullptr)
     {
         struct dirent *entry;
         while ((entry = readdir(top)) != nullptr)
         {
-            const char *name = dirent_d_name(entry);
-            if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+            const utf8 *name = dirent_d_name(entry);
+            if (bStrEq(name, ".") || bStrEq(name, ".."))
                 continue;
-            if (strcmp(name, ".git") == 0 || strcmp(name, ".b") == 0 || strcmp(name, "node_modules") == 0)
+            if (bStrEq(name, ".git") || bStrEq(name, ".b") || bStrEq(name, "node_modules"))
                 continue;
-            char child[4096];
+            utf8 child[4096];
             snprintf(child, sizeof(child), "%s/%s", root, name);
             struct stat information;
             if (lstat(child, &information) == 0 && S_ISDIR(information.st_mode))
             {
                 rememberHeaderDirectory(&build, name);
-                // A repository may keep one grouping level below its root
-                // (darkbase/engine). Its includes are rooted there, so that
-                // level is a root too. No repository keeps src/ any more.
-                static const char *nested[] = { "engine" };
+                static const utf8 *nested[] = { "engine" };
                 for (bytes level = 0; level < sizeof(nested) / sizeof(nested[0]); ++level)
                 {
-                    char inner[4096];
+                    utf8 inner[4096];
                     snprintf(inner, sizeof(inner), "%s/%s/%s", root, name, nested[level]);
                     struct stat nestedInfo;
                     if (lstat(inner, &nestedInfo) == 0 && S_ISDIR(nestedInfo.st_mode))
                     {
-                        char nestedRelative[4096];
+                        utf8 nestedRelative[4096];
                         snprintf(nestedRelative, sizeof(nestedRelative), "%s/%s", name, nested[level]);
                         rememberHeaderDirectory(&build, nestedRelative);
                     }
@@ -1485,7 +1426,6 @@ bool Build_workspace(const char *workspacePath, FILE *out)
         return false;
     }
 
-    /* Pass 2: compile. */
     bool ok = walkWorkspace(text, compileSource, &build);
     fprintf(out, "build: %zu compiled, %zu failed (%zu include roots)\n",
             build.compiled, build.failed, build.headerCount);
@@ -1496,15 +1436,15 @@ bool Build_workspace(const char *workspacePath, FILE *out)
     return ok && build.failed == 0;
 }
 
-i32 Build_command(i32 argc, char **argv)
+i32 Build_command(i32 argc, utf8 **argv)
 {
-    const char *key = argc > 1 ? argv[1] : nullptr;
-    const char *asm_path = argc > 2 ? argv[2] : "b.assembly.json";
-    const char *ws_path = argc > 3 ? argv[3] : ".b/workspace.json";
-    const char *out_dir = argc > 4 ? argv[4] : ".b/out";
+    const utf8 *key = argc > 1 ? argv[1] : nullptr;
+    const utf8 *asm_path = argc > 2 ? argv[2] : "b.assembly.json";
+    const utf8 *ws_path = argc > 3 ? argv[3] : ".b/workspace.json";
+    const utf8 *out_dir = argc > 4 ? argv[4] : ".b/out";
     if (key == nullptr)
         return Build_workspace(ws_path, stdout) ? 0 : 1;
-    char mkdir_cmd[1024];
+    utf8 mkdir_cmd[1024];
     snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s", out_dir);
     system(mkdir_cmd);
     FILE *out = stdout;

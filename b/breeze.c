@@ -1,11 +1,14 @@
-// MODULE: breeze — the run/breeze verb. No owned state.
-// DEFINITION: run and breeze are one behaviour: resolve the file, build or
-// interpret it through its adapter, forward arguments, return the child status.
-// OVERVIEW: Breeze_command; PRIVATE: regularFile; runFile.
+/**
+ * MODULE: breeze, the run/breeze verb. No owned state.
+ * DEFINITION: run and breeze are one behaviour: resolve the file, build or
+ * interpret it through its adapter, forward arguments, return the child status.
+ * OVERVIEW: Breeze_command; PRIVATE: regularFile; runFile.
+ */
 
 #include "vex.h"
 #include "breeze.h"
 #include "b.h"
+#include "b/b_str.h"
 #include "territory.h"
 #include "adapters/lang/adapter.h"
 #include "build.h"
@@ -24,25 +27,33 @@
  * before any execution, and the program's status is preserved unchanged.
  */
 ;;OVERVIEW
-/* PRIVATE: regularFile — a path that must resolve to a regular file; runFile —
+/* PRIVATE: regularFile, a path that must resolve to a regular file; runFile,
  * adapter dispatch, else execute an existing native binary.
- * PUBLIC: Breeze_command — optional exec|instance, then one file.
+ * PUBLIC: Breeze_command, optional exec|instance, then one file.
  */
 
-// Return whether path resolves to a regular file.
-static bool regularFile(const char *path) {
+/** Return whether path resolves to a regular file. */
+static bool regularFile(const utf8 *path) {
     struct stat info;
     return path != nullptr && stat(path, &info) == 0 && S_ISREG(info.st_mode);
 }
 
 ;;GETTER
-static inline i32 (*Adapter_run(const Adapter *self))(const char *, i32, char **, bool) { return (*self).run; }
+static inline i32 (*Adapter_run(const Adapter *self))(const utf8 *, i32, utf8 **, bool)
+{
+    return (*self).run;
+}
 ;;GETTER
-static inline const char *Adapter_name(const Adapter *self) { return (*self).name; }
+static inline const utf8 *Adapter_name(const Adapter *self)
+{
+    return (*self).name;
+}
 
-// Dispatch a source file to its adapter or execute an existing native binary.
-// Refuses if the file lives outside a claimed territory.
-static i32 runFile(const char *input, bool buildArtifact, i32 argc, char **argv) {
+/**
+ * Dispatch a source file to its adapter or execute an existing native binary.
+ * Refuses if the file lives outside a claimed territory.
+ */
+static i32 runFile(const utf8 *input, bool buildArtifact, i32 argc, utf8 **argv) {
     if (!regularFile(input)) {
         THROW("run file does not exist or is not regular: %s", input);
         return EXIT_FAILURE;
@@ -52,14 +63,13 @@ static i32 runFile(const char *input, bool buildArtifact, i32 argc, char **argv)
         THROW("adapter %s does not support running files", Adapter_name(adapter));
         return EXIT_FAILURE;
     }
-    char *file = realpath(input, nullptr);
+    utf8 *file = realpath(input, nullptr);
     if (file == nullptr) {
         THROW("run file cannot be resolved: %s", input);
         return EXIT_FAILURE;
     }
-    // Refuse if the file lives outside a claimed territory.
-    char *directory = Util_parentDirectory(file);
-    char *territoryRoot = Territory_find(directory);
+    utf8 *directory = Util_parentDirectory(file);
+    utf8 *territoryRoot = Territory_find(directory);
     free(directory);
     if (territoryRoot == nullptr) {
         THROW("run outside a claimed territory; run b.sh generate <directory> first");
@@ -74,7 +84,7 @@ static i32 runFile(const char *input, bool buildArtifact, i32 argc, char **argv)
         free(file);
         return EXIT_FAILURE;
     }
-    char **arguments = Util_allocate(((bytes) argc + 2) * sizeof(char*));
+    utf8 **arguments = Util_allocate(((bytes) argc + 2) * sizeof(utf8*));
     arguments[0] = file;
     for (i32 i = 0; i < argc; ++i)
         arguments[i + 1] = argv[i];
@@ -87,12 +97,14 @@ static i32 runFile(const char *input, bool buildArtifact, i32 argc, char **argv)
 }
 
 
-// Build and execute the unit declared by the manifest in this directory.
-//
-// `b run` inside a test directory is the whole contract: the manifest says what
-// the unit is, the build produces .b/out/<name>, and the unit's own exit status
-// is returned unchanged so a suite runner can read pass, fail and skip alike.
-static i32 runUnit(i32 argc, char **argv) {
+/**
+ * Build and execute the unit declared by the manifest in this directory.
+ *
+ * `b run` inside a test directory is the whole contract: the manifest says what
+ * the unit is, the build produces .b/out/<name>, and the unit's own exit status
+ * is returned unchanged so a suite runner can read pass, fail and skip alike.
+ */
+static i32 runUnit(i32 argc, utf8 **argv) {
     if (access("b.assembly.json", R_OK) != 0) {
         THROW("no b.assembly.json in this directory; name a file instead");
         return EXIT_FAILURE;
@@ -102,19 +114,18 @@ static i32 runUnit(i32 argc, char **argv) {
         THROW("cannot read b.assembly.json");
         return EXIT_FAILURE;
     }
-    static char text[1 << 16];
+    static utf8 text[1 << 16];
     bytes length = fread(text, 1, sizeof(text) - 1, manifest);
     text[length] = '\0';
     fclose(manifest);
 
-    // application.name is the unit name, and the name of the built artifact.
-    char unit[256] = "";
-    const char *application = strstr(text, "\"application\"");
-    const char *name = application != nullptr ? strstr(application, "\"name\"") : nullptr;
+    utf8 unit[256] = "";
+    const utf8 *application = bStrFind(text, "\"application\"");
+    const utf8 *name = application != nullptr ? bStrFind(application, "\"name\"") : nullptr;
     if (name != nullptr) {
-        const char *quote = strchr(name, ':');
+        const utf8 *quote = bStrFindChar(name, ':');
         if (quote != nullptr) {
-            quote = strchr(quote, '"');
+            quote = bStrFindChar(quote, '"');
             if (quote != nullptr) {
                 ++quote;
                 bytes used = 0;
@@ -132,9 +143,8 @@ static i32 runUnit(i32 argc, char **argv) {
     if (!Build_file(unit, "b.assembly.json", ".b/workspace.json", ".b/out", stdout))
         return EXIT_FAILURE;
 
-    // Output is territory-grounded: <territory>/.b/out/<name>.
-    char *unitTerritory = Territory_find(".");
-    char binary[4096];
+    utf8 *unitTerritory = Territory_find(".");
+    utf8 binary[4096];
     snprintf(binary, sizeof(binary), "%s/.b/out/%s",
              unitTerritory != nullptr ? unitTerritory : ".", unit);
     free(unitTerritory);
@@ -142,7 +152,7 @@ static i32 runUnit(i32 argc, char **argv) {
         THROW("build reported success but %s is not executable", binary);
         return EXIT_FAILURE;
     }
-    char **arguments = Util_allocate(((bytes) argc + 2) * sizeof(char*));
+    utf8 **arguments = Util_allocate(((bytes) argc + 2) * sizeof(utf8*));
     arguments[0] = binary;
     for (i32 index = 0; index < argc; ++index)
         arguments[index + 1] = argv[index];
@@ -153,20 +163,21 @@ static i32 runUnit(i32 argc, char **argv) {
     return status;
 }
 
-// Parse `breeze|run [exec|instance] <file> [--] [arguments...]` and dispatch it.
-// The mode word is optional: exec is the default, because running the artifact
-// is the behaviour that always has an answer.
-i32 Breeze_command(i32 argc, char **argv) {
-    // `b run` with nothing after it runs the unit this directory declares.
+/**
+ * Parse `breeze|run [exec|instance] <file> [--] [arguments...]` and dispatch it.
+ * The mode word is optional: exec is the default, because running the artifact
+ * is the behaviour that always has an answer.
+ */
+i32 Breeze_command(i32 argc, utf8 **argv) {
     if (argc < 2)
         return runUnit(0, nullptr);
-    if (strcmp(argv[1], "--") == 0)
+    if (bStrEq(argv[1], "--"))
         return runUnit(argc - 2, argv + 2);
     i32 first = 1;
     bool buildArtifact = true;
-    if (strcmp(argv[first], "exec") == 0)
+    if (bStrEq(argv[first], "exec"))
         ++first;
-    else if (strcmp(argv[first], "instance") == 0) {
+    else if (bStrEq(argv[first], "instance")) {
         buildArtifact = false;
         ++first;
     }
@@ -174,8 +185,8 @@ i32 Breeze_command(i32 argc, char **argv) {
         THROW("usage: b.sh run|breeze [exec|instance] <file> [arguments...]");
         return EXIT_FAILURE;
     }
-    const char *file = argv[first++];
-    if (first < argc && strcmp(argv[first], "--") == 0)
+    const utf8 *file = argv[first++];
+    if (first < argc && bStrEq(argv[first], "--"))
         ++first;
     return runFile(file, buildArtifact, argc - first, argv + first);
 }

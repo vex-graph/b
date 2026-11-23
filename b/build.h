@@ -6,12 +6,12 @@
 
 /* Build a single source file into .b/out/<name> using assembly.json for
  * include roots and deps. Returns true on success. */
-i32 Build_command(i32 argc, char **argv);
+i32 Build_command(i32 argc, utf8 **argv);
 
 /* Compile every runnable source the territory inventory lists. */
-bool Build_workspace(const char *workspacePath, FILE *out);
+bool Build_workspace(const utf8 *workspacePath, FILE *out);
 
-bool Build_file(const char *source_path, const char *assembly_path,
-                const char *workspace_path, const char *out_dir, FILE *out);
+bool Build_file(const utf8 *source_path, const utf8 *assembly_path,
+                const utf8 *workspace_path, const utf8 *out_dir, FILE *out);
 
 #endif

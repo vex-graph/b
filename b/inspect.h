@@ -6,11 +6,11 @@
 ;;DEFINITION
 /* Standalone registry discovery; this never executes a tool or imports a graph. */
 ;;OVERVIEW
-/* MODULE: diagnostics contract. PUBLIC: Inspect_adapters — list adapters,
- * suffixes, operations and requirements; Inspect_doctor — inspect PATH/override
+/* MODULE: diagnostics contract. PUBLIC: Inspect_adapters, list adapters,
+ * suffixes, operations and requirements; Inspect_doctor, inspect PATH/override
  * executable presence, optionally for one adapter. No owned class/state.
  * doctor returns nonzero for a requested missing/unknown adapter; unfiltered
  * reports optional missing tools successfully. It does not prove tool versions.
  */
 i32 Inspect_adapters();
-i32 Inspect_doctor(const char *adapter);
+i32 Inspect_doctor(const utf8 *adapter);

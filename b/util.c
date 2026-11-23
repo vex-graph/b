@@ -1,11 +1,14 @@
-// MODULE: b.sh shared utilities. No owned class; argv and paths are borrowed.
-// DEFINITION: One place spawns children (never a shell), builds the per-project
-// output directory outside the source tree, and collects a directory's sources
-// with glob metacharacters treated literally. The environment helper exists so
-// an adapter can redirect a tool's cache (e.g. Python bytecode) out of source.
+/**
+ * MODULE: b.sh shared utilities. No owned class; argv and paths are borrowed.
+ * DEFINITION: One place spawns children (never a shell), builds the per-project
+ * output directory outside the source tree, and collects a directory's sources
+ * with glob metacharacters treated literally. The environment helper exists so
+ * an adapter can redirect a tool's cache (e.g. Python bytecode) out of source.
+ */
 
 #include "vex.h"
 #include "b.h"
+#include "b/b_str.h"
 #include "territory.h"
 
 
@@ -25,14 +28,14 @@
  * $B_HOME); Util_parentDirectory;
  * Util_projectDirectory; Util_createDirectory; Util_setFileMode.
  * PUBLIC PROCESS: Util_executeWithEnvironment; Util_execute; Util_executeBuild;
- * Util_runCommand — append borrowed program arguments without shell parsing.
- * PUBLIC CHECKS: Util_checkSources — run a checker on each discovered source.
+ * Util_runCommand, append borrowed program arguments without shell parsing.
+ * PUBLIC CHECKS: Util_checkSources, run a checker on each discovered source.
  * PUBLIC DISCOVERY: Util_collectSources; Util_freeSources.
- * PUBLIC ENVIRONMENT: Util_environmentWith; Util_freeEnvironment — allocate one
+ * PUBLIC ENVIRONMENT: Util_environmentWith; Util_freeEnvironment, allocate one
  * replacement entry, borrow inherited entries, free only owned storage.
- * PRIVATE STATIC: processEnvironment — access the inherited environment;
- * reap — wait for child and map exit/signal status.
- * BORROWED GLOBAL: char **environ — inherited process environment.
+ * PRIVATE STATIC: processEnvironment, access the inherited environment;
+ * reap, wait for child and map exit/signal status.
+ * BORROWED GLOBAL: utf8 **environ, inherited process environment.
  */
 
 #include <errno.h>
@@ -56,18 +59,18 @@
 #endif
 
 #ifdef _WIN32
-// Use the Microsoft CRT accessor macro rather than declaring POSIX environ.
-static char **processEnvironment() {
+/** Use the Microsoft CRT accessor macro rather than declaring POSIX environ. */
+static utf8 **processEnvironment() {
     return environ;
 }
 #else
-extern char **environ;
-static char **processEnvironment() {
+extern utf8 **environ;
+static utf8 **processEnvironment() {
     return environ;
 }
 #endif
 
-// Allocate zero-initialized storage; report and terminate the CLI if allocation fails.
+/** Allocate zero-initialized storage; report and terminate the CLI if allocation fails. */
 any Util_allocate(bytes size) {
     any memory = calloc(1, size);
     if (memory == nullptr) {
@@ -77,33 +80,35 @@ any Util_allocate(bytes size) {
     return memory;
 }
 
-// Release storage from Util_allocate; the single release seam for the suite.
-// Relational Memory Law: one owner for allocation, no scattered free().
+/**
+ * Release storage from Util_allocate; the single release seam for the suite.
+ * Relational Memory Law: one owner for allocation, no scattered free().
+ */
 fn Util_release(any block) {
     free(block);
 }
 
-// Allocate and return the concatenation of two strings, rejecting size overflow.
-char *Util_combine(const char *left, const char *right) {
+/** Allocate and return the concatenation of two strings, rejecting size overflow. */
+utf8 *Util_combine(const utf8 *left, const utf8 *right) {
     bytes a = strlen(left), b = strlen(right);
     if (a > SIZE_MAX - b - 1) {
         THROW("path size overflow");
         exit(EXIT_FAILURE);
     }
-    char *text = Util_allocate(a + b + 1);
+    utf8 *text = Util_allocate(a + b + 1);
     memcpy(text, left, a);
     memcpy(text + a, right, b + 1);
     return text;
 }
 
 #ifdef _WIN32
-// Resolve an existing path through the filesystem, including Windows reparse points.
-char *Util_realPath(const char *path, char *resolved) {
+/** Resolve an existing path through the filesystem, including Windows reparse points. */
+utf8 *Util_realPath(const utf8 *path, utf8 *resolved) {
     if (path == nullptr || *path == '\0') {
         errno = ENOENT;
         return nullptr;
     }
-    char *absolute = _fullpath(nullptr, path, 0);
+    utf8 *absolute = _fullpath(nullptr, path, 0);
     if (absolute == nullptr)
         return nullptr;
     HANDLE handle = CreateFileA(absolute, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -120,7 +125,7 @@ char *Util_realPath(const char *path, char *resolved) {
         errno = ENOENT;
         return nullptr;
     }
-    char *canonical = Util_allocate((bytes) length + 1);
+    utf8 *canonical = Util_allocate((bytes) length + 1);
     DWORD written = GetFinalPathNameByHandleA(handle, canonical, length + 1, flags);
     CloseHandle(handle);
     if (written == 0 || written > length) {
@@ -128,11 +133,11 @@ char *Util_realPath(const char *path, char *resolved) {
         errno = ENOENT;
         return nullptr;
     }
-    if (strncmp(canonical, "\\\\?\\UNC\\", 8) == 0) {
+    if (bStrPrefix(canonical, "\\\\?\\UNC\\")) {
         memmove(canonical + 2, canonical + 8, strlen(canonical + 8) + 1);
         canonical[0] = '\\';
         canonical[1] = '\\';
-    } else if (strncmp(canonical, "\\\\?\\", 4) == 0)
+    } else if (bStrPrefix(canonical, "\\\\?\\"))
         memmove(canonical, canonical + 4, strlen(canonical + 4) + 1);
     if (resolved != nullptr) {
         strcpy(resolved, canonical);
@@ -143,10 +148,13 @@ char *Util_realPath(const char *path, char *resolved) {
 }
 
 ;;SETTER
-static inline fn Stat_setSt_mode(struct stat *self, mode_t mode) { (*self).st_mode = mode; }
+static inline fn Stat_setSt_mode(struct stat *self, mode_t mode)
+{
+    (*self).st_mode = mode;
+}
 
-// Inspect a path without following a Windows reparse point.
-i32 Util_lstat(const char *path, struct stat *information) {
+/** Inspect a path without following a Windows reparse point. */
+i32 Util_lstat(const utf8 *path, struct stat *information) {
     if (path == nullptr || information == nullptr) {
         errno = EINVAL;
         return -1;
@@ -166,17 +174,20 @@ i32 Util_lstat(const char *path, struct stat *information) {
 }
 
 ;;GETTER
-static inline const char *dirent_d_name(const struct dirent *self) { return (*self).d_name; }
+static inline const utf8 *dirent_d_name(const struct dirent *self)
+{
+    return (*self).d_name;
+}
 
-// Adapt scandir's comparator to qsort's standard callback signature.
+/** Adapt scandir's comparator to qsort's standard callback signature. */
 static i32 compareEntryPointers(const_any left, const_any right) {
     const struct dirent *const *leftEntry = left;
     const struct dirent *const *rightEntry = right;
-    return strcmp((*(*leftEntry)).d_name, (*(*rightEntry)).d_name);
+    return bStrCmp((*(*leftEntry)).d_name, (*(*rightEntry)).d_name);
 }
 
-// Enumerate directory entries into separately owned records in name order.
-i32 Util_scandir(const char *directory, struct dirent ***entries,
+/** Enumerate directory entries into separately owned records in name order. */
+i32 Util_scandir(const utf8 *directory, struct dirent ***entries,
                  i32 (*filter)(const struct dirent *),
                  i32 (*compare)(const struct dirent **, const struct dirent **)) {
     if (directory == nullptr || entries == nullptr) {
@@ -252,14 +263,14 @@ i32 Util_scandir(const char *directory, struct dirent ***entries,
     return (i32) count;
 }
 
-// Compare directory names in byte order for deterministic inventory results.
+/** Compare directory names in byte order for deterministic inventory results. */
 i32 Util_alphasort(const struct dirent **left, const struct dirent **right) {
-    return strcmp((*(*left)).d_name, (*(*right)).d_name);
+    return bStrCmp((*(*left)).d_name, (*(*right)).d_name);
 }
 #endif
 
-// Create exactly one directory; unlike Util_makeDirectory, an existing path fails.
-i32 Util_createDirectory(const char *path, i32 mode) {
+/** Create exactly one directory; unlike Util_makeDirectory, an existing path fails. */
+i32 Util_createDirectory(const utf8 *path, i32 mode) {
 #ifdef _WIN32
     (discard) mode;
     return _mkdir(path);
@@ -268,7 +279,7 @@ i32 Util_createDirectory(const char *path, i32 mode) {
 #endif
 }
 
-// Set POSIX file mode bits where available; Windows has no executable mode bits.
+/** Set POSIX file mode bits where available; Windows has no executable mode bits. */
 i32 Util_setFileMode(i32 descriptor, i32 mode) {
 #ifdef _WIN32
     (discard) descriptor;
@@ -279,9 +290,11 @@ i32 Util_setFileMode(i32 descriptor, i32 mode) {
 #endif
 }
 
-// Report whether a readable regular file's bytes contain the needle.
-// Whole-file read: adequate for source files, not for arbitrary large data.
-bool Util_fileContains(const char *path, const char *needle) {
+/**
+ * Report whether a readable regular file's bytes contain the needle.
+ * Whole-file read: adequate for source files, not for arbitrary large data.
+ */
+bool Util_fileContains(const utf8 *path, const utf8 *needle) {
     FILE *input = fopen(path, "rb");
     if (input == nullptr)
         return false;
@@ -289,9 +302,9 @@ bool Util_fileContains(const char *path, const char *needle) {
     if (fseek(input, 0, SEEK_END) == 0) {
         i64 size = ftell(input);
         if (size >= 0 && fseek(input, 0, SEEK_SET) == 0) {
-            char *text = Util_allocate((bytes) size + 1);
+            utf8 *text = Util_allocate((bytes) size + 1);
             bytes got = fread(text, 1, (bytes) size, input);
-            found = got == (bytes) size && strstr(text, needle) != nullptr;
+            found = got == (bytes) size && bStrFind(text, needle) != nullptr;
             free(text);
         }
     }
@@ -299,12 +312,12 @@ bool Util_fileContains(const char *path, const char *needle) {
     return found;
 }
 
-// Read a whole regular file as NUL-terminated text; nullptr when it cannot be read.
-char *Util_readText(const char *path) {
+/** Read a whole regular file as NUL-terminated text; nullptr when it cannot be read. */
+utf8 *Util_readText(const utf8 *path) {
     FILE *input = fopen(path, "rb");
     if (input == nullptr)
         return nullptr;
-    char *text = nullptr;
+    utf8 *text = nullptr;
     if (fseek(input, 0, SEEK_END) == 0) {
         i64 size = ftell(input);
         if (size >= 0 && fseek(input, 0, SEEK_SET) == 0) {
@@ -319,13 +332,13 @@ char *Util_readText(const char *path) {
     return text;
 }
 
-// Test whether text ends with the complete suffix string.
-bool Util_endsWith(const char *text, const char *suffix) {
+/** Test whether text ends with the complete suffix string. */
+bool Util_endsWith(const utf8 *text, const utf8 *suffix) {
     bytes a = strlen(text), b = strlen(suffix);
-    return a >= b && strcmp(text + a - b, suffix) == 0;
+    return a >= b && bStrEq(text + a - b, suffix);
 }
 
-// Wait for a child and translate its exit or signal into a process status.
+/** Wait for a child and translate its exit or signal into a process status. */
 static i32 reap(i32 child) {
 #ifdef _WIN32
     DWORD status = 0;
@@ -356,24 +369,24 @@ static i32 reap(i32 child) {
 }
 
 #ifdef _WIN32
-// Construct a quoted Windows command line string from an argv vector.
-static char *buildCommandLine(char **arguments) {
+/** Construct a quoted Windows command line string from an argv vector. */
+static utf8 *buildCommandLine(utf8 **arguments) {
     if (arguments == nullptr || arguments[0] == nullptr)
         return nullptr;
     bytes total = 0;
     for (bytes i = 0; arguments[i] != nullptr; ++i)
         total += strlen(arguments[i]) * 2 + 4;
 
-    char *line = (char*) Util_allocate(total + 1);
-    char *p = line;
+    utf8 *line = (utf8*) Util_allocate(total + 1);
+    utf8 *p = line;
     for (bytes i = 0; arguments[i] != nullptr; ++i) {
         if (i > 0)
             *p++ = ' ';
-        const char *arg = arguments[i];
+        const utf8 *arg = arguments[i];
         bool need_quotes = (strpbrk(arg, " \t\"") != nullptr) || (*arg == '\0');
         if (need_quotes)
             *p++ = '"';
-        for (const char *c = arg; *c; ++c) {
+        for (const utf8 *c = arg; *c; ++c) {
             if (*c == '"')
                 *p++ = '\\';
             *p++ = *c;
@@ -386,11 +399,11 @@ static char *buildCommandLine(char **arguments) {
 }
 #endif
 
-// Spawn an argv command with the supplied environment and return its status.
-i32 Util_executeWithEnvironment(char **arguments, char **environment) {
+/** Spawn an argv command with the supplied environment and return its status. */
+i32 Util_executeWithEnvironment(utf8 **arguments, utf8 **environment) {
 #ifdef _WIN32
     (discard) environment;
-    char *cmdline = buildCommandLine(arguments);
+    utf8 *cmdline = buildCommandLine(arguments);
     if (cmdline == nullptr)
         return EXIT_FAILURE;
 
@@ -421,15 +434,15 @@ i32 Util_executeWithEnvironment(char **arguments, char **environment) {
 #endif
 }
 
-// Spawn an argv command with the process's inherited environment.
-i32 Util_execute(char **arguments) {
+/** Spawn an argv command with the process's inherited environment. */
+i32 Util_execute(utf8 **arguments) {
     return Util_executeWithEnvironment(arguments, environ);
 }
 
-// Spawn a build command while routing its stdout to stderr for clean path output.
-i32 Util_executeBuild(char **arguments) {
+/** Spawn a build command while routing its stdout to stderr for clean path output. */
+i32 Util_executeBuild(utf8 **arguments) {
 #ifdef _WIN32
-    char *cmdline = buildCommandLine(arguments);
+    utf8 *cmdline = buildCommandLine(arguments);
     if (cmdline == nullptr)
         return EXIT_FAILURE;
 
@@ -473,16 +486,16 @@ i32 Util_executeBuild(char **arguments) {
 #endif
 }
 
-// Append caller arguments to a fixed argv prefix and execute without a shell.
-i32 Util_runCommand(char **prefix, bytes prefixCount, i32 argc, char **argv) {
-    bytes limit = SIZE_MAX / sizeof(char*);
+/** Append caller arguments to a fixed argv prefix and execute without a shell. */
+i32 Util_runCommand(utf8 **prefix, bytes prefixCount, i32 argc, utf8 **argv) {
+    bytes limit = SIZE_MAX / sizeof(utf8*);
     if (prefix == nullptr || prefixCount == 0 || argc < 0 ||
         (bytes) argc >= limit || prefixCount > limit - (bytes) argc - 1 ||
         prefix[0] == nullptr || (argc > 0 && argv == nullptr)) {
         THROW("invalid command prefix or argument count");
         return EXIT_FAILURE;
     }
-    char **arguments = Util_allocate((prefixCount + (bytes) argc + 1) * sizeof(char*));
+    utf8 **arguments = Util_allocate((prefixCount + (bytes) argc + 1) * sizeof(utf8*));
     for (bytes i = 0; i < prefixCount; ++i)
         arguments[i] = prefix[i];
     for (i32 i = 0; i < argc; ++i)
@@ -492,19 +505,19 @@ i32 Util_runCommand(char **prefix, bytes prefixCount, i32 argc, char **argv) {
     return status;
 }
 
-// Run a checker once per matched source and return the project path on success.
-i32 Util_checkSources(const char *project, const char *pattern, char **prefix, bytes prefixCount, char **output) {
+/** Run a checker once per matched source and return the project path on success. */
+i32 Util_checkSources(const utf8 *project, const utf8 *pattern, utf8 **prefix, bytes prefixCount, utf8 **output) {
     if (project == nullptr || pattern == nullptr || output == nullptr || prefix == nullptr ||
-        prefixCount == 0 || prefixCount > SIZE_MAX / sizeof(char*) - 2 || prefix[0] == nullptr) {
+        prefixCount == 0 || prefixCount > SIZE_MAX / sizeof(utf8*) - 2 || prefix[0] == nullptr) {
         THROW("invalid source checker input or argument count");
         return EXIT_FAILURE;
     }
     bytes count = 0;
     bool ok = false;
-    char **sources = Util_collectSources(project, pattern, &count, &ok);
+    utf8 **sources = Util_collectSources(project, pattern, &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
-    char **arguments = Util_allocate((prefixCount + 2) * sizeof(char*));
+    utf8 **arguments = Util_allocate((prefixCount + 2) * sizeof(utf8*));
     for (bytes i = 0; i < prefixCount; ++i)
         arguments[i] = prefix[i];
     i32 status = 0;
@@ -519,25 +532,25 @@ i32 Util_checkSources(const char *project, const char *pattern, char **prefix, b
     return status;
 }
 
-// Create a directory path recursively, accepting existing directory components.
-bool Util_makeDirectory(char *path) {
-    char *start = path + 1;
+/** Create a directory path recursively, accepting existing directory components. */
+bool Util_makeDirectory(utf8 *path) {
+    utf8 *start = path + 1;
 #ifdef _WIN32
     if (((path[0] >= 'a' && path[0] <= 'z') || (path[0] >= 'A' && path[0] <= 'Z')) &&
         path[1] == ':' && (path[2] == '/' || path[2] == '\\'))
         start = path + 3;
 #endif
-    for (char *part = start; ; ++part) {
+    for (utf8 *part = start; ; ++part) {
         if (*part != '/' && *part != '\\' && *part != '\0')
             continue;
-        char saved = *part;
+        utf8 saved = *part;
         *part = 0;
 #ifdef _WIN32
-        i32 error = _mkdir(path); // Windows: create directory, fail on existing.
+        i32 error = _mkdir(path);
         struct _stat info;
         bool valid = error == 0 || (errno == EEXIST && _stat(path, &info) == 0 && (info.st_mode & _S_IFDIR));
 #else
-        i32 error = mkdir(path, 0755); // POSIX: create directory, fail on existing.
+        i32 error = mkdir(path, 0755);
         struct stat info;
         bool valid = error == 0 || (errno == EEXIST && stat(path, &info) == 0 && S_ISDIR(info.st_mode));
 #endif
@@ -551,25 +564,23 @@ bool Util_makeDirectory(char *path) {
     }
 }
 
-// Create and return the project's hashed output directory under B_HOME or the user cache.
-char *Util_outputDirectory(const char *project) {
-    // Artifacts live in their territory: .b/obj/<unit>, beside the marker. The
-    // walk excludes .b, and .b/* is ignored, so output never becomes inventory.
-    char *root = Territory_find(project);
+/** Create and return the project's hashed output directory under B_HOME or the user cache. */
+utf8 *Util_outputDirectory(const utf8 *project) {
+    utf8 *root = Territory_find(project);
     if (root != nullptr) {
         bytes length = strlen(root);
-        bool inside = strncmp(project, root, length) == 0 &&
+        bool inside = bStrPrefixN(project, root, length) &&
             (project[length] == '\0' || project[length] == '/' || project[length] == '\\');
         if (inside) {
-            const char *relative = project + length;
+            const utf8 *relative = project + length;
             while (*relative == '/' || *relative == '\\')
                 ++relative;
-            char *base = Util_combine(root, "/.b/obj");
-            char *directory;
+            utf8 *base = Util_combine(root, "/.b/obj");
+            utf8 *directory;
             if (*relative == '\0')
                 directory = Util_combine(base, "");
             else {
-                char *prefix = Util_combine(base, "/");
+                utf8 *prefix = Util_combine(base, "/");
                 directory = Util_combine(prefix, relative);
                 free(prefix);
             }
@@ -583,16 +594,16 @@ char *Util_outputDirectory(const char *project) {
         }
         free(root);
     }
-    const char *state = getenv("B_HOME");
-    char *defaultState = nullptr;
+    const utf8 *state = getenv("B_HOME");
+    utf8 *defaultState = nullptr;
     if (state == nullptr || *state == '\0') {
-        const char *home = getenv("HOME");
+        const utf8 *home = getenv("HOME");
         if (home == nullptr || *home == '\0') {
             THROW("HOME or B_HOME must be set");
             return nullptr;
         }
 #ifdef _WIN32
-        const char *cache = getenv("LOCALAPPDATA");
+        const utf8 *cache = getenv("LOCALAPPDATA");
         if (cache == nullptr || *cache == '\0')
             cache = getenv("APPDATA");
         if (cache == nullptr || *cache == '\0')
@@ -603,19 +614,18 @@ char *Util_outputDirectory(const char *project) {
         }
         defaultState = Util_combine(cache, "\\b.sh");
 #else
-        const char *cache = getenv("XDG_CACHE_HOME");
+        const utf8 *cache = getenv("XDG_CACHE_HOME");
         defaultState = Util_combine(cache != nullptr && *cache != '\0' ? cache : home,
                                     cache != nullptr && *cache != '\0' ? "/b.sh" : "/.cache/b.sh");
 #endif
         state = defaultState;
     }
-    // FNV-1a constants define the path-identity hash, not configurable limits.
     u64 hash = UINT64_C(14695981039346656037);
     for (const u8 *p = (const u8*) project; *p; ++p)
         hash = (hash ^ *p) * UINT64_C(1099511628211);
-    char suffix[sizeof "/out/" + sizeof(u64) * 2];
+    utf8 suffix[sizeof "/out/" + sizeof(u64) * 2];
     snprintf(suffix, sizeof suffix, "/out/%016" PRIx64, hash);
-    char *directory = Util_combine(state, suffix);
+    utf8 *directory = Util_combine(state, suffix);
     free(defaultState);
     if (!Util_makeDirectory(directory)) {
         free(directory);
@@ -624,12 +634,12 @@ char *Util_outputDirectory(const char *project) {
     return directory;
 }
 
-// Return an allocated path through the final slash, or the original filename if none exists.
-char *Util_parentDirectory(const char *file) {
-    char *directory = Util_combine(file, "");
-    char *slash = strrchr(directory, '/');
+/** Return an allocated path through the final slash, or the original filename if none exists. */
+utf8 *Util_parentDirectory(const utf8 *file) {
+    utf8 *directory = Util_combine(file, "");
+    utf8 *slash = strrchr(directory, '/');
 #ifdef _WIN32
-    char *backslash = strrchr(directory, '\\');
+    utf8 *backslash = strrchr(directory, '\\');
     if (backslash != nullptr && (slash == nullptr || backslash > slash))
         slash = backslash;
 #endif
@@ -638,22 +648,22 @@ char *Util_parentDirectory(const char *file) {
     return directory;
 }
 
-// Return the registered project root during contextual runs, or the file's parent.
-char *Util_projectDirectory(const char *file) {
-    const char *root = getenv("B_PROJECT_ROOT");
+/** Return the registered project root during contextual runs, or the file's parent. */
+utf8 *Util_projectDirectory(const utf8 *file) {
+    const utf8 *root = getenv("B_PROJECT_ROOT");
     if (root != nullptr && *root != '\0')
         return Util_combine(root, "");
     return Util_parentDirectory(file);
 }
 
-// Glob an extension under a literal project path and return owned copies of matching paths.
-char **Util_collectSources(const char *project, const char *extension, bytes *count, bool *ok) {
+/** Glob an extension under a literal project path and return owned copies of matching paths. */
+utf8 **Util_collectSources(const utf8 *project, const utf8 *extension, bytes *count, bool *ok) {
     *ok = false;
     *count = 0;
 #ifdef _WIN32
-    const char *pattern = strrchr(extension, '/');
+    const utf8 *pattern = strrchr(extension, '/');
     pattern = pattern != nullptr ? pattern + 1 : extension;
-    if (strncmp(pattern, "*.", 2) != 0) {
+    if (!bStrPrefix(pattern, "*.")) {
         THROW("unsupported source selector: %s", extension);
         return nullptr;
     }
@@ -663,50 +673,50 @@ char **Util_collectSources(const char *project, const char *extension, bytes *co
         THROW("cannot enumerate sources in %s", project);
         return nullptr;
     }
-    char **sources = nullptr;
+    utf8 **sources = nullptr;
     bytes total = 0, capacity = 0;
     bool valid = true;
     for (i32 index = 0; index < entryCount; ++index) {
-        const char *name = dirent_d_name(entries[index]);
+        const utf8 *name = dirent_d_name(entries[index]);
         bool matches = false;
-        const char *selector = pattern + 2;
+        const utf8 *selector = pattern + 2;
         if (*selector == '{') {
-            const char *end = strchr(selector + 1, '}');
+            const utf8 *end = bStrFindChar(selector + 1, '}');
             if (end != nullptr && end[1] == '\0') {
-                const char *part = selector + 1;
+                const utf8 *part = selector + 1;
                 while (part < end && !matches) {
-                    const char *separator = memchr(part, ',', (bytes) (end - part));
-                    const char *stop = separator != nullptr ? separator : end;
+                    const utf8 *separator = memchr(part, ',', (bytes) (end - part));
+                    const utf8 *stop = separator != nullptr ? separator : end;
                     bytes length = (bytes) (stop - part);
                     if (length > 0 && length <= SIZE_MAX - 2) {
-                        char *suffix = Util_allocate(length + 2);
+                        utf8 *suffix = Util_allocate(length + 2);
                         suffix[0] = '.';
                         memcpy(suffix + 1, part, length);
                         suffix[length + 1] = '\0';
                         bytes nameLength = strlen(name), suffixLength = length + 1;
                         matches = nameLength >= suffixLength &&
-                            strcmp(name + nameLength - suffixLength, suffix) == 0;
+                            bStrEq(name + nameLength - suffixLength, suffix);
                         free(suffix);
                     }
                     part = stop + (separator != nullptr);
                 }
             }
         } else if (*selector == '[') {
-            const char *end = strchr(selector + 1, ']');
-            const char *dot = strrchr(name, '.');
+            const utf8 *end = bStrFindChar(selector + 1, ']');
+            const utf8 *dot = strrchr(name, '.');
             matches = end != nullptr && end[1] == '\0' && dot != nullptr &&
                 dot[1] != '\0' && dot[2] == '\0' &&
                 memchr(selector + 1, dot[1], (bytes) (end - selector - 1)) != nullptr;
         } else {
-            const char *suffix = pattern + 1;
+            const utf8 *suffix = pattern + 1;
             bytes nameLength = strlen(name), suffixLength = strlen(suffix);
             matches = nameLength >= suffixLength &&
-                strcmp(name + nameLength - suffixLength, suffix) == 0;
+                bStrEq(name + nameLength - suffixLength, suffix);
         }
         if (!matches)
             continue;
-        char *prefix = Util_combine(project, "/");
-        char *path = Util_combine(prefix, name);
+        utf8 *prefix = Util_combine(project, "/");
+        utf8 *path = Util_combine(prefix, name);
         free(prefix);
         struct stat information;
         if (stat(path, &information) != 0 || !S_ISREG(information.st_mode)) {
@@ -721,7 +731,7 @@ char **Util_collectSources(const char *project, const char *extension, bytes *co
                 valid = false;
                 break;
             }
-            char **replacement = realloc(sources, next * sizeof *sources);
+            utf8 **replacement = realloc(sources, next * sizeof *sources);
             if (replacement == nullptr) {
                 free(path);
                 THROW("source inventory allocation failed");
@@ -746,26 +756,23 @@ char **Util_collectSources(const char *project, const char *extension, bytes *co
     *ok = true;
     return sources;
 #else
-    // The directory is literal input, not part of the glob expression.
     bytes length = strlen(project);
     if (length > (SIZE_MAX - 1) / 2) {
         THROW("source directory length overflow");
         return nullptr;
     }
-    char *escaped = Util_allocate(length * 2 + 1);
+    utf8 *escaped = Util_allocate(length * 2 + 1);
     bytes position = 0;
     for (bytes i = 0; i < length; ++i) {
-        if (strchr("*?[\\{}", project[i]) != nullptr)
+        if (bStrFindChar("*?[\\{}", project[i]) != nullptr)
             escaped[position++] = '\\';
         escaped[position++] = project[i];
     }
-    char *pattern = Util_combine(escaped, extension);
+    utf8 *pattern = Util_combine(escaped, extension);
     free(escaped);
     glob_t files = {0};
     i32 flags = 0;
 #ifdef GLOB_BRACE
-    // BSD/GNU glob supports native adapter extension sets; directory braces
-    // were escaped above and never participate in expansion.
     flags = GLOB_BRACE;
 #endif
     i32 found = glob(pattern, flags, nullptr, &files);
@@ -776,7 +783,7 @@ char **Util_collectSources(const char *project, const char *extension, bytes *co
         return nullptr;
     }
     bytes total = files.gl_pathc;
-    char **sources = Util_allocate((total ? total : 1) * sizeof(char*));
+    utf8 **sources = Util_allocate((total ? total : 1) * sizeof(utf8*));
     for (bytes i = 0; i < total; ++i)
         sources[i] = Util_combine(files.gl_pathv[i], "");
     globfree(&files);
@@ -786,8 +793,8 @@ char **Util_collectSources(const char *project, const char *extension, bytes *co
 #endif
 }
 
-// Release the copied source paths and their containing array.
-fn Util_freeSources(char **sources, bytes count) {
+/** Release the copied source paths and their containing array. */
+fn Util_freeSources(utf8 **sources, bytes count) {
     if (sources == nullptr)
         return;
     for (bytes i = 0; i < count; ++i)
@@ -795,25 +802,25 @@ fn Util_freeSources(char **sources, bytes count) {
     free(sources);
 }
 
-// Build an environment vector replacing any inherited binding with the supplied name/value.
-char **Util_environmentWith(const char *name, const char *value) {
+/** Build an environment vector replacing any inherited binding with the supplied name/value. */
+utf8 **Util_environmentWith(const utf8 *name, const utf8 *value) {
     bytes prefix = strlen(name);
     bytes count = 0;
-    char **inheritedEnvironment = processEnvironment();
+    utf8 **inheritedEnvironment = processEnvironment();
     if (inheritedEnvironment == nullptr) {
         THROW("cannot read the process environment");
         return nullptr;
     }
     while (inheritedEnvironment[count] != nullptr)
         ++count;
-    char **result = Util_allocate((count + 2) * sizeof(char*));
+    utf8 **result = Util_allocate((count + 2) * sizeof(utf8*));
     bytes out = 0;
     for (bytes i = 0; i < count; ++i) {
-        if (strncmp(inheritedEnvironment[i], name, prefix) == 0 && inheritedEnvironment[i][prefix] == '=')
-            continue; // drop the previous binding so ours wins
+        if (bStrPrefixN(inheritedEnvironment[i], name, prefix) && inheritedEnvironment[i][prefix] == '=')
+            continue;
         result[out++] = inheritedEnvironment[i];
     }
-    char *entry = Util_allocate(prefix + strlen(value) + 2);
+    utf8 *entry = Util_allocate(prefix + strlen(value) + 2);
     memcpy(entry, name, prefix);
     entry[prefix] = '=';
     strcpy(entry + prefix + 1, value);
@@ -822,11 +829,11 @@ char **Util_environmentWith(const char *name, const char *value) {
     return result;
 }
 
-// Free an environment array and owned override while preserving inherited entries.
-fn Util_freeEnvironment(char **environment) {
+/** Free an environment array and owned override while preserving inherited entries. */
+fn Util_freeEnvironment(utf8 **environment) {
     if (environment == nullptr)
         return;
-    char **inheritedEnvironment = processEnvironment();
+    utf8 **inheritedEnvironment = processEnvironment();
     for (bytes i = 0; environment[i] != nullptr; ++i) {
         bool inherited = false;
         for (bytes j = 0; inheritedEnvironment != nullptr && inheritedEnvironment[j] != nullptr; ++j)

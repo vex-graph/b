@@ -1,10 +1,14 @@
-// CLASS: Territory — implementation of the marker, its walk and its inventory.
-// DEFINITION: find resolves upward to the nearest .b/; workspacePath names the
-// generated file; claim creates the marker and writes what it found.
-// OVERVIEW: find; workspacePath; claim; PRIVATE: grow; excluded; normalize;
-// unitFor; addSource; relative; escape; inventory; emit.
+/**
+ * CLASS: Territory, implementation of the marker, its walk and its inventory.
+ * DEFINITION: find resolves upward to the nearest .b/; workspacePath names the
+ * generated file; claim creates the marker and writes what it found.
+ * OVERVIEW: find; workspacePath; claim; PRIVATE: grow; excluded; normalize;
+ * unitFor; addSource; relative; escape; inventory; emit.
+ */
 
 #include "vex.h"
+#include "b/b_str.h"
+#include "b/territory_internal.h"
 #include <dirent.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -20,7 +24,7 @@
 ;;DEFINITION
 /* The walk is cold and total: every directory under the claimed root is read
  * once, in alphasort order, and every regular file is recorded under the
- * directory that holds it — the path is one layer, the names inside it the
+ * directory that holds it, the path is one layer, the names inside it the
  * next. Compiled sources are also grouped as units so the build can hand one
  * directory at a time to its adapter. Generated, cache and control names are
  * excluded; the walk never leaves the claimed root and never follows a symlink
@@ -29,11 +33,11 @@
  */
 ;;OVERVIEW
 /* PRIVATE RECORDS (co-located, one inventory):
- * TerritoryUnit — char *directory (relative, owned), char **names (owned),
+ * TerritoryUnit, utf8 *directory (relative, owned), utf8 **names (owned),
  *     count/capacity of the directory's compiled sources.
- * TerritoryFiles — char *directory (relative, owned) and the owned names of
+ * TerritoryFiles, utf8 *directory (relative, owned) and the owned names of
  *     the regular files directly inside it: the two layers of the inventory.
- * TerritoryWalk — directory stack, the unit array, and the directory/file
+ * TerritoryWalk, directory stack, the unit array, and the directory/file
  *     tree; source, file and exclusion counts.
  * PUBLIC (added): Territory_buildAll builds every unit at or below a directory,
  * scoped by the caller's location; Territory_writeAssembly authors one unit's
@@ -42,131 +46,221 @@
  * test; classify picks one adapter family per unit; entryOf returns the owned
  * entry-source path; displayNameOf title-cases; freeEntries releases a listing;
  * keyText writes a quoted key; releaseWalk releases an inventory walk.
- * PRIVATE STATIC: grow — checked doubling; excluded — fixed skip names;
- * normalize — strip one trailing separator; unitFor/addSource — record a source
- * under its directory; relative — root-relative path; addFile — record one
- * regular file under its directory; escape — JSON string emission; inventory —
- * the cold walk; emit — write the two-layer inventory.
+ * PRIVATE STATIC: grow, checked doubling; excluded, fixed skip names;
+ * normalize, strip one trailing separator; unitFor/addSource, record a source
+ * under its directory; relative, root-relative path; addFile, record one
+ * regular file under its directory; escape, JSON string emission; inventory,
+ * the cold walk; emit, write the two-layer inventory.
  * Errors report through THROW and abort the claim; the caller owns returned
  * paths, and every slot is released before the claim returns.
  */
 
 #define TERRITORY_INITIAL_CAPACITY 8u
 
-typedef struct TerritoryUnit {
-    char *directory;
-    char **names;
-    bytes count;
-    bytes capacity;
-} TerritoryUnit;
 
-typedef struct TerritoryFiles {
-    char *directory;
-    char **names;
-    bytes count;
-    bytes capacity;
-} TerritoryFiles;
-
-typedef struct TerritoryWalk {
-    char **directories;
-    bytes directoryCount;
-    bytes directoryCapacity;
-    TerritoryUnit *units;
-    bytes unitCount;
-    bytes unitCapacity;
-    TerritoryFiles *tree;
-    bytes treeCount;
-    bytes treeCapacity;
-    bytes files;
-    bytes sources;
-    bytes excluded;
-} TerritoryWalk;
 
 ;;GETTER
-static inline const char *dirent_d_name(const struct dirent *self) { return (*self).d_name; }
+static inline const utf8 *dirent_d_name(const struct dirent *self)
+{
+    return (*self).d_name;
+}
 ;;GETTER
-static inline const char *Adapter_name(const Adapter *self) { return (*self).name; }
+static inline const utf8 *Adapter_name(const Adapter *self)
+{
+    return (*self).name;
+}
 ;;GETTER
-static inline i32 (*Adapter_build(const Adapter *self))(const char *, char **) { return (*self).build; }
+static inline i32 (*Adapter_build(const Adapter *self))(const utf8 *, utf8 **)
+{
+    return (*self).build;
+}
 ;;GETTER
-static inline i32 (*Adapter_archive(const Adapter *self))(const char *, char **) { return (*self).archive; }
+static inline i32 (*Adapter_archive(const Adapter *self))(const utf8 *, utf8 **)
+{
+    return (*self).archive;
+}
 ;;GETTER
-static inline char *(*Adapter_entry(const Adapter *self))(const char *) { return (*self).entry; }
+static inline utf8 *(*Adapter_entry(const Adapter *self))(const utf8*) { return (*self).entry; }
 
 ;;GETTER
-static inline char *TerritoryUnit_directory(const TerritoryUnit *self) { return (*self).directory; }
+static inline utf8 *TerritoryUnit_directory(const TerritoryUnit *self)
+{
+    return (*self).directory;
+}
 ;;SETTER
-static inline fn TerritoryUnit_setDirectory(TerritoryUnit *self, char *directory) { (*self).directory = directory; }
+static inline fn TerritoryUnit_setDirectory(TerritoryUnit *self, utf8 *directory)
+{
+    (*self).directory = directory;
+}
 ;;GETTER
-static inline char **TerritoryUnit_names(const TerritoryUnit *self) { return (*self).names; }
+static inline utf8 **TerritoryUnit_names(const TerritoryUnit *self)
+{
+    return (*self).names;
+}
 ;;SETTER
-static inline fn TerritoryUnit_setNames(TerritoryUnit *self, char **names) { (*self).names = names; }
+static inline fn TerritoryUnit_setNames(TerritoryUnit *self, utf8 **names)
+{
+    (*self).names = names;
+}
 ;;GETTER
-static inline bytes TerritoryUnit_count(const TerritoryUnit *self) { return (*self).count; }
+static inline bytes TerritoryUnit_count(const TerritoryUnit *self)
+{
+    return (*self).count;
+}
 ;;SETTER
-static inline fn TerritoryUnit_setCount(TerritoryUnit *self, bytes count) { (*self).count = count; }
+static inline fn TerritoryUnit_setCount(TerritoryUnit *self, bytes count)
+{
+    (*self).count = count;
+}
 ;;GETTER
-static inline bytes *TerritoryUnit_capacityPtr(TerritoryUnit *self) { return &(*self).capacity; }
+static inline bytes *TerritoryUnit_capacityPtr(TerritoryUnit *self)
+{
+    return &(*self).capacity;
+}
 ;;SETTER
-static inline fn TerritoryUnit_setCapacity(TerritoryUnit *self, bytes capacity) { (*self).capacity = capacity; }
+static inline fn TerritoryUnit_setCapacity(TerritoryUnit *self, bytes capacity)
+{
+    (*self).capacity = capacity;
+}
 
 ;;GETTER
-static inline char *TerritoryFiles_directory(const TerritoryFiles *self) { return (*self).directory; }
+static inline utf8 *TerritoryFiles_directory(const TerritoryFiles *self)
+{
+    return (*self).directory;
+}
 ;;GETTER
-static inline char **TerritoryFiles_names(const TerritoryFiles *self) { return (*self).names; }
+static inline utf8 **TerritoryFiles_names(const TerritoryFiles *self)
+{
+    return (*self).names;
+}
 ;;SETTER
-static inline fn TerritoryFiles_setNames(TerritoryFiles *self, char **names) { (*self).names = names; }
+static inline fn TerritoryFiles_setNames(TerritoryFiles *self, utf8 **names)
+{
+    (*self).names = names;
+}
 ;;GETTER
-static inline bytes TerritoryFiles_count(const TerritoryFiles *self) { return (*self).count; }
+static inline bytes TerritoryFiles_count(const TerritoryFiles *self)
+{
+    return (*self).count;
+}
 ;;SETTER
-static inline fn TerritoryFiles_setCount(TerritoryFiles *self, bytes count) { (*self).count = count; }
+static inline fn TerritoryFiles_setCount(TerritoryFiles *self, bytes count)
+{
+    (*self).count = count;
+}
 ;;GETTER
-static inline bytes *TerritoryFiles_capacityPtr(TerritoryFiles *self) { return &(*self).capacity; }
+static inline bytes *TerritoryFiles_capacityPtr(TerritoryFiles *self)
+{
+    return &(*self).capacity;
+}
 
 ;;GETTER
-static inline char **TerritoryWalk_directories(const TerritoryWalk *self) { return (*self).directories; }
+static inline utf8 **TerritoryWalk_directories(const TerritoryWalk *self)
+{
+    return (*self).directories;
+}
 ;;SETTER
-static inline fn TerritoryWalk_setDirectories(TerritoryWalk *self, char **directories) { (*self).directories = directories; }
+static inline fn TerritoryWalk_setDirectories(TerritoryWalk *self, utf8 **directories)
+{
+    (*self).directories = directories;
+}
 ;;GETTER
-static inline bytes TerritoryWalk_directoryCount(const TerritoryWalk *self) { return (*self).directoryCount; }
+static inline bytes TerritoryWalk_directoryCount(const TerritoryWalk *self)
+{
+    return (*self).directoryCount;
+}
 ;;SETTER
-static inline fn TerritoryWalk_setDirectoryCount(TerritoryWalk *self, bytes count) { (*self).directoryCount = count; }
+static inline fn TerritoryWalk_setDirectoryCount(TerritoryWalk *self, bytes count)
+{
+    (*self).directoryCount = count;
+}
 ;;GETTER
-static inline bytes *TerritoryWalk_directoryCapacityPtr(TerritoryWalk *self) { return &(*self).directoryCapacity; }
+static inline bytes *TerritoryWalk_directoryCapacityPtr(TerritoryWalk *self)
+{
+    return &(*self).directoryCapacity;
+}
 ;;GETTER
-static inline TerritoryUnit *TerritoryWalk_units(const TerritoryWalk *self) { return (*self).units; }
+static inline TerritoryUnit *TerritoryWalk_units(const TerritoryWalk *self)
+{
+    return (*self).units;
+}
 ;;SETTER
-static inline fn TerritoryWalk_setUnits(TerritoryWalk *self, TerritoryUnit *units) { (*self).units = units; }
+static inline fn TerritoryWalk_setUnits(TerritoryWalk *self, TerritoryUnit *units)
+{
+    (*self).units = units;
+}
 ;;GETTER
-static inline bytes TerritoryWalk_unitCount(const TerritoryWalk *self) { return (*self).unitCount; }
+static inline bytes TerritoryWalk_unitCount(const TerritoryWalk *self)
+{
+    return (*self).unitCount;
+}
 ;;SETTER
-static inline fn TerritoryWalk_setUnitCount(TerritoryWalk *self, bytes count) { (*self).unitCount = count; }
+static inline fn TerritoryWalk_setUnitCount(TerritoryWalk *self, bytes count)
+{
+    (*self).unitCount = count;
+}
 ;;GETTER
-static inline bytes *TerritoryWalk_unitCapacityPtr(TerritoryWalk *self) { return &(*self).unitCapacity; }
+static inline bytes *TerritoryWalk_unitCapacityPtr(TerritoryWalk *self)
+{
+    return &(*self).unitCapacity;
+}
 ;;GETTER
-static inline TerritoryFiles *TerritoryWalk_tree(const TerritoryWalk *self) { return (*self).tree; }
+static inline TerritoryFiles *TerritoryWalk_tree(const TerritoryWalk *self)
+{
+    return (*self).tree;
+}
 ;;SETTER
-static inline fn TerritoryWalk_setTree(TerritoryWalk *self, TerritoryFiles *tree) { (*self).tree = tree; }
+static inline fn TerritoryWalk_setTree(TerritoryWalk *self, TerritoryFiles *tree)
+{
+    (*self).tree = tree;
+}
 ;;GETTER
-static inline bytes TerritoryWalk_treeCount(const TerritoryWalk *self) { return (*self).treeCount; }
+static inline bytes TerritoryWalk_treeCount(const TerritoryWalk *self)
+{
+    return (*self).treeCount;
+}
 ;;SETTER
-static inline fn TerritoryWalk_setTreeCount(TerritoryWalk *self, bytes count) { (*self).treeCount = count; }
+static inline fn TerritoryWalk_setTreeCount(TerritoryWalk *self, bytes count)
+{
+    (*self).treeCount = count;
+}
 ;;GETTER
-static inline bytes *TerritoryWalk_treeCapacityPtr(TerritoryWalk *self) { return &(*self).treeCapacity; }
+static inline bytes *TerritoryWalk_treeCapacityPtr(TerritoryWalk *self)
+{
+    return &(*self).treeCapacity;
+}
 ;;GETTER
-static inline bytes TerritoryWalk_files(const TerritoryWalk *self) { return (*self).files; }
+static inline bytes TerritoryWalk_files(const TerritoryWalk *self)
+{
+    return (*self).files;
+}
 ;;SETTER
-static inline fn TerritoryWalk_setFiles(TerritoryWalk *self, bytes files) { (*self).files = files; }
+static inline fn TerritoryWalk_setFiles(TerritoryWalk *self, bytes files)
+{
+    (*self).files = files;
+}
 ;;GETTER
-static inline bytes TerritoryWalk_sources(const TerritoryWalk *self) { return (*self).sources; }
+static inline bytes TerritoryWalk_sources(const TerritoryWalk *self)
+{
+    return (*self).sources;
+}
 ;;SETTER
-static inline fn TerritoryWalk_setSources(TerritoryWalk *self, bytes sources) { (*self).sources = sources; }
+static inline fn TerritoryWalk_setSources(TerritoryWalk *self, bytes sources)
+{
+    (*self).sources = sources;
+}
 ;;GETTER
-static inline bytes TerritoryWalk_excluded(const TerritoryWalk *self) { return (*self).excluded; }
+static inline bytes TerritoryWalk_excluded(const TerritoryWalk *self)
+{
+    return (*self).excluded;
+}
 ;;SETTER
-static inline fn TerritoryWalk_setExcluded(TerritoryWalk *self, bytes excluded) { (*self).excluded = excluded; }
+static inline fn TerritoryWalk_setExcluded(TerritoryWalk *self, bytes excluded)
+{
+    (*self).excluded = excluded;
+}
 
-// Grow a cold slot array with overflow checks, preserving old storage on error.
+/** Grow a cold slot array with overflow checks, preserving old storage on error. */
 static bool grow(bytes count, bytes size, bytes *capacity, any *storage) {
     if (count < *capacity)
         return true;
@@ -186,18 +280,18 @@ static bool grow(bytes count, bytes size, bytes *capacity, any *storage) {
     return true;
 }
 
-// Fixed generated, cache and control names; ordinary dot directories remain.
-static bool excluded(const char *name) {
-    const char *names[] = { ".", "..", ".git", ".hg", ".svn", ".b", "node_modules",
+/** Fixed generated, cache and control names; ordinary dot directories remain. */
+static bool excluded(const utf8 *name) {
+    const utf8 *names[] = { ".", "..", ".git", ".hg", ".svn", ".b", "node_modules",
         "target", "build", "dist", "out", ".cache", "__pycache__", ".venv", "venv" };
     for (bytes index = 0; index < sizeof names / sizeof names[0]; ++index)
-        if (strcmp(name, names[index]) == 0)
+        if (bStrEq(name, names[index]))
             return true;
     return false;
 }
 
-// Drop trailing separators while keeping a root ("/" or "C:/") intact.
-static fn normalize(char *path) {
+/** Drop trailing separators while keeping a root ("/" or "C:/") intact. */
+static fn normalize(utf8 *path) {
     bytes length = strlen(path);
     while (length > 1 && (path[length - 1] == '/' || path[length - 1] == '\\')) {
         if (length == 3 && path[1] == ':')
@@ -206,12 +300,12 @@ static fn normalize(char *path) {
     }
 }
 
-// Return the unit owning one directory, appending a new unit when absent.
-static TerritoryUnit *unitFor(TerritoryWalk *walk, const char *directory) {
+/** Return the unit owning one directory, appending a new unit when absent. */
+static TerritoryUnit *unitFor(TerritoryWalk *walk, const utf8 *directory) {
     bytes count = TerritoryWalk_unitCount(walk);
     TerritoryUnit *units = TerritoryWalk_units(walk);
     for (bytes index = 0; index < count; ++index)
-        if (strcmp(TerritoryUnit_directory(&units[index]), directory) == 0)
+        if (bStrEq(TerritoryUnit_directory(&units[index]), directory))
             return &units[index];
     any storage = units;
     if (!grow(count, sizeof(TerritoryUnit), TerritoryWalk_unitCapacityPtr(walk), &storage))
@@ -227,14 +321,14 @@ static TerritoryUnit *unitFor(TerritoryWalk *walk, const char *directory) {
     return unit;
 }
 
-// Record one compiled source under the directory that owns it.
-static bool addSource(TerritoryWalk *walk, const char *directory, const char *name) {
+/** Record one compiled source under the directory that owns it. */
+static bool addSource(TerritoryWalk *walk, const utf8 *directory, const utf8 *name) {
     TerritoryUnit *unit = unitFor(walk, directory);
     if (unit == nullptr)
         return false;
     bytes count = TerritoryUnit_count(unit);
     any storage = TerritoryUnit_names(unit);
-    if (!grow(count, sizeof(char*), TerritoryUnit_capacityPtr(unit), &storage))
+    if (!grow(count, sizeof(utf8*), TerritoryUnit_capacityPtr(unit), &storage))
         return false;
     TerritoryUnit_setNames(unit, storage);
     TerritoryUnit_names(unit)[count] = Util_combine(name, "");
@@ -243,24 +337,26 @@ static bool addSource(TerritoryWalk *walk, const char *directory, const char *na
     return true;
 }
 
-// Name a directory relative to the territory root; the root itself is ".".
-static char *relative(const char *root, const char *directory) {
+/** Name a directory relative to the territory root; the root itself is ".". */
+static utf8 *relative(const utf8 *root, const utf8 *directory) {
     bytes length = strlen(root);
-    if (strcmp(root, directory) == 0)
+    if (bStrEq(root, directory))
         return Util_combine(".", "");
-    if (strncmp(directory, root, length) == 0 && directory[length] == '/')
+    if (bStrPrefixN(directory, root, length) && directory[length] == '/')
         return Util_combine(directory + length + 1, "");
     return Util_combine(directory, "");
 }
 
-// Record one regular file under its directory: the directory is the first
-// layer, the names inside it are the second.
-static bool addFile(TerritoryWalk *walk, const char *root, const char *directory, const char *name) {
-    char *path = relative(root, directory);
+/**
+ * Record one regular file under its directory: the directory is the first
+ * layer, the names inside it are the second.
+ */
+static bool addFile(TerritoryWalk *walk, const utf8 *root, const utf8 *directory, const utf8 *name) {
+    utf8 *path = relative(root, directory);
     bytes count = TerritoryWalk_treeCount(walk);
     TerritoryFiles *tree = TerritoryWalk_tree(walk);
     bytes index = 0;
-    while (index < count && strcmp(TerritoryFiles_directory(&tree[index]), path) != 0)
+    while (index < count && !bStrEq(TerritoryFiles_directory(&tree[index]), path))
         ++index;
     if (index == count) {
         any storage = tree;
@@ -281,18 +377,18 @@ static bool addFile(TerritoryWalk *walk, const char *root, const char *directory
     TerritoryFiles *entry = &tree[index];
     bytes nameCount = TerritoryFiles_count(entry);
     any names = TerritoryFiles_names(entry);
-    if (!grow(nameCount, sizeof(char*), TerritoryFiles_capacityPtr(entry), &names))
+    if (!grow(nameCount, sizeof(utf8*), TerritoryFiles_capacityPtr(entry), &names))
         return false;
     TerritoryFiles_setNames(entry, names);
-    char **grown = TerritoryFiles_names(entry);
+    utf8 **grown = TerritoryFiles_names(entry);
     grown[nameCount] = Util_combine(name, "");
     TerritoryFiles_setCount(entry, nameCount + 1);
     TerritoryWalk_setFiles(walk, TerritoryWalk_files(walk) + 1);
     return true;
 }
 
-// Emit one JSON string, escaping what cannot appear literally in a path.
-static fn escape(FILE *file, const char *text) {
+/** Emit one JSON string, escaping what cannot appear literally in a path. */
+static fn escape(FILE *file, const utf8 *text) {
     fputc('"', file);
     for (const u8 *cursor = (const u8*) text; *cursor != '\0'; ++cursor) {
         if (*cursor == '"' || *cursor == '\\') {
@@ -307,17 +403,17 @@ static fn escape(FILE *file, const char *text) {
     fputc('"', file);
 }
 
-// Read every directory under the root once and record each unit it finds.
-static bool inventory(const char *root, TerritoryWalk *walk) {
+/** Read every directory under the root once and record each unit it finds. */
+static bool inventory(const utf8 *root, TerritoryWalk *walk) {
     any storage = TerritoryWalk_directories(walk);
-    if (!grow(TerritoryWalk_directoryCount(walk), sizeof(char*), TerritoryWalk_directoryCapacityPtr(walk), &storage))
+    if (!grow(TerritoryWalk_directoryCount(walk), sizeof(utf8*), TerritoryWalk_directoryCapacityPtr(walk), &storage))
         return false;
     TerritoryWalk_setDirectories(walk, storage);
     TerritoryWalk_directories(walk)[0] = Util_combine(root, "");
     TerritoryWalk_setDirectoryCount(walk, 1);
     for (bytes index = 0; index < TerritoryWalk_directoryCount(walk); ++index) {
-        char **directories = TerritoryWalk_directories(walk);
-        const char *current = directories[index];
+        utf8 **directories = TerritoryWalk_directories(walk);
+        const utf8 *current = directories[index];
         struct dirent **entries = nullptr;
         i32 total = scandir(current, &entries, nullptr, alphasort);
         if (total < 0) {
@@ -327,14 +423,14 @@ static bool inventory(const char *root, TerritoryWalk *walk) {
         bool ok = true;
         for (i32 entryIndex = 0; entryIndex < total && ok; ++entryIndex) {
             struct dirent *entry = entries[entryIndex];
-            const char *name = dirent_d_name(entry);
+            const utf8 *name = dirent_d_name(entry);
             if (excluded(name)) {
-                if (strcmp(name, ".") != 0 && strcmp(name, "..") != 0)
+                if (!bStrEq(name, ".") && !bStrEq(name, ".."))
                     TerritoryWalk_setExcluded(walk, TerritoryWalk_excluded(walk) + 1);
                 continue;
             }
-            char *prefix = Util_combine(current, "/");
-            char *path = Util_combine(prefix, name);
+            utf8 *prefix = Util_combine(current, "/");
+            utf8 *path = Util_combine(prefix, name);
             free(prefix);
             struct stat information;
             if (lstat(path, &information) != 0) {
@@ -346,23 +442,20 @@ static bool inventory(const char *root, TerritoryWalk *walk) {
             if (S_ISDIR(information.st_mode)) {
                 bytes count = TerritoryWalk_directoryCount(walk);
                 any next = TerritoryWalk_directories(walk);
-                ok = grow(count, sizeof(char*), TerritoryWalk_directoryCapacityPtr(walk), &next);
+                ok = grow(count, sizeof(utf8*), TerritoryWalk_directoryCapacityPtr(walk), &next);
                 TerritoryWalk_setDirectories(walk, next);
                 if (ok) {
-                    char **grown = TerritoryWalk_directories(walk);
+                    utf8 **grown = TerritoryWalk_directories(walk);
                     grown[count] = path;
                     TerritoryWalk_setDirectoryCount(walk, count + 1);
                 } else {
                     free(path);
                 }
             } else if (S_ISREG(information.st_mode)) {
-                // The inventory records RUNNABLE files only: a source an
-                // adapter can build or run. READMEs, licenses, JSON, images
-                // and editor droppings are not work, so they are not listed.
                 if (Adapter_forFile(path) != nullptr) {
                     ok = addFile(walk, root, current, name);
                     if (ok) {
-                        char *directory = relative(root, current);
+                        utf8 *directory = relative(root, current);
                         ok = addSource(walk, directory, name);
                         free(directory);
                     }
@@ -386,32 +479,34 @@ static bool inventory(const char *root, TerritoryWalk *walk) {
 
 typedef enum { UNIT_OK, UNIT_MIXED } UnitVerdict;
 
-// Join a unit's relative directory onto the root; "." names the root itself.
-static char *absoluteOf(const char *root, const char *directory) {
-    if (strcmp(directory, ".") == 0)
+/** Join a unit's relative directory onto the root; "." names the root itself. */
+static utf8 *absoluteOf(const utf8 *root, const utf8 *directory) {
+    if (bStrEq(directory, "."))
         return Util_combine(root, "");
-    char *prefix = Util_combine(root, "/");
-    char *path = Util_combine(prefix, directory);
+    utf8 *prefix = Util_combine(root, "/");
+    utf8 *path = Util_combine(prefix, directory);
     free(prefix);
     return path;
 }
 
-// Whether a unit lies at or below the scope directory; scope "." means everything.
-static bool inScope(const char *directory, const char *scope) {
-    if (strcmp(scope, ".") == 0)
+/** Whether a unit lies at or below the scope directory; scope "." means everything. */
+static bool inScope(const utf8 *directory, const utf8 *scope) {
+    if (bStrEq(scope, "."))
         return true;
     bytes length = strlen(scope);
-    return strcmp(directory, scope) == 0 ||
-        (strncmp(directory, scope, length) == 0 && directory[length] == '/');
+    return bStrEq(directory, scope) ||
+        (bStrPrefixN(directory, scope, length) && directory[length] == '/');
 }
 
-// Choose the adapter that claims a unit's sources. Adapters that share a build
-// callback form one family (glsl stages, the js/ts extensions), so only sources
-// from different families make a unit mixed.
+/**
+ * Choose the adapter that claims a unit's sources. Adapters that share a build
+ * callback form one family (glsl stages, the js/ts extensions), so only sources
+ * from different families make a unit mixed.
+ */
 static UnitVerdict classify(const TerritoryUnit *unit, const Adapter **adapter) {
     *adapter = nullptr;
     bytes count = TerritoryUnit_count(unit);
-    char *const *names = TerritoryUnit_names(unit);
+    utf8 *const *names = TerritoryUnit_names(unit);
     for (bytes source = 0; source < count; ++source) {
         const Adapter *claimed = Adapter_forFile(names[source]);
         if (claimed == nullptr)
@@ -424,14 +519,14 @@ static UnitVerdict classify(const TerritoryUnit *unit, const Adapter **adapter) 
     return UNIT_OK;
 }
 
-// Ask the unit's adapter for the owned path of its entry source; nullptr means none.
-static char *entryOf(const Adapter *adapter, const char *absolute) {
-    char *(*entryFn)(const char *) = Adapter_entry(adapter);
+/** Ask the unit's adapter for the owned path of its entry source; nullptr means none. */
+static utf8 *entryOf(const Adapter *adapter, const utf8 *absolute) {
+    utf8 *(*entryFn)(const utf8*) = Adapter_entry(adapter);
     return entryFn != nullptr ? entryFn(absolute) : nullptr;
 }
 
-// Write the generated fact file; the only writer of .b/workspace.json.
-static bool emit(const char *path, const char *root, TerritoryWalk *walk) {
+/** Write the generated fact file; the only writer of .b/workspace.json. */
+static bool emit(const utf8 *path, const utf8 *root, TerritoryWalk *walk) {
     FILE *file = fopen(path, "wb");
     if (file == nullptr) {
         THROW("cannot write %s: %s", path, strerror(errno));
@@ -462,31 +557,28 @@ static bool emit(const char *path, const char *root, TerritoryWalk *walk) {
     return ok;
 }
 
-// Resolve upward to the nearest claimed ancestor, or nullptr when none exists.
-char *Territory_find(const char *startDirectory) {
+/** Resolve upward to the nearest claimed ancestor, or nullptr when none exists. */
+utf8 *Territory_find(const utf8 *startDirectory) {
     if (startDirectory == nullptr || *startDirectory == '\0') {
         THROW("territory lookup requires a directory");
         return nullptr;
     }
-    char *current = realpath(startDirectory, nullptr);
+    utf8 *current = realpath(startDirectory, nullptr);
     if (current == nullptr) {
         THROW("cannot resolve directory: %s", startDirectory);
         return nullptr;
     }
     normalize(current);
     while (true) {
-        // A claimed territory is a directory holding a generated inventory, not
-        // merely a .b/ output directory: a build writes .b/obj wherever it runs,
-        // and that must never be mistaken for a workspace root.
-        char *marker = Util_combine(current, "/.b/workspace.json");
+        utf8 *marker = Util_combine(current, "/.b/workspace.json");
         struct stat information;
         bool present = stat(marker, &information) == 0 && S_ISREG(information.st_mode);
         free(marker);
         if (present)
             return current;
-        char *parent = Util_parentDirectory(current);
+        utf8 *parent = Util_parentDirectory(current);
         normalize(parent);
-        if (strcmp(parent, current) == 0) {
+        if (bStrEq(parent, current)) {
             free(parent);
             free(current);
             return nullptr;
@@ -496,26 +588,26 @@ char *Territory_find(const char *startDirectory) {
     }
 }
 
-// Name the generated file inside a claimed root.
-char *Territory_workspacePath(const char *root) {
+/** Name the generated file inside a claimed root. */
+utf8 *Territory_workspacePath(const utf8 *root) {
     return Util_combine(root, "/.b/workspace.json");
 }
 
-// Release every slot of a walk; the caller owns the walk until this runs.
+/** Release every slot of a walk; the caller owns the walk until this runs. */
 static fn releaseWalk(TerritoryWalk *walk) {
     bytes unitCount = TerritoryWalk_unitCount(walk);
     TerritoryUnit *units = TerritoryWalk_units(walk);
     for (bytes index = 0; index < unitCount; ++index) {
         TerritoryUnit *unit = &units[index];
         bytes count = TerritoryUnit_count(unit);
-        char **names = TerritoryUnit_names(unit);
+        utf8 **names = TerritoryUnit_names(unit);
         for (bytes source = 0; source < count; ++source)
             free(names[source]);
         free(names);
         free(TerritoryUnit_directory(unit));
     }
     bytes dirCount = TerritoryWalk_directoryCount(walk);
-    char **dirs = TerritoryWalk_directories(walk);
+    utf8 **dirs = TerritoryWalk_directories(walk);
     for (bytes index = 0; index < dirCount; ++index)
         free(dirs[index]);
     bytes treeCount = TerritoryWalk_treeCount(walk);
@@ -523,7 +615,7 @@ static fn releaseWalk(TerritoryWalk *walk) {
     for (bytes index = 0; index < treeCount; ++index) {
         TerritoryFiles *entry = &tree[index];
         bytes count = TerritoryFiles_count(entry);
-        char **names = TerritoryFiles_names(entry);
+        utf8 **names = TerritoryFiles_names(entry);
         for (bytes name = 0; name < count; ++name)
             free(names[name]);
         free(names);
@@ -534,24 +626,24 @@ static fn releaseWalk(TerritoryWalk *walk) {
     free(tree);
 }
 
-// Claim a directory: create the marker, walk it once, write the inventory.
-bool Territory_claim(const char *directory) {
+/** Claim a directory: create the marker, walk it once, write the inventory. */
+bool Territory_claim(const utf8 *directory) {
     if (directory == nullptr || *directory == '\0') {
         THROW("generate requires a directory");
         return false;
     }
-    char *root = realpath(directory, nullptr);
+    utf8 *root = realpath(directory, nullptr);
     if (root == nullptr) {
         THROW("cannot resolve directory: %s", directory);
         return false;
     }
     normalize(root);
-    if (strcmp(root, "/") == 0) {
+    if (bStrEq(root, "/")) {
         THROW("refusing to claim the filesystem root");
         free(root);
         return false;
     }
-    char *marker = Util_combine(root, "/.b");
+    utf8 *marker = Util_combine(root, "/.b");
     struct stat information;
     bool claimed = stat(marker, &information) == 0;
     if (claimed && !S_ISDIR(information.st_mode)) {
@@ -561,8 +653,8 @@ bool Territory_claim(const char *directory) {
         return false;
     }
     if (!claimed) {
-        char *parent = Util_parentDirectory(root);
-        char *ancestor = Territory_find(parent);
+        utf8 *parent = Util_parentDirectory(root);
+        utf8 *ancestor = Territory_find(parent);
         free(parent);
         if (ancestor != nullptr) {
             THROW("%s is already inside the territory at %s; regenerate there, or claim outside it",
@@ -581,7 +673,7 @@ bool Territory_claim(const char *directory) {
     }
     TerritoryWalk walk = { nullptr, 0, 0, nullptr, 0, 0, nullptr, 0, 0, 0, 0, 0 };
     bool ok = inventory(root, &walk);
-    char *workspace = Territory_workspacePath(root);
+    utf8 *workspace = Territory_workspacePath(root);
     if (ok)
         ok = emit(workspace, root, &walk);
     if (ok)
@@ -594,29 +686,31 @@ bool Territory_claim(const char *directory) {
     return ok;
 }
 
-// Build every unit at or below the directory (default: the current directory).
-// Units are built in walk order; a mixed unit fails without stopping the others.
-bool Territory_buildAll(const char *startDirectory) {
-    const char *start = startDirectory != nullptr ? startDirectory : ".";
-    char *here = realpath(start, nullptr);
+/**
+ * Build every unit at or below the directory (default: the current directory).
+ * Units are built in walk order; a mixed unit fails without stopping the others.
+ */
+bool Territory_buildAll(const utf8 *startDirectory) {
+    const utf8 *start = startDirectory != nullptr ? startDirectory : ".";
+    utf8 *here = realpath(start, nullptr);
     if (here == nullptr) {
         THROW("cannot resolve directory: %s", start);
         return false;
     }
     normalize(here);
-    char *root = Territory_find(here);
+    utf8 *root = Territory_find(here);
     if (root == nullptr) {
         THROW("build outside a territory; run b.sh generate first");
         free(here);
         return false;
     }
-    char *scope = relative(root, here);
+    utf8 *scope = relative(root, here);
     TerritoryWalk walk = { nullptr, 0, 0, nullptr, 0, 0, nullptr, 0, 0, 0, 0, 0 };
     bool ok = inventory(root, &walk);
     bytes scoped = 0, succeeded = 0, failed = 0, skipped = 0;
     for (bytes index = 0; ok && index < walk.unitCount; ++index) {
         TerritoryUnit *unit = &walk.units[index];
-        const char *unitDir = TerritoryUnit_directory(unit);
+        const utf8 *unitDir = TerritoryUnit_directory(unit);
         if (!inScope(unitDir, scope))
             continue;
         ++scoped;
@@ -626,8 +720,8 @@ bool Territory_buildAll(const char *startDirectory) {
             ++failed;
             continue;
         }
-        char *absolute = absoluteOf(root, unitDir);
-        char *entry = entryOf(adapter, absolute);
+        utf8 *absolute = absoluteOf(root, unitDir);
+        utf8 *entry = entryOf(adapter, absolute);
         bool app = entry != nullptr;
         free(entry);
         if (!app && Adapter_archive(adapter) == nullptr) {
@@ -636,7 +730,7 @@ bool Territory_buildAll(const char *startDirectory) {
             free(absolute);
             continue;
         }
-        char *output = nullptr;
+        utf8 *output = nullptr;
         i32 status = app ? Adapter_build(adapter)(absolute, &output)
                          : Adapter_archive(adapter)(absolute, &output);
         if (status == 0)
@@ -664,53 +758,55 @@ bool Territory_buildAll(const char *startDirectory) {
     return ok && failed == 0;
 }
 
-// Title-case a kebab or snake name for display: "my-app" becomes "My App".
-static char *displayNameOf(const char *name) {
-    char *text = Util_combine(name, "");
+/** Title-case a kebab or snake name for display: "my-app" becomes "My App". */
+static utf8 *displayNameOf(const utf8 *name) {
+    utf8 *text = Util_combine(name, "");
     bool start = true;
-    for (char *cursor = text; *cursor != '\0'; ++cursor) {
+    for (utf8 *cursor = text; *cursor != '\0'; ++cursor) {
         if (*cursor == '-' || *cursor == '_') {
             *cursor = ' ';
             start = true;
             continue;
         }
         if (start && *cursor >= 'a' && *cursor <= 'z')
-            *cursor = (char) (*cursor - 'a' + 'A');
+            *cursor = (utf8) (*cursor - 'a' + 'A');
         start = *cursor == ' ';
     }
     return text;
 }
 
-// Release a directory listing that a writer kept alive while reading its sources.
+/** Release a directory listing that a writer kept alive while reading its sources. */
 static fn freeEntries(struct dirent **entries, i32 total) {
     for (i32 index = 0; index < total; ++index)
         free(entries[index]);
     free(entries);
 }
 
-// Emit a quoted key followed by its colon separator; the value follows the caller.
-static fn keyText(FILE *file, const char *key) {
+/** Emit a quoted key followed by its colon separator; the value follows the caller. */
+static fn keyText(FILE *file, const utf8 *key) {
     escape(file, key);
     fputs(": ", file);
 }
 
-// Write one unit's assembly declaration. Authored once: an existing file is refused
-// unless force is set. The version may be empty; only box refuses an empty one.
-bool Territory_writeAssembly(const char *directory, const char *version, const char *const *includes, bytes includeCount, const char *const *dependencies, bytes dependencyCount, bool force) {
-    char *here = realpath(directory, nullptr);
+/**
+ * Write one unit's assembly declaration. Authored once: an existing file is refused
+ * unless force is set. The version may be empty; only box refuses an empty one.
+ */
+bool Territory_writeAssembly(const utf8 *directory, const utf8 *version, const utf8 *const *includes, bytes includeCount, const utf8 *const *dependencies, bytes dependencyCount, bool force) {
+    utf8 *here = realpath(directory, nullptr);
     if (here == nullptr) {
         THROW("cannot resolve directory: %s", directory);
         return false;
     }
     normalize(here);
-    char *root = Territory_find(here);
+    utf8 *root = Territory_find(here);
     if (root == nullptr) {
         THROW("assembly outside a territory; run b.sh generate first");
         free(here);
         return false;
     }
     free(root);
-    char *path = Util_combine(here, "/b.sh.assembly.json");
+    utf8 *path = Util_combine(here, "/b.sh.assembly.json");
     struct stat information;
     if (stat(path, &information) == 0 && !force) {
         THROW("%s already exists; assemblies are authored once (pass --force to replace)", path);
@@ -751,22 +847,22 @@ bool Territory_writeAssembly(const char *directory, const char *version, const c
         free(here);
         return false;
     }
-    char *entry = entryOf(adapter, here);
+    utf8 *entry = entryOf(adapter, here);
     bool app = entry != nullptr;
-    const char *entryName = "";
+    const utf8 *entryName = "";
     if (entry != nullptr) {
-        const char *entrySlash = strrchr(entry, '/');
+        const utf8 *entrySlash = strrchr(entry, '/');
         entryName = entrySlash != nullptr ? entrySlash + 1 : entry;
     }
-    const char *slash = strrchr(here, '/');
-    const char *name = slash != nullptr ? slash + 1 : here;
-    const char *user = getenv("USER");
-    const char *publisher = user != nullptr && *user != '\0' ? user : "Unknown";
-    const char *declared = version != nullptr ? version : "";
-    char *prefix = Util_combine("local.", publisher);
-    char *dotted = Util_combine(prefix, ".");
-    char *identifier = Util_combine(dotted, name);
-    char *display = displayNameOf(name);
+    const utf8 *slash = strrchr(here, '/');
+    const utf8 *name = slash != nullptr ? slash + 1 : here;
+    const utf8 *user = getenv("USER");
+    const utf8 *publisher = user != nullptr && *user != '\0' ? user : "Unknown";
+    const utf8 *declared = version != nullptr ? version : "";
+    utf8 *prefix = Util_combine("local.", publisher);
+    utf8 *dotted = Util_combine(prefix, ".");
+    utf8 *identifier = Util_combine(dotted, name);
+    utf8 *display = displayNameOf(name);
     FILE *file = fopen(path, "wb");
     if (file == nullptr) {
         THROW("cannot write %s: %s", path, strerror(errno));
@@ -793,7 +889,7 @@ bool Territory_writeAssembly(const char *directory, const char *version, const c
     keyText(file, "sources"); fputs("[", file);
     bool firstSource = true;
     for (i32 index = 0; index < total; ++index) {
-        const char *entryName = dirent_d_name(entries[index]);
+        const utf8 *entryName = dirent_d_name(entries[index]);
         const Adapter *claimed = Adapter_forFile(entryName);
         if (claimed == nullptr || Adapter_build(claimed) != Adapter_build(adapter))
             continue;

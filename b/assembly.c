@@ -1,12 +1,18 @@
 #include "vex.h"
 #include "assembly.h"
+#include "b/b_str.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+;;DEFINITION
+/** Assembly manifest inspection and validation command for b.sh. */
+;;OVERVIEW
+/** MODULE: assembly (vex/b/b/assembly.c). Reads and checks assembly JSON descriptors. */
 
-static char *read_file(const char *path)
+
+static utf8 *read_file(const utf8 *path)
 {
     FILE *f = fopen(path, "rb");
     if (f == nullptr)
@@ -19,7 +25,7 @@ static char *read_file(const char *path)
         fclose(f);
         return nullptr;
     }
-    char *buf = malloc((bytes)sz + 1);
+    utf8 *buf = malloc((bytes)sz + 1);
     if (buf == nullptr)
     {
         fclose(f);
@@ -31,15 +37,15 @@ static char *read_file(const char *path)
     return buf;
 }
 
-bool Assembly_validate(const char *assembly_path, const char *workspace_path, FILE *out)
+bool Assembly_validate(const utf8 *assembly_path, const utf8 *workspace_path, FILE *out)
 {
-    char *asm_buf = read_file(assembly_path);
+    utf8 *asm_buf = read_file(assembly_path);
     if (asm_buf == nullptr)
     {
         fprintf(out, "assembly: cannot read %s\n", assembly_path);
         return false;
     }
-    char *ws_buf = read_file(workspace_path);
+    utf8 *ws_buf = read_file(workspace_path);
     if (ws_buf == nullptr)
     {
         fprintf(out, "assembly: cannot read %s\n", workspace_path);
@@ -47,8 +53,7 @@ bool Assembly_validate(const char *assembly_path, const char *workspace_path, FI
         return false;
     }
 
-    /* Basic sanity: assembly must contain "assembly" key. */
-    if (strstr(asm_buf, "\"assembly\"") == nullptr)
+    if (bStrFind(asm_buf, "\"assembly\"") == nullptr)
     {
         fprintf(out, "assembly: missing \"assembly\" object\n");
         free(asm_buf);
@@ -65,10 +70,10 @@ bool Assembly_validate(const char *assembly_path, const char *workspace_path, FI
     return true;
 }
 
-i32 Build_assembly(i32 argc, char **argv)
+i32 Build_assembly(i32 argc, utf8 **argv)
 {
-    const char *asm_path = argc > 1 ? argv[1] : "b.assembly.json";
-    const char *ws_path = argc > 2 ? argv[2] : ".b/workspace.json";
+    const utf8 *asm_path = argc > 1 ? argv[1] : "b.assembly.json";
+    const utf8 *ws_path = argc > 2 ? argv[2] : ".b/workspace.json";
     FILE *out = stdout;
     return Assembly_validate(asm_path, ws_path, out) ? 0 : 1;
 }

@@ -4,6 +4,6 @@
 #include "vex.h"
 #include <stdio.h>
 
-bool Generate_workspace(const char *root, FILE *out);
+bool Generate_workspace(const utf8 *root, FILE *out);
 
 #endif

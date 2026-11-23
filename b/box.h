@@ -1,29 +1,31 @@
-// CLASS: BoxManifest — one user-authored packaging description.
-// DEFINITION: `b.sh create manifest <path>` writes a starter form; the user fills
-// it in; `b.sh box <manifest> <path-to-export>` reads it, validates it, and exports
-// the declared payload. This class owns that description: the declared
-// application metadata, the payload entry and files, and the requested export
-// formats. It is project/toolchain agnostic and has no ecosystem dependency.
-// STRUCT FIELDS:
-//   char *baseDirectory  manifest directory; payload paths resolve against it
-//   i32 schemaVersion    declared schema number (only 1 is accepted)
-//   char *identifier     stable application id used for platform identity
-//   char *name           display name
-//   char *version        release version supplied by the author
-//   char *publisher      publisher/authority text (not a signing identity)
-//   char *description    one-line summary
-//   char *license        license family or identifier
-//   char *homepage       project URL
-//   char *icon           relative icon path, when declared
-//   char *entry          relative payload entry
-//   char *statePolicy    machine/user state policy ("clean" only)
-//   char **authors       declared author names
-//   bytes authorCount   number of declared authors
-//   char **sources       payload file sources, relative to baseDirectory
-//   char **destinations  export-relative destinations, parallel to sources
-//   bytes fileCount     number of declared payload files
-//   char **formats       requested export formats
-//   bytes formatCount   number of requested export formats
+/**
+ * CLASS: BoxManifest, one user-authored packaging description.
+ * DEFINITION: `b.sh create manifest <path>` writes a starter form; the user fills
+ * it in; `b.sh box <manifest> <path-to-export>` reads it, validates it, and exports
+ * the declared payload. This class owns that description: the declared
+ * application metadata, the payload entry and files, and the requested export
+ * formats. It is project/toolchain agnostic and has no ecosystem dependency.
+ * STRUCT FIELDS:
+ * utf8 *baseDirectory  manifest directory; payload paths resolve against it
+ * i32 schemaVersion    declared schema number (only 1 is accepted)
+ * utf8 *identifier     stable application id used for platform identity
+ * utf8 *name           display name
+ * utf8 *version        release version supplied by the author
+ * utf8 *publisher      publisher/authority text (not a signing identity)
+ * utf8 *description    one-line summary
+ * utf8 *license        license family or identifier
+ * utf8 *homepage       project URL
+ * utf8 *icon           relative icon path, when declared
+ * utf8 *entry          relative payload entry
+ * utf8 *statePolicy    machine/user state policy ("clean" only)
+ * utf8 **authors       declared author names
+ * bytes authorCount   number of declared authors
+ * utf8 **sources       payload file sources, relative to baseDirectory
+ * utf8 **destinations  export-relative destinations, parallel to sources
+ * bytes fileCount     number of declared payload files
+ * utf8 **formats       requested export formats
+ * bytes formatCount   number of requested export formats
+ */
 
 #pragma once
 
@@ -40,21 +42,21 @@
  */
 ;;OVERVIEW
 /* CLASS: BoxManifest. STRUCT FIELDS (declaration order):
- * char *baseDirectory — directory of the manifest file; payload resolution base.
- * i32 schemaVersion — declared schema number; only 1 is accepted.
- * char *identifier — stable application identity (platform identity source).
- * char *name — display name.
- * char *version — author-supplied release version.
- * char *publisher — publisher/authority text.
- * char *description — i16 summary.
- * char *license — license family or identifier.
- * char *homepage — project URL.
- * char *icon — relative icon path when declared.
- * char *entry — relative payload entry.
- * char *statePolicy — state policy; only "clean" is accepted.
- * char **authors, bytes authorCount — declared authors.
- * char **sources, char **destinations, bytes fileCount — payload files.
- * char **formats, bytes formatCount — requested export formats.
+ * utf8 *baseDirectory, directory of the manifest file; payload resolution base.
+ * i32 schemaVersion, declared schema number; only 1 is accepted.
+ * utf8 *identifier, stable application identity (platform identity source).
+ * utf8 *name, display name.
+ * utf8 *version, author-supplied release version.
+ * utf8 *publisher, publisher/authority text.
+ * utf8 *description, i16 summary.
+ * utf8 *license, license family or identifier.
+ * utf8 *homepage, project URL.
+ * utf8 *icon, relative icon path when declared.
+ * utf8 *entry, relative payload entry.
+ * utf8 *statePolicy, state policy; only "clean" is accepted.
+ * utf8 **authors, bytes authorCount, declared authors.
+ * utf8 **sources, utf8 **destinations, bytes fileCount, payload files.
+ * utf8 **formats, bytes formatCount, requested export formats.
  * PUBLIC: BoxManifest_writeTemplate (starter JSON form);
  * BoxManifest_load (parse + validate, nullptr + THROW on rejection);
  * BoxManifest_free; BoxManifest_export (portable payload export; the
@@ -70,36 +72,36 @@
  */
 
 typedef struct BoxManifest {
-    char *baseDirectory;
+    utf8 *baseDirectory;
     i32 schemaVersion;
-    char *identifier;
-    char *name;
-    char *version;
-    char *publisher;
-    char *description;
-    char *license;
-    char *homepage;
-    char *icon;
-    char *entry;
-    char *statePolicy;
-    char **authors;
+    utf8 *identifier;
+    utf8 *name;
+    utf8 *version;
+    utf8 *publisher;
+    utf8 *description;
+    utf8 *license;
+    utf8 *homepage;
+    utf8 *icon;
+    utf8 *entry;
+    utf8 *statePolicy;
+    utf8 **authors;
     bytes authorCount;
-    char **sources;
-    char **destinations;
+    utf8 **sources;
+    utf8 **destinations;
     bytes fileCount;
-    char **formats;
+    utf8 **formats;
     bytes formatCount;
 } BoxManifest;
 
-// Write the starter schema-1 JSON form; never replaces an existing path.
-i32 BoxManifest_writeTemplate(const char *path);
-// Parse and validate a manifest; nullptr with a THROW diagnostic on rejection.
-BoxManifest *BoxManifest_load(const char *path);
-// Release every owned string and the record itself; nullptr is permitted.
+/** Write the starter schema-1 JSON form; never replaces an existing path. */
+i32 BoxManifest_writeTemplate(const utf8 *path);
+/** Parse and validate a manifest; nullptr with a THROW diagnostic on rejection. */
+BoxManifest *BoxManifest_load(const utf8 *path);
+/** Release every owned string and the record itself; nullptr is permitted. */
 fn BoxManifest_free(BoxManifest *self);
-// Export declared payload into destination (which must not exist yet).
-i32 BoxManifest_export(const BoxManifest *self, const char *destination);
-// Bounded value projection; dest-last with a truncation flag.
-fn BoxManifest_toString(const BoxManifest *self, char *dest, bytes capacity, bool *outTruncated);
-// Bounded field projection mirroring STRUCT FIELDS; one layer only.
-fn BoxManifest_toStringStruct(const BoxManifest *self, char *dest, bytes capacity, bool *outTruncated);
+/** Export declared payload into destination (which must not exist yet). */
+i32 BoxManifest_export(const BoxManifest *self, const utf8 *destination);
+/** Bounded value projection; dest-last with a truncation flag. */
+fn BoxManifest_toString(const BoxManifest *self, utf8 *dest, bytes capacity, bool *outTruncated);
+/** Bounded field projection mirroring STRUCT FIELDS; one layer only. */
+fn BoxManifest_toStringStruct(const BoxManifest *self, utf8 *dest, bytes capacity, bool *outTruncated);

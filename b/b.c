@@ -1,13 +1,16 @@
-// MODULE: b.sh suite — argv grammar and dispatch. No owned class.
-// DEFINITION: b.sh claims a territory with generate, then hands file work to the
-// breeze verb, directory work to the build verb, and packaging to box. This
-// file owns only the command grammar; it contains no language logic and no
-// build policy.
-// OVERVIEW: usage; generateCommand; main (generate | run | breeze | build |
-// assembly | box | adapter).
+/**
+ * MODULE: b.sh suite, argv grammar and dispatch. No owned class.
+ * DEFINITION: b.sh claims a territory with generate, then hands file work to the
+ * breeze verb, directory work to the build verb, and packaging to box. This
+ * file owns only the command grammar; it contains no language logic and no
+ * build policy.
+ * OVERVIEW: usage; generateCommand; main (generate | run | breeze | build |
+ * assembly | box | adapter).
+ */
 
 #include "vex.h"
 #include "b.h"
+#include "b/b_str.h"
 #include "breeze.h"
 #include "assembly.h"
 #include "build.h"
@@ -27,10 +30,10 @@
  */
 ;;OVERVIEW
 /* MODULE: command suite.
- * PUBLIC ENTRY: main — generate (claim a territory), run and breeze (one
+ * PUBLIC ENTRY: main, generate (claim a territory), run and breeze (one
  * behaviour), build, assembly, box; the transitional adapter, graph, diagnostic,
  * upload and manifest commands remain until their replacements land.
- * PRIVATE STATIC: usage — print grammar and limits; generateCommand — claim and
+ * PRIVATE STATIC: usage, print grammar and limits; generateCommand, claim and
  * inventory.
  * SEAMS: Breeze_command (breeze.h), Build_command and Build_assembly (build.h),
  * Territory_claim (territory.h), BoxManifest_* (box.h), Inspect_* (inspect.h).
@@ -39,7 +42,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Print the command grammar and the distinction between claiming and building.
+/** Print the command grammar and the distinction between claiming and building. */
 static fn usage() {
     puts("Territory\n"
          "  b.sh generate [<directory>]            claim a territory; write .b/workspace.json\n"
@@ -60,8 +63,8 @@ static fn usage() {
          "\nFor adapter requirements and optional diagnostics, see docs/ADAPTERS.md.");
 }
 
-// Claim a territory: create the marker, inventory the tree, write the fact file.
-static i32 generateCommand(i32 argc, char **argv) {
+/** Claim a territory: create the marker, inventory the tree, write the fact file. */
+static i32 generateCommand(i32 argc, utf8 **argv) {
     if (argc < 2 || argc > 3) {
         THROW("usage: b.sh generate [<directory>]");
         return EXIT_FAILURE;
@@ -69,25 +72,25 @@ static i32 generateCommand(i32 argc, char **argv) {
     return Territory_claim(argc == 3 ? argv[2] : ".") ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
-// Parse b.sh commands and forward build, run, inspection, and upload work.
-i32 main(i32 argc, char **argv) {
-    if (argc == 1 || (argc == 2 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "help") == 0))) {
+/** Parse b.sh commands and forward build, run, inspection, and upload work. */
+i32 main(i32 argc, utf8 **argv) {
+    if (argc == 1 || (argc == 2 && (bStrEq(argv[1], "--help") || bStrEq(argv[1], "help")))) {
         usage();
         return EXIT_SUCCESS;
     }
-    if (strcmp(argv[1], "generate") == 0)
+    if (bStrEq(argv[1], "generate"))
         return generateCommand(argc, argv);
-    if ((strcmp(argv[1], "adapters") == 0 || strcmp(argv[1], "languages") == 0) && argc == 2)
+    if ((bStrEq(argv[1], "adapters") || bStrEq(argv[1], "languages")) && argc == 2)
         return Inspect_adapters();
-    if (strcmp(argv[1], "adapter") == 0 && argc == 3 && strcmp(argv[2], "list") == 0)
+    if (bStrEq(argv[1], "adapter") && argc == 3 && bStrEq(argv[2], "list"))
         return Inspect_adapters();
-    if (strcmp(argv[1], "create") == 0 && argc == 4 && strcmp(argv[2], "manifest") == 0) {
+    if (bStrEq(argv[1], "create") && argc == 4 && bStrEq(argv[2], "manifest")) {
         if (BoxManifest_writeTemplate(argv[3]) != 0)
             return EXIT_FAILURE;
         puts(argv[3]);
         return EXIT_SUCCESS;
     }
-    if (strcmp(argv[1], "box") == 0 && argc == 4) {
+    if (bStrEq(argv[1], "box") && argc == 4) {
         BoxManifest *manifest = BoxManifest_load(argv[2]);
         if (manifest == nullptr)
             return EXIT_FAILURE;
@@ -97,23 +100,23 @@ i32 main(i32 argc, char **argv) {
             puts(argv[3]);
         return status;
     }
-    if (strcmp(argv[1], "doctor") == 0 && (argc == 2 || argc == 3))
+    if (bStrEq(argv[1], "doctor") && (argc == 2 || argc == 3))
         return Inspect_doctor(argc == 3 ? argv[2] : nullptr);
-    if (strcmp(argv[1], "assembly") == 0)
+    if (bStrEq(argv[1], "assembly"))
         return Build_assembly(argc - 1, argv + 1);
-    if (strcmp(argv[1], "graph") == 0)
+    if (bStrEq(argv[1], "graph"))
         return Graph_command(argc - 2, argv + 2);
-    if (strcmp(argv[1], "build") == 0)
+    if (bStrEq(argv[1], "build"))
         return Build_command(argc - 1, argv + 1);
-    if (strcmp(argv[1], "upload") == 0 && argc >= 3) {
-        if (strcmp(argv[2], "arduino") == 0)
+    if (bStrEq(argv[1], "upload") && argc >= 3) {
+        if (bStrEq(argv[2], "arduino"))
             return Arduino_upload(argc - 3, argv + 3);
         THROW("unsupported upload adapter: %s", argv[2]);
         return EXIT_FAILURE;
     }
-    if (strcmp(argv[1], "breeze") == 0 || strcmp(argv[1], "run") == 0)
+    if (bStrEq(argv[1], "breeze") || bStrEq(argv[1], "run"))
         return Breeze_command(argc - 1, argv + 1);
-    if (strcmp(argv[1], "export") == 0 && argc == 5) {
+    if (bStrEq(argv[1], "export") && argc == 5) {
         THROW("use 'b.sh box <manifest.json> <path-to-export>'; no destination was created");
         return EXIT_FAILURE;
     }

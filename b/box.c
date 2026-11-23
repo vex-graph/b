@@ -1,21 +1,24 @@
-// CLASS: BoxManifest — manifest creation, strict validation and portable export.
-// DEFINITION: box is b.sh's packaging surface. `b.sh create manifest <path>` writes a
-// starter JSON form that a human fills in; `b.sh box <manifest> <destination>`
-// parses that form, validates it against schema 1, and exports the declared
-// payload. Validation is cold and exhaustive because a manifest is untrusted
-// user input: malformed JSON, unsupported escapes, unknown or duplicate keys,
-// missing fields, invalid characters, absolute paths and "."/".." components
-// are all rejected before a single byte is copied. The machine-state policy is
-// explicit: "clean" exports declared payload only, never user or machine state.
-// STRUCT FIELDS (mirroring box.h): baseDirectory; schemaVersion; identifier;
-// name; version; publisher; description; license; homepage; icon; entry;
-// statePolicy; authors/authorCount; sources/destinations/fileCount;
-// formats/formatCount. PRIVATE HELPERS: struct stat is not owned here.
-// OVERVIEW: the annotation registry below names every function in this file.
+/**
+ * CLASS: BoxManifest, manifest creation, strict validation and portable export.
+ * DEFINITION: box is b.sh's packaging surface. `b.sh create manifest <path>` writes a
+ * starter JSON form that a human fills in; `b.sh box <manifest> <destination>`
+ * parses that form, validates it against schema 1, and exports the declared
+ * payload. Validation is cold and exhaustive because a manifest is untrusted
+ * user input: malformed JSON, unsupported escapes, unknown or duplicate keys,
+ * missing fields, invalid characters, absolute paths and "."/".." components
+ * are all rejected before a single byte is copied. The machine-state policy is
+ * explicit: "clean" exports declared payload only, never user or machine state.
+ * STRUCT FIELDS (mirroring box.h): baseDirectory; schemaVersion; identifier;
+ * name; version; publisher; description; license; homepage; icon; entry;
+ * statePolicy; authors/authorCount; sources/destinations/fileCount;
+ * formats/formatCount. PRIVATE HELPERS: struct stat is not owned here.
+ * OVERVIEW: the annotation registry below names every function in this file.
+ */
 
 #include "vex.h"
 #include "box.h"
 #include "b.h"
+#include "b/b_str.h"
 
 ;;DEFINITION
 /* The parser is a schema walk, not a general JSON tree: the cursor advances
@@ -29,17 +32,17 @@
  */
 ;;OVERVIEW
 /* CLASS: BoxManifest. STRUCT FIELDS (declaration order, mirroring box.h):
- * char *baseDirectory — manifest directory; payload paths resolve against it.
- * i32 schemaVersion — only 1 is accepted.
- * char *identifier — stable identity for platform mapping.
- * char *name — display name. char *version — author release version.
- * char *publisher — publisher text. char *description — i16 summary.
- * char *license — license family. char *homepage — project URL.
- * char *icon — relative icon path. char *entry — relative payload entry.
- * char *statePolicy — only "clean" is accepted.
- * char **authors, bytes authorCount — declared authors.
- * char **sources, char **destinations, bytes fileCount — payload files.
- * char **formats, bytes formatCount — requested export formats.
+ * utf8 *baseDirectory, manifest directory; payload paths resolve against it.
+ * i32 schemaVersion, only 1 is accepted.
+ * utf8 *identifier, stable identity for platform mapping.
+ * utf8 *name, display name. utf8 *version, author release version.
+ * utf8 *publisher, publisher text. utf8 *description, i16 summary.
+ * utf8 *license, license family. utf8 *homepage, project URL.
+ * utf8 *icon, relative icon path. utf8 *entry, relative payload entry.
+ * utf8 *statePolicy, only "clean" is accepted.
+ * utf8 **authors, bytes authorCount, declared authors.
+ * utf8 **sources, utf8 **destinations, bytes fileCount, payload files.
+ * utf8 **formats, bytes formatCount, requested export formats.
  * PUBLIC: BoxManifest_writeTemplate; BoxManifest_load; BoxManifest_free;
  * BoxManifest_export; BoxManifest_toString; BoxManifest_toStringStruct.
  * PRIVATE STATIC: allocateText; copyText; appendText; skipSpace;
@@ -72,7 +75,7 @@
 #define BOX_BINARY_MODE 0
 #endif
 
-// Named bounds: each is a validation limit, stated where it is enforced.
+/** Named bounds: each is a validation limit, stated where it is enforced. */
 #define BOX_MANIFEST_MAX_BYTES (256u * 1024u)
 #define BOX_TEXT_MAX 255u
 #define BOX_DESCRIPTION_MAX 4096u
@@ -85,38 +88,38 @@
 #define BOX_COPY_BUFFER 65536u
 #define BOX_FORMAT_PORTABLE "portable"
 
-static const char *const BOX_KNOWN_FORMATS[] = {
+static const utf8 *const BOX_KNOWN_FORMATS[] = {
     "portable", "exe", "app", "msi", "pkg", "dmg", "iso", "zip", "tar",
 };
 
-// Allocate plain storage for owned text; report and fail without terminating.
-static char *allocateText(bytes size) {
-    char *text = malloc(size);
+/** Allocate plain storage for owned text; report and fail without terminating. */
+static utf8 *allocateText(bytes size) {
+    utf8 *text = malloc(size);
     if (text == nullptr)
         THROW("out of memory while reading a manifest");
     return text;
 }
 
-// Copy owned text; nullptr propagates so callers can fail without a check.
-static char *copyText(const char *text) {
+/** Copy owned text; nullptr propagates so callers can fail without a check. */
+static utf8 *copyText(const utf8 *text) {
     if (text == nullptr)
         return nullptr;
     bytes length = strlen(text);
-    char *copy = allocateText(length + 1);
+    utf8 *copy = allocateText(length + 1);
     if (copy == nullptr)
         return nullptr;
     memcpy(copy, text, length + 1);
     return copy;
 }
 
-// Append one owned string to a growable list bounded by BOX_ITEM_MAX.
-static bool appendText(char ***items, bytes *count, char *value) {
+/** Append one owned string to a growable list bounded by BOX_ITEM_MAX. */
+static bool appendText(utf8 ***items, bytes *count, utf8 *value) {
     if (*count >= BOX_ITEM_MAX) {
         THROW("manifest declares more than %u entries", BOX_ITEM_MAX);
         return false;
     }
     bytes next = *count + 1;
-    char **grown = realloc(*items, next * sizeof(char*));
+    utf8 **grown = realloc(*items, next * sizeof(utf8*));
     if (grown == nullptr) {
         THROW("out of memory while reading a manifest");
         return false;
@@ -127,16 +130,16 @@ static bool appendText(char ***items, bytes *count, char *value) {
     return true;
 }
 
-// Skip JSON whitespace; the manifest grammar is whitespace-insensitive.
-static const char *skipSpace(const char *cursor) {
+/** Skip JSON whitespace; the manifest grammar is whitespace-insensitive. */
+static const utf8 *skipSpace(const utf8 *cursor) {
     while (*cursor == ' ' || *cursor == '\t' || *cursor == '\n' || *cursor == '\r')
         ++cursor;
     return cursor;
 }
 
-// Require one structural character and advance past it.
-static bool expectCharacter(const char **cursor, char expected, const char *field) {
-    const char *position = skipSpace(*cursor);
+/** Require one structural character and advance past it. */
+static bool expectCharacter(const utf8 **cursor, utf8 expected, const utf8 *field) {
+    const utf8 *position = skipSpace(*cursor);
     if (*position != expected) {
         THROW("manifest: %s expects '%c'", field, expected);
         return false;
@@ -145,16 +148,16 @@ static bool expectCharacter(const char **cursor, char expected, const char *fiel
     return true;
 }
 
-// Parse one quoted string with escape handling; \u escapes are unsupported.
-static bool parseString(const char **cursor, const char *field, char **out) {
-    const char *position = skipSpace(*cursor);
+/** Parse one quoted string with escape handling; \u escapes are unsupported. */
+static bool parseString(const utf8 **cursor, const utf8 *field, utf8 **out) {
+    const utf8 *position = skipSpace(*cursor);
     if (*position != '"') {
         THROW("manifest: %s must be a string", field);
         return false;
     }
     ++position;
     bytes capacity = strlen(position) + 1;
-    char *text = allocateText(capacity);
+    utf8 *text = allocateText(capacity);
     if (text == nullptr)
         return false;
     bytes length = 0;
@@ -171,12 +174,12 @@ static bool parseString(const char **cursor, const char *field, char **out) {
                 free(text);
                 return false;
             }
-            text[length++] = (char) character;
+            text[length++] = (utf8) character;
             ++position;
             continue;
         }
         ++position;
-        char escaped = *position;
+        utf8 escaped = *position;
         if (escaped == '"' || escaped == '\\' || escaped == '/')
             text[length++] = escaped;
         else if (escaped == 'b')
@@ -207,17 +210,17 @@ static bool parseString(const char **cursor, const char *field, char **out) {
     return true;
 }
 
-// Parse an array of strings; an empty array yields a null list.
-static bool parseStringArray(const char **cursor, const char *field, char ***items, bytes *count) {
+/** Parse an array of strings; an empty array yields a null list. */
+static bool parseStringArray(const utf8 **cursor, const utf8 *field, utf8 ***items, bytes *count) {
     if (!expectCharacter(cursor, '[', field))
         return false;
-    const char *position = skipSpace(*cursor);
+    const utf8 *position = skipSpace(*cursor);
     if (*position == ']') {
         *cursor = position + 1;
         return true;
     }
     while (true) {
-        char *value = nullptr;
+        utf8 *value = nullptr;
         if (!parseString(cursor, field, &value))
             return false;
         if (!appendText(items, count, value)) {
@@ -238,9 +241,9 @@ static bool parseStringArray(const char **cursor, const char *field, char ***ite
     }
 }
 
-// Parse a non-negative decimal integer without accepting a fractional part.
-static bool parseInteger(const char **cursor, const char *field, i32 *out) {
-    const char *position = skipSpace(*cursor);
+/** Parse a non-negative decimal integer without accepting a fractional part. */
+static bool parseInteger(const utf8 **cursor, const utf8 *field, i32 *out) {
+    const utf8 *position = skipSpace(*cursor);
     if (*position < '0' || *position > '9') {
         THROW("manifest: %s must be an integer", field);
         return false;
@@ -259,144 +262,264 @@ static bool parseInteger(const char **cursor, const char *field, i32 *out) {
     return true;
 }
 
-// Parse the declared schema number.
-static bool parseSchemaVersion(const char **cursor, i32 *out) {
+/** Parse the declared schema number. */
+static bool parseSchemaVersion(const utf8 **cursor, i32 *out) {
     return parseInteger(cursor, "schemaVersion", out);
 }
 
 ;;GETTER
-static inline const char *dirent_d_name(const struct dirent *self) { return (*self).d_name; }
+static inline const utf8 *dirent_d_name(const struct dirent *self)
+{
+    return (*self).d_name;
+}
 ;;GETTER
-static inline i32 *BoxManifest_schemaVersionPtr(BoxManifest *self) { return &(*self).schemaVersion; }
+static inline i32 *BoxManifest_schemaVersionPtr(BoxManifest *self)
+{
+    return &(*self).schemaVersion;
+}
 ;;SETTER
-static inline fn BoxManifest_setSchemaVersion(BoxManifest *self, i32 v) { (*self).schemaVersion = v; }
+static inline fn BoxManifest_setSchemaVersion(BoxManifest *self, i32 v)
+{
+    (*self).schemaVersion = v;
+}
 ;;GETTER
-static inline char *BoxManifest_baseDirectory(const BoxManifest *self) { return (*self).baseDirectory; }
+static inline utf8 *BoxManifest_baseDirectory(const BoxManifest *self)
+{
+    return (*self).baseDirectory;
+}
 ;;SETTER
-static inline fn BoxManifest_setBaseDirectory(BoxManifest *self, char *v) { (*self).baseDirectory = v; }
+static inline fn BoxManifest_setBaseDirectory(BoxManifest *self, utf8 *v)
+{
+    (*self).baseDirectory = v;
+}
 ;;GETTER
-static inline char *BoxManifest_identifier(const BoxManifest *self) { return (*self).identifier; }
+static inline utf8 *BoxManifest_identifier(const BoxManifest *self)
+{
+    return (*self).identifier;
+}
 ;;GETTER
-static inline char **BoxManifest_identifierPtr(BoxManifest *self) { return &(*self).identifier; }
+static inline utf8 **BoxManifest_identifierPtr(BoxManifest *self)
+{
+    return &(*self).identifier;
+}
 ;;GETTER
-static inline char *BoxManifest_name(const BoxManifest *self) { return (*self).name; }
+static inline utf8 *BoxManifest_name(const BoxManifest *self)
+{
+    return (*self).name;
+}
 ;;GETTER
-static inline char **BoxManifest_namePtr(BoxManifest *self) { return &(*self).name; }
+static inline utf8 **BoxManifest_namePtr(BoxManifest *self)
+{
+    return &(*self).name;
+}
 ;;GETTER
-static inline char *BoxManifest_version(const BoxManifest *self) { return (*self).version; }
+static inline utf8 *BoxManifest_version(const BoxManifest *self)
+{
+    return (*self).version;
+}
 ;;GETTER
-static inline char **BoxManifest_versionPtr(BoxManifest *self) { return &(*self).version; }
+static inline utf8 **BoxManifest_versionPtr(BoxManifest *self)
+{
+    return &(*self).version;
+}
 ;;GETTER
-static inline char *BoxManifest_publisher(const BoxManifest *self) { return (*self).publisher; }
+static inline utf8 *BoxManifest_publisher(const BoxManifest *self)
+{
+    return (*self).publisher;
+}
 ;;GETTER
-static inline char **BoxManifest_publisherPtr(BoxManifest *self) { return &(*self).publisher; }
+static inline utf8 **BoxManifest_publisherPtr(BoxManifest *self)
+{
+    return &(*self).publisher;
+}
 ;;GETTER
-static inline char *BoxManifest_description(const BoxManifest *self) { return (*self).description; }
+static inline utf8 *BoxManifest_description(const BoxManifest *self)
+{
+    return (*self).description;
+}
 ;;GETTER
-static inline char **BoxManifest_descriptionPtr(BoxManifest *self) { return &(*self).description; }
+static inline utf8 **BoxManifest_descriptionPtr(BoxManifest *self)
+{
+    return &(*self).description;
+}
 ;;GETTER
-static inline char *BoxManifest_license(const BoxManifest *self) { return (*self).license; }
+static inline utf8 *BoxManifest_license(const BoxManifest *self)
+{
+    return (*self).license;
+}
 ;;GETTER
-static inline char **BoxManifest_licensePtr(BoxManifest *self) { return &(*self).license; }
+static inline utf8 **BoxManifest_licensePtr(BoxManifest *self)
+{
+    return &(*self).license;
+}
 ;;GETTER
-static inline char *BoxManifest_homepage(const BoxManifest *self) { return (*self).homepage; }
+static inline utf8 *BoxManifest_homepage(const BoxManifest *self)
+{
+    return (*self).homepage;
+}
 ;;GETTER
-static inline char **BoxManifest_homepagePtr(BoxManifest *self) { return &(*self).homepage; }
+static inline utf8 **BoxManifest_homepagePtr(BoxManifest *self)
+{
+    return &(*self).homepage;
+}
 ;;GETTER
-static inline char *BoxManifest_icon(const BoxManifest *self) { return (*self).icon; }
+static inline utf8 *BoxManifest_icon(const BoxManifest *self)
+{
+    return (*self).icon;
+}
 ;;GETTER
-static inline char **BoxManifest_iconPtr(BoxManifest *self) { return &(*self).icon; }
+static inline utf8 **BoxManifest_iconPtr(BoxManifest *self)
+{
+    return &(*self).icon;
+}
 ;;GETTER
-static inline char *BoxManifest_entry(const BoxManifest *self) { return (*self).entry; }
+static inline utf8 *BoxManifest_entry(const BoxManifest *self)
+{
+    return (*self).entry;
+}
 ;;GETTER
-static inline char **BoxManifest_entryPtr(BoxManifest *self) { return &(*self).entry; }
+static inline utf8 **BoxManifest_entryPtr(BoxManifest *self)
+{
+    return &(*self).entry;
+}
 ;;GETTER
-static inline char *BoxManifest_statePolicy(const BoxManifest *self) { return (*self).statePolicy; }
+static inline utf8 *BoxManifest_statePolicy(const BoxManifest *self)
+{
+    return (*self).statePolicy;
+}
 ;;GETTER
-static inline char **BoxManifest_statePolicyPtr(BoxManifest *self) { return &(*self).statePolicy; }
+static inline utf8 **BoxManifest_statePolicyPtr(BoxManifest *self)
+{
+    return &(*self).statePolicy;
+}
 ;;SETTER
-static inline fn BoxManifest_setStatePolicy(BoxManifest *self, char *v) { (*self).statePolicy = v; }
+static inline fn BoxManifest_setStatePolicy(BoxManifest *self, utf8 *v)
+{
+    (*self).statePolicy = v;
+}
 ;;GETTER
-static inline char **BoxManifest_authors(const BoxManifest *self) { return (*self).authors; }
+static inline utf8 **BoxManifest_authors(const BoxManifest *self)
+{
+    return (*self).authors;
+}
 ;;GETTER
-static inline char ***BoxManifest_authorsPtr(BoxManifest *self) { return &(*self).authors; }
+static inline utf8 ***BoxManifest_authorsPtr(BoxManifest *self)
+{
+    return &(*self).authors;
+}
 ;;GETTER
-static inline bytes BoxManifest_authorCount(const BoxManifest *self) { return (*self).authorCount; }
+static inline bytes BoxManifest_authorCount(const BoxManifest *self)
+{
+    return (*self).authorCount;
+}
 ;;GETTER
-static inline bytes *BoxManifest_authorCountPtr(BoxManifest *self) { return &(*self).authorCount; }
+static inline bytes *BoxManifest_authorCountPtr(BoxManifest *self)
+{
+    return &(*self).authorCount;
+}
 ;;GETTER
-static inline char **BoxManifest_sources(const BoxManifest *self) { return (*self).sources; }
+static inline utf8 **BoxManifest_sources(const BoxManifest *self)
+{
+    return (*self).sources;
+}
 ;;GETTER
-static inline char ***BoxManifest_sourcesPtr(BoxManifest *self) { return &(*self).sources; }
+static inline utf8 ***BoxManifest_sourcesPtr(BoxManifest *self)
+{
+    return &(*self).sources;
+}
 ;;GETTER
-static inline char **BoxManifest_destinations(const BoxManifest *self) { return (*self).destinations; }
+static inline utf8 **BoxManifest_destinations(const BoxManifest *self)
+{
+    return (*self).destinations;
+}
 ;;GETTER
-static inline char ***BoxManifest_destinationsPtr(BoxManifest *self) { return &(*self).destinations; }
+static inline utf8 ***BoxManifest_destinationsPtr(BoxManifest *self)
+{
+    return &(*self).destinations;
+}
 ;;GETTER
-static inline bytes BoxManifest_fileCount(const BoxManifest *self) { return (*self).fileCount; }
+static inline bytes BoxManifest_fileCount(const BoxManifest *self)
+{
+    return (*self).fileCount;
+}
 ;;SETTER
-static inline fn BoxManifest_setFileCount(BoxManifest *self, bytes v) { (*self).fileCount = v; }
+static inline fn BoxManifest_setFileCount(BoxManifest *self, bytes v)
+{
+    (*self).fileCount = v;
+}
 ;;GETTER
-static inline char **BoxManifest_formats(const BoxManifest *self) { return (*self).formats; }
+static inline utf8 **BoxManifest_formats(const BoxManifest *self)
+{
+    return (*self).formats;
+}
 ;;GETTER
-static inline char ***BoxManifest_formatsPtr(BoxManifest *self) { return &(*self).formats; }
+static inline utf8 ***BoxManifest_formatsPtr(BoxManifest *self)
+{
+    return &(*self).formats;
+}
 ;;GETTER
-static inline bytes BoxManifest_formatCount(const BoxManifest *self) { return (*self).formatCount; }
+static inline bytes BoxManifest_formatCount(const BoxManifest *self)
+{
+    return (*self).formatCount;
+}
 ;;GETTER
-static inline bytes *BoxManifest_formatCountPtr(BoxManifest *self) { return &(*self).formatCount; }
+static inline bytes *BoxManifest_formatCountPtr(BoxManifest *self)
+{
+    return &(*self).formatCount;
+}
 
-// Parse the application object and copy its declared fields.
-static bool parseApplication(const char **cursor, BoxManifest *manifest) {
+/** Parse the application object and copy its declared fields. */
+static bool parseApplication(const utf8 **cursor, BoxManifest *manifest) {
     if (!expectCharacter(cursor, '{', "application"))
         return false;
     bool identifierSeen = false, nameSeen = false, versionSeen = false;
     bool authorsSeen = false, publisherSeen = false, descriptionSeen = false;
     bool licenseSeen = false, homepageSeen = false, iconSeen = false;
-    const char *position = skipSpace(*cursor);
+    const utf8 *position = skipSpace(*cursor);
     if (*position == '}') {
         THROW("manifest: application must not be empty");
         return false;
     }
     while (true) {
-        char *key = nullptr;
+        utf8 *key = nullptr;
         if (!parseString(cursor, "application key", &key))
             return false;
         if (!expectCharacter(cursor, ':', "application")) {
             free(key);
             return false;
         }
-        const char *field = nullptr;
-        char **target = nullptr;
+        const utf8 *field = nullptr;
+        utf8 **target = nullptr;
         bool *seen = nullptr;
-        if (strcmp(key, "id") == 0) {
+        if (bStrEq(key, "id")) {
             field = "application.id";
             target = BoxManifest_identifierPtr(manifest);
             seen = &identifierSeen;
-        } else if (strcmp(key, "name") == 0) {
+        } else if (bStrEq(key, "name")) {
             field = "application.name";
             target = BoxManifest_namePtr(manifest);
             seen = &nameSeen;
-        } else if (strcmp(key, "version") == 0) {
+        } else if (bStrEq(key, "version")) {
             field = "application.version";
             target = BoxManifest_versionPtr(manifest);
             seen = &versionSeen;
-        } else if (strcmp(key, "publisher") == 0) {
+        } else if (bStrEq(key, "publisher")) {
             field = "application.publisher";
             target = BoxManifest_publisherPtr(manifest);
             seen = &publisherSeen;
-        } else if (strcmp(key, "description") == 0) {
+        } else if (bStrEq(key, "description")) {
             field = "application.description";
             target = BoxManifest_descriptionPtr(manifest);
             seen = &descriptionSeen;
-        } else if (strcmp(key, "license") == 0) {
+        } else if (bStrEq(key, "license")) {
             field = "application.license";
             target = BoxManifest_licensePtr(manifest);
             seen = &licenseSeen;
-        } else if (strcmp(key, "homepage") == 0) {
+        } else if (bStrEq(key, "homepage")) {
             field = "application.homepage";
             target = BoxManifest_homepagePtr(manifest);
             seen = &homepageSeen;
-        } else if (strcmp(key, "icon") == 0) {
+        } else if (bStrEq(key, "icon")) {
             field = "application.icon";
             target = BoxManifest_iconPtr(manifest);
             seen = &iconSeen;
@@ -412,7 +535,7 @@ static bool parseApplication(const char **cursor, BoxManifest *manifest) {
             free(key);
             if (!parsed)
                 return false;
-        } else if (strcmp(key, "authors") == 0) {
+        } else if (bStrEq(key, "authors")) {
             if (authorsSeen) {
                 THROW("manifest: duplicate application.authors");
                 free(key);
@@ -442,9 +565,9 @@ static bool parseApplication(const char **cursor, BoxManifest *manifest) {
     }
 }
 
-// Parse one payload.files entry: a source string or a {source, destination}.
-static bool parseFileEntry(const char **cursor, char **source, char **destination) {
-    const char *position = skipSpace(*cursor);
+/** Parse one payload.files entry: a source string or a {source, destination}. */
+static bool parseFileEntry(const utf8 **cursor, utf8 **source, utf8 **destination) {
+    const utf8 *position = skipSpace(*cursor);
     if (*position == '"')
         return parseString(cursor, "payload.files source", source);
     if (*position != '{') {
@@ -454,13 +577,13 @@ static bool parseFileEntry(const char **cursor, char **source, char **destinatio
     if (!expectCharacter(cursor, '{', "payload.files entry"))
         return false;
     bool sourceSeen = false, destinationSeen = false;
-    const char *inner = skipSpace(*cursor);
+    const utf8 *inner = skipSpace(*cursor);
     if (*inner == '}') {
         THROW("manifest: payload.files entry requires a source");
         return false;
     }
     while (true) {
-        char *key = nullptr;
+        utf8 *key = nullptr;
         if (!parseString(cursor, "payload.files entry key", &key))
             return false;
         if (!expectCharacter(cursor, ':', "payload.files entry")) {
@@ -468,7 +591,7 @@ static bool parseFileEntry(const char **cursor, char **source, char **destinatio
             return false;
         }
         bool parsed = true;
-        if (strcmp(key, "source") == 0) {
+        if (bStrEq(key, "source")) {
             if (sourceSeen) {
                 THROW("manifest: duplicate payload.files source");
                 parsed = false;
@@ -476,7 +599,7 @@ static bool parseFileEntry(const char **cursor, char **source, char **destinatio
                 sourceSeen = true;
                 parsed = parseString(cursor, "payload.files source", source);
             }
-        } else if (strcmp(key, "destination") == 0) {
+        } else if (bStrEq(key, "destination")) {
             if (destinationSeen) {
                 THROW("manifest: duplicate payload.files destination");
                 parsed = false;
@@ -510,18 +633,18 @@ static bool parseFileEntry(const char **cursor, char **source, char **destinatio
     return true;
 }
 
-// Parse the payload object: entry plus the declared file list.
-static bool parsePayload(const char **cursor, BoxManifest *manifest) {
+/** Parse the payload object: entry plus the declared file list. */
+static bool parsePayload(const utf8 **cursor, BoxManifest *manifest) {
     if (!expectCharacter(cursor, '{', "payload"))
         return false;
     bool entrySeen = false, filesSeen = false;
-    const char *position = skipSpace(*cursor);
+    const utf8 *position = skipSpace(*cursor);
     if (*position == '}') {
         THROW("manifest: payload must not be empty");
         return false;
     }
     while (true) {
-        char *key = nullptr;
+        utf8 *key = nullptr;
         if (!parseString(cursor, "payload key", &key))
             return false;
         if (!expectCharacter(cursor, ':', "payload")) {
@@ -529,7 +652,7 @@ static bool parsePayload(const char **cursor, BoxManifest *manifest) {
             return false;
         }
         bool parsed = true;
-        if (strcmp(key, "entry") == 0) {
+        if (bStrEq(key, "entry")) {
             if (entrySeen) {
                 THROW("manifest: duplicate payload.entry");
                 parsed = false;
@@ -537,7 +660,7 @@ static bool parsePayload(const char **cursor, BoxManifest *manifest) {
                 entrySeen = true;
                 parsed = parseString(cursor, "payload.entry", BoxManifest_entryPtr(manifest));
             }
-        } else if (strcmp(key, "files") == 0) {
+        } else if (bStrEq(key, "files")) {
             if (filesSeen) {
                 THROW("manifest: duplicate payload.files");
                 parsed = false;
@@ -550,12 +673,10 @@ static bool parsePayload(const char **cursor, BoxManifest *manifest) {
                     if (*position == ']') {
                         *cursor = position + 1;
                     } else {
-                        // sources and destinations are parallel lists: keep separate
-                        // counters so each entry lands at the same index.
                         bytes sourceCount = BoxManifest_fileCount(manifest);
                         bytes destinationCount = sourceCount;
                         while (true) {
-                            char *source = nullptr, *destination = nullptr;
+                            utf8 *source = nullptr, *destination = nullptr;
                             if (!parseFileEntry(cursor, &source, &destination)) {
                                 free(source);
                                 free(destination);
@@ -569,7 +690,7 @@ static bool parsePayload(const char **cursor, BoxManifest *manifest) {
                                 break;
                             }
                             if (!appendText(BoxManifest_destinationsPtr(manifest), &destinationCount, destination)) {
-                                char **sources = BoxManifest_sources(manifest);
+                                utf8 **sources = BoxManifest_sources(manifest);
                                 free(sources[sourceCount - 1]);
                                 sources[sourceCount - 1] = nullptr;
                                 sourceCount -= 1;
@@ -615,11 +736,11 @@ static bool parsePayload(const char **cursor, BoxManifest *manifest) {
     }
 }
 
-// Require the schema-1 `targets` array to be empty; target exports are future.
-static bool parseTargets(const char **cursor) {
+/** Require the schema-1 `targets` array to be empty; target exports are future. */
+static bool parseTargets(const utf8 **cursor) {
     if (!expectCharacter(cursor, '[', "targets"))
         return false;
-    const char *position = skipSpace(*cursor);
+    const utf8 *position = skipSpace(*cursor);
     if (*position != ']') {
         THROW("manifest: target-specific exports are not implemented; targets must be empty");
         return false;
@@ -628,19 +749,19 @@ static bool parseTargets(const char **cursor) {
     return true;
 }
 
-// Parse the root object and collect the declared top-level fields.
-static bool parseRoot(const char **cursor, BoxManifest *manifest) {
+/** Parse the root object and collect the declared top-level fields. */
+static bool parseRoot(const utf8 **cursor, BoxManifest *manifest) {
     if (!expectCharacter(cursor, '{', "manifest root"))
         return false;
     bool versionSeen = false, applicationSeen = false, payloadSeen = false;
     bool targetsSeen = false, formatsSeen = false, stateSeen = false;
-    const char *position = skipSpace(*cursor);
+    const utf8 *position = skipSpace(*cursor);
     if (*position == '}') {
         THROW("manifest: the root object must not be empty");
         return false;
     }
     while (true) {
-        char *key = nullptr;
+        utf8 *key = nullptr;
         if (!parseString(cursor, "manifest key", &key))
             return false;
         if (!expectCharacter(cursor, ':', "manifest")) {
@@ -648,7 +769,7 @@ static bool parseRoot(const char **cursor, BoxManifest *manifest) {
             return false;
         }
         bool parsed = true;
-        if (strcmp(key, "schemaVersion") == 0) {
+        if (bStrEq(key, "schemaVersion")) {
             if (versionSeen) {
                 THROW("manifest: duplicate schemaVersion");
                 parsed = false;
@@ -656,7 +777,7 @@ static bool parseRoot(const char **cursor, BoxManifest *manifest) {
                 versionSeen = true;
                 parsed = parseSchemaVersion(cursor, BoxManifest_schemaVersionPtr(manifest));
             }
-        } else if (strcmp(key, "application") == 0) {
+        } else if (bStrEq(key, "application")) {
             if (applicationSeen) {
                 THROW("manifest: duplicate application");
                 parsed = false;
@@ -664,7 +785,7 @@ static bool parseRoot(const char **cursor, BoxManifest *manifest) {
                 applicationSeen = true;
                 parsed = parseApplication(cursor, manifest);
             }
-        } else if (strcmp(key, "payload") == 0) {
+        } else if (bStrEq(key, "payload")) {
             if (payloadSeen) {
                 THROW("manifest: duplicate payload");
                 parsed = false;
@@ -672,7 +793,7 @@ static bool parseRoot(const char **cursor, BoxManifest *manifest) {
                 payloadSeen = true;
                 parsed = parsePayload(cursor, manifest);
             }
-        } else if (strcmp(key, "targets") == 0) {
+        } else if (bStrEq(key, "targets")) {
             if (targetsSeen) {
                 THROW("manifest: duplicate targets");
                 parsed = false;
@@ -680,7 +801,7 @@ static bool parseRoot(const char **cursor, BoxManifest *manifest) {
                 targetsSeen = true;
                 parsed = parseTargets(cursor);
             }
-        } else if (strcmp(key, "formats") == 0) {
+        } else if (bStrEq(key, "formats")) {
             if (formatsSeen) {
                 THROW("manifest: duplicate formats");
                 parsed = false;
@@ -688,7 +809,7 @@ static bool parseRoot(const char **cursor, BoxManifest *manifest) {
                 formatsSeen = true;
                 parsed = parseStringArray(cursor, "formats", BoxManifest_formatsPtr(manifest), BoxManifest_formatCountPtr(manifest));
             }
-        } else if (strcmp(key, "statePolicy") == 0) {
+        } else if (bStrEq(key, "statePolicy")) {
             if (stateSeen) {
                 THROW("manifest: duplicate statePolicy");
                 parsed = false;
@@ -717,10 +838,10 @@ static bool parseRoot(const char **cursor, BoxManifest *manifest) {
     }
 }
 
-// Require every character of text to appear in the allowed set.
-static bool validateCharacters(const char *text, const char *field, const char *allowed) {
-    for (const char *position = text; *position != '\0'; ++position) {
-        if (strchr(allowed, *position) == nullptr) {
+/** Require every character of text to appear in the allowed set. */
+static bool validateCharacters(const utf8 *text, const utf8 *field, const utf8 *allowed) {
+    for (const utf8 *position = text; *position != '\0'; ++position) {
+        if (bStrFindChar(allowed, *position) == nullptr) {
             THROW("manifest: %s contains an unsupported character: %s", field, text);
             return false;
         }
@@ -728,8 +849,8 @@ static bool validateCharacters(const char *text, const char *field, const char *
     return true;
 }
 
-// Validate the stable application identifier used for platform identity.
-static bool validateIdentifier(const char *text) {
+/** Validate the stable application identifier used for platform identity. */
+static bool validateIdentifier(const utf8 *text) {
     if (text == nullptr) {
         THROW("manifest: application.id is required");
         return false;
@@ -746,8 +867,8 @@ static bool validateIdentifier(const char *text) {
     return validateCharacters(text, "application.id", "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-");
 }
 
-// Validate the author-supplied release version without inventing a new one.
-static bool validateVersion(const char *text) {
+/** Validate the author-supplied release version without inventing a new one. */
+static bool validateVersion(const utf8 *text) {
     if (text == nullptr) {
         THROW("manifest: application.version is required");
         return false;
@@ -764,8 +885,8 @@ static bool validateVersion(const char *text) {
     return validateCharacters(text, "application.version", "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz._+-");
 }
 
-// Require a relative path with no "." or ".." component and no control bytes.
-static bool validateRelativePath(const char *text, const char *field) {
+/** Require a relative path with no "." or ".." component and no control bytes. */
+static bool validateRelativePath(const utf8 *text, const utf8 *field) {
     if (text == nullptr || *text == '\0') {
         THROW("manifest: %s is required", field);
         return false;
@@ -778,9 +899,9 @@ static bool validateRelativePath(const char *text, const char *field) {
         THROW("manifest: %s must be relative: %s", field, text);
         return false;
     }
-    const char *position = text;
+    const utf8 *position = text;
     while (true) {
-        const char *slash = strchr(position, '/');
+        const utf8 *slash = bStrFindChar(position, '/');
         bytes length = slash == nullptr ? strlen(position) : (bytes) (slash - position);
         if (length == 0) {
             THROW("manifest: %s has an empty path component: %s", field, text);
@@ -802,16 +923,16 @@ static bool validateRelativePath(const char *text, const char *field) {
     }
 }
 
-// Validate the requested export formats against the known id set.
-static bool validateFormats(const BoxManifest *self, const char *field) {
+/** Validate the requested export formats against the known id set. */
+static bool validateFormats(const BoxManifest *self, const utf8 *field) {
     bytes formatCount = BoxManifest_formatCount(self);
     if (formatCount == 0) {
         THROW("manifest: formats must declare at least one export format");
         return false;
     }
-    char **formats = BoxManifest_formats(self);
+    utf8 **formats = BoxManifest_formats(self);
     for (bytes index = 0; index < formatCount; ++index) {
-        const char *format = formats[index];
+        const utf8 *format = formats[index];
         if (format == nullptr || *format == '\0' || strlen(format) > BOX_FORMAT_MAX) {
             THROW("manifest: formats contains an invalid entry");
             return false;
@@ -820,7 +941,7 @@ static bool validateFormats(const BoxManifest *self, const char *field) {
             return false;
         bool known = false;
         for (bytes candidate = 0; candidate < sizeof BOX_KNOWN_FORMATS / sizeof BOX_KNOWN_FORMATS[0]; ++candidate)
-            known = known || strcmp(BOX_KNOWN_FORMATS[candidate], format) == 0;
+            known = known || bStrEq(BOX_KNOWN_FORMATS[candidate], format);
         if (!known) {
             THROW("manifest: formats has an unknown export format: %s", format);
             return false;
@@ -829,29 +950,29 @@ static bool validateFormats(const BoxManifest *self, const char *field) {
     return true;
 }
 
-// Return the final path component of an owned or borrowed path.
-static const char *baseNameOf(const char *path) {
-    const char *slash = strrchr(path, '/');
+/** Return the final path component of an owned or borrowed path. */
+static const utf8 *baseNameOf(const utf8 *path) {
+    const utf8 *slash = strrchr(path, '/');
     return slash == nullptr ? path : slash + 1;
 }
 
-// Require every declared payload destination to be distinct before exporting.
+/** Require every declared payload destination to be distinct before exporting. */
 static bool validateDestinations(const BoxManifest *self) {
-    const char *entryName = baseNameOf(BoxManifest_entry(self));
+    const utf8 *entryName = baseNameOf(BoxManifest_entry(self));
     bytes fileCount = BoxManifest_fileCount(self);
-    char **sources = BoxManifest_sources(self);
-    char **destinations = BoxManifest_destinations(self);
+    utf8 **sources = BoxManifest_sources(self);
+    utf8 **destinations = BoxManifest_destinations(self);
     for (bytes index = 0; index < fileCount; ++index) {
-        const char *destination = destinations[index] != nullptr
+        const utf8 *destination = destinations[index] != nullptr
             ? destinations[index] : baseNameOf(sources[index]);
-        if (strcmp(destination, entryName) == 0) {
+        if (bStrEq(destination, entryName)) {
             THROW("manifest: payload entry and %s share one export destination: %s", sources[index], destination);
             return false;
         }
         for (bytes other = 0; other < index; ++other) {
-            const char *earlier = destinations[other] != nullptr
+            const utf8 *earlier = destinations[other] != nullptr
                 ? destinations[other] : baseNameOf(sources[other]);
-            if (strcmp(earlier, destination) == 0) {
+            if (bStrEq(earlier, destination)) {
                 THROW("manifest: payload.files declares the same destination twice: %s", destination);
                 return false;
             }
@@ -860,11 +981,11 @@ static bool validateDestinations(const BoxManifest *self) {
     return true;
 }
 
-// Validate the parsed manifest and report the first defect loudly.
+/** Validate the parsed manifest and report the first defect loudly. */
 static bool validateManifest(BoxManifest *manifest) {
     if (!validateIdentifier(BoxManifest_identifier(manifest)))
         return false;
-    const char *name = BoxManifest_name(manifest);
+    const utf8 *name = BoxManifest_name(manifest);
     if (name == nullptr) {
         THROW("manifest: application.name is required");
         return false;
@@ -876,42 +997,42 @@ static bool validateManifest(BoxManifest *manifest) {
     }
     if (!validateVersion(BoxManifest_version(manifest)))
         return false;
-    const char *description = BoxManifest_description(manifest);
+    const utf8 *description = BoxManifest_description(manifest);
     if (description != nullptr && strlen(description) > BOX_DESCRIPTION_MAX) {
         THROW("manifest: application.description exceeds %u characters", BOX_DESCRIPTION_MAX);
         return false;
     }
-    const char *icon = BoxManifest_icon(manifest);
+    const utf8 *icon = BoxManifest_icon(manifest);
     if (icon != nullptr && !validateRelativePath(icon, "application.icon"))
         return false;
     if (!validateRelativePath(BoxManifest_entry(manifest), "payload.entry"))
         return false;
     bytes authorCount = BoxManifest_authorCount(manifest);
-    char **authors = BoxManifest_authors(manifest);
+    utf8 **authors = BoxManifest_authors(manifest);
     for (bytes index = 0; index < authorCount; ++index) {
-        const char *author = authors[index];
+        const utf8 *author = authors[index];
         if (author == nullptr || *author == '\0' || strlen(author) > BOX_TEXT_MAX) {
             THROW("manifest: application.authors entries must be 1..%u characters", BOX_TEXT_MAX);
             return false;
         }
     }
     bytes fileCount = BoxManifest_fileCount(manifest);
-    char **sources = BoxManifest_sources(manifest);
-    char **destinations = BoxManifest_destinations(manifest);
+    utf8 **sources = BoxManifest_sources(manifest);
+    utf8 **destinations = BoxManifest_destinations(manifest);
     for (bytes index = 0; index < fileCount; ++index) {
-        const char *source = sources[index];
+        const utf8 *source = sources[index];
         if (!validateRelativePath(source, "payload.files source"))
             return false;
-        const char *destination = destinations[index];
+        const utf8 *destination = destinations[index];
         if (destination != nullptr && !validateRelativePath(destination, "payload.files destination"))
             return false;
     }
     if (BoxManifest_statePolicy(manifest) == nullptr)
         BoxManifest_setStatePolicy(manifest, copyText("clean"));
-    const char *statePolicy = BoxManifest_statePolicy(manifest);
+    const utf8 *statePolicy = BoxManifest_statePolicy(manifest);
     if (statePolicy == nullptr)
         return false;
-    if (strcmp(statePolicy, "clean") != 0) {
+    if (!bStrEq(statePolicy, "clean")) {
         THROW("manifest: statePolicy must be \"clean\"; exporting machine or user state is not implemented");
         return false;
     }
@@ -920,19 +1041,19 @@ static bool validateManifest(BoxManifest *manifest) {
     return validateDestinations(manifest);
 }
 
-// Release an owned string list; the count is informational only.
-static fn freeTextList(char **items, bytes count) {
+/** Release an owned string list; the count is informational only. */
+static fn freeTextList(utf8 **items, bytes count) {
     for (bytes index = 0; index < count; ++index)
         free(items[index]);
     free(items);
 }
 
-// Join a base path and a relative path with exactly one separator.
-static char *joinPath(const char *base, const char *relative) {
+/** Join a base path and a relative path with exactly one separator. */
+static utf8 *joinPath(const utf8 *base, const utf8 *relative) {
     bytes baseLength = strlen(base);
     bool separator = baseLength > 0 && base[baseLength - 1] != '/';
     bytes relativeLength = strlen(relative);
-    char *path = allocateText(baseLength + (separator ? 1 : 0) + relativeLength + 1);
+    utf8 *path = allocateText(baseLength + (separator ? 1 : 0) + relativeLength + 1);
     if (path == nullptr)
         return nullptr;
     memcpy(path, base, baseLength);
@@ -942,12 +1063,12 @@ static char *joinPath(const char *base, const char *relative) {
     return path;
 }
 
-// Return the directory containing a path, or "." when it has no separator.
-static char *parentOf(const char *path) {
-    char *directory = copyText(path);
+/** Return the directory containing a path, or "." when it has no separator. */
+static utf8 *parentOf(const utf8 *path) {
+    utf8 *directory = copyText(path);
     if (directory == nullptr)
         return nullptr;
-    char *slash = strrchr(directory, '/');
+    utf8 *slash = strrchr(directory, '/');
     if (slash == nullptr) {
         free(directory);
         return copyText(".");
@@ -960,15 +1081,15 @@ static char *parentOf(const char *path) {
     return directory;
 }
 
-// Build the private staging path next to the export destination.
-static char *stagingPath(const char *parent) {
-    char suffix[64];
+/** Build the private staging path next to the export destination. */
+static utf8 *stagingPath(const utf8 *parent) {
+    utf8 suffix[64];
     snprintf(suffix, sizeof suffix, ".b-box-staging-%lld", (i64) getpid());
     return joinPath(parent, suffix);
 }
 
-// Remove a staged tree after a failed export; report a refusal, never silence.
-static bool removeTree(const char *path) {
+/** Remove a staged tree after a failed export; report a refusal, never silence. */
+static bool removeTree(const utf8 *path) {
     struct stat info;
     if (lstat(path, &info) != 0)
         return true;
@@ -981,10 +1102,10 @@ static bool removeTree(const char *path) {
         bool removed = true;
         struct dirent *entry;
         while ((entry = readdir(directory)) != nullptr) {
-            const char *name = dirent_d_name(entry);
-            if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+            const utf8 *name = dirent_d_name(entry);
+            if (bStrEq(name, ".") || bStrEq(name, ".."))
                 continue;
-            char *child = joinPath(path, name);
+            utf8 *child = joinPath(path, name);
             if (child == nullptr) {
                 removed = false;
                 break;
@@ -1006,8 +1127,8 @@ static bool removeTree(const char *path) {
     return true;
 }
 
-// Copy one regular file, preserving its permission bits.
-static bool copyRegularFile(const char *source, const char *target, mode_t mode) {
+/** Copy one regular file, preserving its permission bits. */
+static bool copyRegularFile(const utf8 *source, const utf8 *target, mode_t mode) {
     i32 input = open(source, O_RDONLY | BOX_BINARY_MODE);
     if (input < 0) {
         THROW("cannot read payload file %s: %s", source, strerror(errno));
@@ -1019,10 +1140,10 @@ static bool copyRegularFile(const char *source, const char *target, mode_t mode)
         close(input);
         return false;
     }
-    char buffer[BOX_COPY_BUFFER];
+    utf8 buffer[BOX_COPY_BUFFER];
     bool copied = true;
     while (copied) {
-        ssize_t count = read(input, buffer, sizeof buffer);
+        i64 count = read(input, buffer, sizeof buffer);
         if (count < 0) {
             if (errno == EINTR)
                 continue;
@@ -1032,9 +1153,9 @@ static bool copyRegularFile(const char *source, const char *target, mode_t mode)
         }
         if (count == 0)
             break;
-        ssize_t offset = 0;
+        i64 offset = 0;
         while (offset < count) {
-            ssize_t written = write(output, buffer + offset, (bytes) (count - offset));
+            i64 written = write(output, buffer + offset, (bytes) (count - offset));
             if (written < 0) {
                 if (errno == EINTR)
                     continue;
@@ -1059,8 +1180,8 @@ static bool copyRegularFile(const char *source, const char *target, mode_t mode)
     return copied;
 }
 
-// Copy a declared payload entry, refusing symlinks and unsupported types.
-static bool copyTree(const char *source, const char *target, bytes depth) {
+/** Copy a declared payload entry, refusing symlinks and unsupported types. */
+static bool copyTree(const utf8 *source, const utf8 *target, bytes depth) {
     if (depth > BOX_COPY_DEPTH_MAX) {
         THROW("payload tree is deeper than %u levels: %s", BOX_COPY_DEPTH_MAX, source);
         return false;
@@ -1075,7 +1196,7 @@ static bool copyTree(const char *source, const char *target, bytes depth) {
         return false;
     }
     if (S_ISREG(info.st_mode)) {
-        char *parent = parentOf(target);
+        utf8 *parent = parentOf(target);
         if (parent == nullptr)
             return false;
         bool prepared = Util_makeDirectory(parent);
@@ -1086,7 +1207,7 @@ static bool copyTree(const char *source, const char *target, bytes depth) {
         THROW("payload source is not a regular file or directory: %s", source);
         return false;
     }
-    char *parent = parentOf(target);
+    utf8 *parent = parentOf(target);
     if (parent == nullptr)
         return false;
     bool prepared = Util_makeDirectory(parent);
@@ -1105,11 +1226,11 @@ static bool copyTree(const char *source, const char *target, bytes depth) {
     bool copied = true;
     struct dirent *entry;
     while (copied && (entry = readdir(directory)) != nullptr) {
-        const char *name = dirent_d_name(entry);
-        if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
+        const utf8 *name = dirent_d_name(entry);
+        if (bStrEq(name, ".") || bStrEq(name, ".."))
             continue;
-        char *childSource = joinPath(source, name);
-        char *childTarget = childSource == nullptr ? nullptr : joinPath(target, name);
+        utf8 *childSource = joinPath(source, name);
+        utf8 *childTarget = childSource == nullptr ? nullptr : joinPath(target, name);
         if (childTarget == nullptr) {
             free(childSource);
             copied = false;
@@ -1123,8 +1244,8 @@ static bool copyTree(const char *source, const char *target, bytes depth) {
     return copied;
 }
 
-// Append literal text to a bounded projection, flagging any truncation.
-static fn emitText(char *dest, bytes capacity, bytes *used, bool *outTruncated, const char *text) {
+/** Append literal text to a bounded projection, flagging any truncation. */
+static fn emitText(utf8 *dest, bytes capacity, bytes *used, bool *outTruncated, const utf8 *text) {
     bytes length = strlen(text);
     if (*used + length >= capacity) {
         bytes room = capacity > 0 && *used < capacity - 1 ? capacity - 1 - *used : 0;
@@ -1141,13 +1262,13 @@ static fn emitText(char *dest, bytes capacity, bytes *used, bool *outTruncated, 
     dest[*used] = '\0';
 }
 
-// Append one quoted, escaped string field.
-static fn emitQuoted(char *dest, bytes capacity, bytes *used, bool *outTruncated, const char *text) {
+/** Append one quoted, escaped string field. */
+static fn emitQuoted(utf8 *dest, bytes capacity, bytes *used, bool *outTruncated, const utf8 *text) {
     emitText(dest, capacity, used, outTruncated, "\"");
-    for (const char *position = text; *position != '\0'; ++position) {
-        char character = *position;
+    for (const utf8 *position = text; *position != '\0'; ++position) {
+        utf8 character = *position;
         if (character == '"' || character == '\\') {
-            char escaped[3] = { '\\', character, '\0' };
+            utf8 escaped[3] = { '\\', character, '\0' };
             emitText(dest, capacity, used, outTruncated, escaped);
         } else if (character == '\n') {
             emitText(dest, capacity, used, outTruncated, "\\n");
@@ -1156,22 +1277,22 @@ static fn emitQuoted(char *dest, bytes capacity, bytes *used, bool *outTruncated
         } else if (character == '\r') {
             emitText(dest, capacity, used, outTruncated, "\\r");
         } else {
-            char single[2] = { character, '\0' };
+            utf8 single[2] = { character, '\0' };
             emitText(dest, capacity, used, outTruncated, single);
         }
     }
     emitText(dest, capacity, used, outTruncated, "\"");
 }
 
-// Append one u32 count.
-static fn emitCount(char *dest, bytes capacity, bytes *used, bool *outTruncated, bytes value) {
-    char text[32];
+/** Append one u32 count. */
+static fn emitCount(utf8 *dest, bytes capacity, bytes *used, bool *outTruncated, bytes value) {
+    utf8 text[32];
     snprintf(text, sizeof text, "%zu", value);
     emitText(dest, capacity, used, outTruncated, text);
 }
 
-// Append a bracketed list of quoted strings.
-static fn emitList(char *dest, bytes capacity, bytes *used, bool *outTruncated, char **items, bytes count) {
+/** Append a bracketed list of quoted strings. */
+static fn emitList(utf8 *dest, bytes capacity, bytes *used, bool *outTruncated, utf8 **items, bytes count) {
     emitText(dest, capacity, used, outTruncated, "[");
     for (bytes index = 0; index < count; ++index) {
         if (index > 0)
@@ -1181,8 +1302,8 @@ static fn emitList(char *dest, bytes capacity, bytes *used, bool *outTruncated, 
     emitText(dest, capacity, used, outTruncated, "]");
 }
 
-// Read the whole manifest into owned, NUL-terminated text within a fixed cap.
-static char *readManifestText(const char *path) {
+/** Read the whole manifest into owned, NUL-terminated text within a fixed cap. */
+static utf8 *readManifestText(const utf8 *path) {
     struct stat info;
     if (stat(path, &info) != 0 || !S_ISREG(info.st_mode)) {
         THROW("manifest does not exist or is not a regular file: %s", path);
@@ -1198,14 +1319,14 @@ static char *readManifestText(const char *path) {
         return nullptr;
     }
     bytes size = (bytes) info.st_size;
-    char *text = allocateText(size + 1);
+    utf8 *text = allocateText(size + 1);
     if (text == nullptr) {
         close(file);
         return nullptr;
     }
     bytes offset = 0;
     while (offset < size) {
-        ssize_t count = read(file, text + offset, size - offset);
+        i64 count = read(file, text + offset, size - offset);
         if (count < 0) {
             if (errno == EINTR)
                 continue;
@@ -1223,9 +1344,9 @@ static char *readManifestText(const char *path) {
     return text;
 }
 
-// Write the starter schema-1 form without replacing an existing path.
-i32 BoxManifest_writeTemplate(const char *path) {
-    static const char template[] =
+/** Write the starter schema-1 form without replacing an existing path. */
+i32 BoxManifest_writeTemplate(const utf8 *path) {
+    static const utf8 template[] =
         "{\n"
         "  \"application\": {\n"
         "    \"id\": \"com.example.myapp\",\n"
@@ -1256,7 +1377,7 @@ i32 BoxManifest_writeTemplate(const char *path) {
     bytes length = sizeof(template) - 1;
     bytes offset = 0;
     while (offset < length) {
-        ssize_t written = write(file, template + offset, length - offset);
+        i64 written = write(file, template + offset, length - offset);
         if (written <= 0)
             break;
         offset += (bytes) written;
@@ -1270,13 +1391,13 @@ i32 BoxManifest_writeTemplate(const char *path) {
     return EXIT_SUCCESS;
 }
 
-// Parse and validate a manifest file into an owned record.
-BoxManifest *BoxManifest_load(const char *path) {
+/** Parse and validate a manifest file into an owned record. */
+BoxManifest *BoxManifest_load(const utf8 *path) {
     if (path == nullptr || *path == '\0') {
         THROW("manifest path must not be empty");
         return nullptr;
     }
-    char *text = readManifestText(path);
+    utf8 *text = readManifestText(path);
     if (text == nullptr)
         return nullptr;
     BoxManifest *manifest = (BoxManifest*) allocateText(sizeof(BoxManifest));
@@ -1285,9 +1406,9 @@ BoxManifest *BoxManifest_load(const char *path) {
         return nullptr;
     }
     memset(manifest, 0, sizeof(BoxManifest));
-    BoxManifest_setSchemaVersion(manifest, 1);   // locked: there is only one schema
+    BoxManifest_setSchemaVersion(manifest, 1);
     BoxManifest_setBaseDirectory(manifest, parentOf(path));
-    const char *cursor = text;
+    const utf8 *cursor = text;
     bool valid = BoxManifest_baseDirectory(manifest) != nullptr && parseRoot(&cursor, manifest);
     if (valid && *skipSpace(cursor) != '\0') {
         THROW("manifest has unexpected trailing content");
@@ -1303,7 +1424,7 @@ BoxManifest *BoxManifest_load(const char *path) {
     return manifest;
 }
 
-// Release every owned field; a null record is a no-op.
+/** Release every owned field; a null record is a no-op. */
 fn BoxManifest_free(BoxManifest *self) {
     if (self == nullptr)
         return;
@@ -1326,23 +1447,23 @@ fn BoxManifest_free(BoxManifest *self) {
     free(self);
 }
 
-// Export the declared payload as a portable directory payload.
-i32 BoxManifest_export(const BoxManifest *self, const char *destination) {
+/** Export the declared payload as a portable directory payload. */
+i32 BoxManifest_export(const BoxManifest *self, const utf8 *destination) {
     if (self == nullptr || destination == nullptr || *destination == '\0') {
         THROW("export requires a loaded manifest and a destination path");
         return EXIT_FAILURE;
     }
     bytes formatCount = BoxManifest_formatCount(self);
-    char **formats = BoxManifest_formats(self);
+    utf8 **formats = BoxManifest_formats(self);
     for (bytes index = 0; index < formatCount; ++index) {
-        if (strcmp(formats[index], BOX_FORMAT_PORTABLE) != 0) {
+        if (!bStrEq(formats[index], BOX_FORMAT_PORTABLE)) {
             THROW("export format is not implemented yet: %s (only %s is available)", formats[index], BOX_FORMAT_PORTABLE);
             return EXIT_FAILURE;
         }
     }
-    const char *baseDir = BoxManifest_baseDirectory(self);
-    const char *entry = BoxManifest_entry(self);
-    char *entrySource = joinPath(baseDir, entry);
+    const utf8 *baseDir = BoxManifest_baseDirectory(self);
+    const utf8 *entry = BoxManifest_entry(self);
+    utf8 *entrySource = joinPath(baseDir, entry);
     if (entrySource == nullptr)
         return EXIT_FAILURE;
     struct stat info;
@@ -1352,15 +1473,15 @@ i32 BoxManifest_export(const BoxManifest *self, const char *destination) {
         return EXIT_FAILURE;
     }
     bytes fileCount = BoxManifest_fileCount(self);
-    char **sources = BoxManifest_sources(self);
-    char **destinations = BoxManifest_destinations(self);
+    utf8 **sources = BoxManifest_sources(self);
+    utf8 **destinations = BoxManifest_destinations(self);
     if (S_ISDIR(info.st_mode)) {
-        const char *entryName = baseNameOf(entry);
+        const utf8 *entryName = baseNameOf(entry);
         bytes nameLength = strlen(entryName);
         for (bytes index = 0; index < fileCount; ++index) {
-            const char *destName = destinations[index] != nullptr
+            const utf8 *destName = destinations[index] != nullptr
                 ? destinations[index] : baseNameOf(sources[index]);
-            if (strncmp(destName, entryName, nameLength) == 0 &&
+            if (bStrPrefixN(destName, entryName, nameLength) &&
                 (destName[nameLength] == '\0' || destName[nameLength] == '/')) {
                 THROW("payload file destination is inside the entry directory: %s", destName);
                 free(entrySource);
@@ -1369,7 +1490,7 @@ i32 BoxManifest_export(const BoxManifest *self, const char *destination) {
         }
     }
     for (bytes index = 0; index < fileCount; ++index) {
-        char *source = joinPath(baseDir, sources[index]);
+        utf8 *source = joinPath(baseDir, sources[index]);
         bool available = source != nullptr && lstat(source, &info) == 0 && !S_ISLNK(info.st_mode);
         if (!available) {
             THROW("payload file is unavailable or a symbolic link: %s", source != nullptr ? source : sources[index]);
@@ -1384,8 +1505,8 @@ i32 BoxManifest_export(const BoxManifest *self, const char *destination) {
         free(entrySource);
         return EXIT_FAILURE;
     }
-    char *parent = parentOf(destination);
-    char *staging = parent == nullptr ? nullptr : stagingPath(parent);
+    utf8 *parent = parentOf(destination);
+    utf8 *staging = parent == nullptr ? nullptr : stagingPath(parent);
     if (staging == nullptr) {
         free(parent);
         free(entrySource);
@@ -1406,19 +1527,19 @@ i32 BoxManifest_export(const BoxManifest *self, const char *destination) {
         return EXIT_FAILURE;
     }
     bool copied = true;
-    char *entryTarget = joinPath(staging, baseNameOf(entry));
+    utf8 *entryTarget = joinPath(staging, baseNameOf(entry));
     if (entryTarget == nullptr)
         copied = false;
     else
         copied = copyTree(entrySource, entryTarget, 0);
     for (bytes index = 0; index < fileCount && copied; ++index) {
-        char *source = joinPath(baseDir, sources[index]);
+        utf8 *source = joinPath(baseDir, sources[index]);
         if (source == nullptr) {
             copied = false;
             break;
         }
-        const char *declared = destinations[index];
-        char *target = joinPath(staging, declared != nullptr ? declared : baseNameOf(sources[index]));
+        const utf8 *declared = destinations[index];
+        utf8 *target = joinPath(staging, declared != nullptr ? declared : baseNameOf(sources[index]));
         if (target == nullptr)
             copied = false;
         else
@@ -1447,8 +1568,8 @@ i32 BoxManifest_export(const BoxManifest *self, const char *destination) {
     return status;
 }
 
-// Project the manifest's value state; a null record writes "nullptr".
-fn BoxManifest_toString(const BoxManifest *self, char *dest, bytes capacity, bool *outTruncated) {
+/** Project the manifest's value state; a null record writes "nullptr". */
+fn BoxManifest_toString(const BoxManifest *self, utf8 *dest, bytes capacity, bool *outTruncated) {
     if (dest == nullptr)
         return;
     if (capacity == 0) {
@@ -1462,11 +1583,11 @@ fn BoxManifest_toString(const BoxManifest *self, char *dest, bytes capacity, boo
         emitText(dest, capacity, &used, outTruncated, "nullptr");
         return;
     }
-    const char *name = BoxManifest_name(self);
-    const char *version = BoxManifest_version(self);
-    const char *identifier = BoxManifest_identifier(self);
-    const char *entry = BoxManifest_entry(self);
-    const char *statePolicy = BoxManifest_statePolicy(self);
+    const utf8 *name = BoxManifest_name(self);
+    const utf8 *version = BoxManifest_version(self);
+    const utf8 *identifier = BoxManifest_identifier(self);
+    const utf8 *entry = BoxManifest_entry(self);
+    const utf8 *statePolicy = BoxManifest_statePolicy(self);
     emitText(dest, capacity, &used, outTruncated, name != nullptr ? name : "unnamed");
     emitText(dest, capacity, &used, outTruncated, " ");
     emitText(dest, capacity, &used, outTruncated, version != nullptr ? version : "unversioned");
@@ -1484,8 +1605,8 @@ fn BoxManifest_toString(const BoxManifest *self, char *dest, bytes capacity, boo
     emitText(dest, capacity, &used, outTruncated, statePolicy != nullptr ? statePolicy : "unset");
 }
 
-// Dump this class's own fields in declaration order; one layer, no recursion.
-fn BoxManifest_toStringStruct(const BoxManifest *self, char *dest, bytes capacity, bool *outTruncated) {
+/** Dump this class's own fields in declaration order; one layer, no recursion. */
+fn BoxManifest_toStringStruct(const BoxManifest *self, utf8 *dest, bytes capacity, bool *outTruncated) {
     if (dest == nullptr)
         return;
     if (capacity == 0) {
@@ -1499,17 +1620,17 @@ fn BoxManifest_toStringStruct(const BoxManifest *self, char *dest, bytes capacit
         emitText(dest, capacity, &used, outTruncated, "nullptr");
         return;
     }
-    const char *baseDir = BoxManifest_baseDirectory(self);
-    const char *identifier = BoxManifest_identifier(self);
-    const char *name = BoxManifest_name(self);
-    const char *version = BoxManifest_version(self);
-    const char *publisher = BoxManifest_publisher(self);
-    const char *description = BoxManifest_description(self);
-    const char *license = BoxManifest_license(self);
-    const char *homepage = BoxManifest_homepage(self);
-    const char *icon = BoxManifest_icon(self);
-    const char *entry = BoxManifest_entry(self);
-    const char *statePolicy = BoxManifest_statePolicy(self);
+    const utf8 *baseDir = BoxManifest_baseDirectory(self);
+    const utf8 *identifier = BoxManifest_identifier(self);
+    const utf8 *name = BoxManifest_name(self);
+    const utf8 *version = BoxManifest_version(self);
+    const utf8 *publisher = BoxManifest_publisher(self);
+    const utf8 *description = BoxManifest_description(self);
+    const utf8 *license = BoxManifest_license(self);
+    const utf8 *homepage = BoxManifest_homepage(self);
+    const utf8 *icon = BoxManifest_icon(self);
+    const utf8 *entry = BoxManifest_entry(self);
+    const utf8 *statePolicy = BoxManifest_statePolicy(self);
     bytes authorCount = BoxManifest_authorCount(self);
     bytes fileCount = BoxManifest_fileCount(self);
     bytes formatCount = BoxManifest_formatCount(self);

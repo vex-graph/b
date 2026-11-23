@@ -6,8 +6,8 @@
 
 /* Load and validate b.assembly.json against workspace.json.
  * Returns true if the assembly is well-formed and all sources/deps resolve. */
-i32 Build_assembly(i32 argc, char **argv);
+i32 Build_assembly(i32 argc, utf8 **argv);
 
-bool Assembly_validate(const char *assembly_path, const char *workspace_path, FILE *out);
+bool Assembly_validate(const utf8 *assembly_path, const utf8 *workspace_path, FILE *out);
 
 #endif
