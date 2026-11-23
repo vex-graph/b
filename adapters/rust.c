@@ -32,7 +32,7 @@
 #include <unistd.h>
 
 /** Compile the chosen Rust crate root with rustc edition 2021. */
-static i32 compileRust(const utf8 *project, utf8 **sources, bytes count, utf8 **output) {
+static i32 compileRust(string project, utf8 **sources, bytes count, utf8 **output) {
     if (count > SIZE_MAX / sizeof(utf8*) - 8) {
         THROW("source argument count overflow");
         return EXIT_FAILURE;
@@ -56,7 +56,7 @@ static i32 compileRust(const utf8 *project, utf8 **sources, bytes count, utf8 **
 }
 
 /** Choose main.rs or the sole Rust source as crate root and compile it. */
-static i32 buildRust(const utf8 *project, utf8 **output) {
+static i32 buildRust(string project, utf8 **output) {
     bytes count = 0;
     bool ok = false;
     utf8 **sources = Util_collectSources(project, "/*.rs", &count, &ok);
@@ -75,7 +75,7 @@ static i32 buildRust(const utf8 *project, utf8 **output) {
 }
 
 /** Compile one Rust entry source for exec mode and run it with forwarded arguments. */
-static i32 runRust(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runRust(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     if (!buildArtifact) {
         THROW("Rust has no source runtime; use b.sh run exec to compile then launch");
         return EXIT_FAILURE;
@@ -98,7 +98,7 @@ static i32 runRust(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) 
 }
 
 /** Return an owned path to the top-level Rust source that defines main(), or nullptr. */
-static utf8 *entryRust(const utf8 *project) {
+static utf8 *entryRust(string project) {
     bytes count = 0;
     bool ok = false;
     utf8 **sources = Util_collectSources(project, "/*.rs", &count, &ok);

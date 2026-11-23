@@ -69,14 +69,14 @@ static inline fn Rows_setCap(Rows *self, i32 cap)
     (*self).cap = cap;
 }
 
-static utf8 *copyText(const utf8 *text) {
+static utf8 *copyText(string text) {
     bytes size = strlen(text);
     utf8 *copy = Util_allocate(size + 1);
     memcpy(copy, text, size + 1);
     return copy;
 }
 
-static fn rowsPush(Rows *rows, const utf8 *text) {
+static fn rowsPush(Rows *rows, string text) {
     i32 count = Rows_count(rows);
     i32 cap = Rows_cap(rows);
     if (count == cap) {
@@ -92,7 +92,7 @@ static fn rowsPush(Rows *rows, const utf8 *text) {
     Rows_setCount(rows, count + 1);
 }
 
-static fn rowsPushf(Rows *rows, const utf8 *format, const utf8 *value) {
+static fn rowsPushf(Rows *rows, string format, string value) {
     bytes size = strlen(format) + strlen(value) + 1;
     utf8 *text = Util_allocate(size);
     snprintf(text, size, format, value);
@@ -129,7 +129,7 @@ static bool runRows(Rows *rows) {
 }
 
 ;;GETTER
-static const utf8 *Rows_item(const Rows *rows, i32 index) {
+static string Rows_item(const Rows *rows, i32 index) {
     return (*rows).items[index];
 }
 
@@ -184,7 +184,7 @@ static const Rows *GenStep_generator(const GenStep *step)
 }
 
 ;;GETTER
-static inline const utf8 *GraphTarget_name(const GraphTarget *self)
+static inline string GraphTarget_name(const GraphTarget *self)
 {
     return (*self).name;
 }
@@ -204,7 +204,7 @@ static inline fn GraphTarget_setIsTest(GraphTarget *self, bool isTest)
     (*self).isTest = isTest;
 }
 ;;GETTER
-static inline const utf8 *GraphTarget_kind(const GraphTarget *self)
+static inline string GraphTarget_kind(const GraphTarget *self)
 {
     return (*self).kind;
 }
@@ -214,7 +214,7 @@ static inline fn GraphTarget_setKind(GraphTarget *self, utf8 *kind)
     (*self).kind = kind;
 }
 ;;GETTER
-static inline const utf8 *GraphTarget_output(const GraphTarget *self)
+static inline string GraphTarget_output(const GraphTarget *self)
 {
     return (*self).output;
 }
@@ -395,18 +395,18 @@ static GenStep *genAdd(Graph *graph) {
 
 
 ;;GETTER
-static inline const utf8 *Cursor_p(const Cursor *self)
+static inline string Cursor_p(const Cursor *self)
 {
     return (*self).p;
 }
 ;;SETTER
-static inline fn Cursor_setP(Cursor *self, const utf8 *p)
+static inline fn Cursor_setP(Cursor *self, string p)
 {
     (*self).p = p;
 }
 
 static fn skipSpace(Cursor *cursor) {
-    const utf8 *p = Cursor_p(cursor);
+    string p = Cursor_p(cursor);
     while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r')
         p++;
     Cursor_setP(cursor, p);
@@ -414,7 +414,7 @@ static fn skipSpace(Cursor *cursor) {
 
 static bool take(Cursor *cursor, utf8 wanted) {
     skipSpace(cursor);
-    const utf8 *p = Cursor_p(cursor);
+    string p = Cursor_p(cursor);
     if (*p != wanted)
         return false;
     Cursor_setP(cursor, p + 1);
@@ -424,11 +424,11 @@ static bool take(Cursor *cursor, utf8 wanted) {
 /** Read one JSON string into owned storage; nullptr on malformed input. */
 static utf8 *parseString(Cursor *cursor) {
     skipSpace(cursor);
-    const utf8 *cur = Cursor_p(cursor);
+    string cur = Cursor_p(cursor);
     if (*cur != '"')
         return nullptr;
-    const utf8 *start = cur + 1;
-    const utf8 *p = start;
+    string start = cur + 1;
+    string p = start;
     while (*p != 0 && *p != '"') {
         if (*p == '\\' && *(p + 1) != 0)
             p++;
@@ -438,7 +438,7 @@ static utf8 *parseString(Cursor *cursor) {
         return nullptr;
     utf8 *text = Util_allocate((bytes) (p - start) + 1);
     bytes used = 0;
-    for (const utf8 *q = start; q < p; q++) {
+    for (string q = start; q < p; q++) {
         if (*q == '\\' && q + 1 < p) {
             q++;
             switch (*q) {
@@ -477,7 +477,7 @@ static bool parseRowArray(Cursor *cursor, Rows *rows) {
 /** Advance past one value of any shape; the reader only trusts the keys it knows. */
 static bool skipValue(Cursor *cursor) {
     skipSpace(cursor);
-    const utf8 *cur = Cursor_p(cursor);
+    string cur = Cursor_p(cursor);
     utf8 kind = *cur;
     if (kind == '"') {
         utf8 *text = parseString(cursor);
@@ -516,7 +516,7 @@ static bool skipValue(Cursor *cursor) {
             return take(cursor, '}');
         }
     }
-    const utf8 *p = cur;
+    string p = cur;
     while (*p != 0 && *p != ',' && *p != ']' && *p != '}')
         p++;
     if (p == cur)
@@ -687,7 +687,7 @@ static bool parseTargetArray(Cursor *cursor, Graph *graph, bool isTest) {
     }
 }
 
-static bool parseGraph(const utf8 *json, Graph *graph) {
+static bool parseGraph(string json, Graph *graph) {
     Cursor cursor = {json};
     if (!take(&cursor, '{'))
         return false;
@@ -761,7 +761,7 @@ static fn graphFree(Graph *graph) {
 /** ── file access ──────────────────────────────────────────────────────────── */
 
 /** Read a whole file; return a NUL-terminated buffer or nullptr after THROW. */
-static utf8 *readFile(const utf8 *path, bytes *length) {
+static utf8 *readFile(string path, bytes *length) {
     FILE *file = fopen(path, "rb");
     if (file == nullptr) {
         THROW("cannot open graph file: %s", path);
@@ -792,7 +792,7 @@ static utf8 *readFile(const utf8 *path, bytes *length) {
     return text;
 }
 
-static bool loadGraph(const utf8 *path, Graph *graph) {
+static bool loadGraph(string path, Graph *graph) {
     bytes length = 0;
     utf8 *json = readFile(path, &length);
     if (json == nullptr)
@@ -812,13 +812,13 @@ static u64 hashBytes(u64 hash, const u8 *data, bytes count) {
     return hash;
 }
 
-static u64 hashText(u64 hash, const utf8 *text) {
+static u64 hashText(u64 hash, string text) {
     hash = hashBytes(hash, (const u8*) text, strlen(text));
     u8 end = 0;
     return hashBytes(hash, &end, 1);
 }
 
-static bool hashFile(u64 *hash, const utf8 *path) {
+static bool hashFile(u64 *hash, string path) {
     FILE *file = fopen(path, "rb");
     if (file == nullptr)
         return false;
@@ -832,12 +832,12 @@ static bool hashFile(u64 *hash, const utf8 *path) {
 
 /** ── compile and link ─────────────────────────────────────────────────────── */
 
-static const utf8 *compilerName() {
-    const utf8 *cc = getenv("CC");
+static string compilerName() {
+    string cc = getenv("CC");
     return (cc != nullptr && *cc != 0) ? cc : "cc";
 }
 
-static i32 targetIndex(Graph *graph, const utf8 *name) {
+static i32 targetIndex(Graph *graph, string name) {
     i32 count = Graph_count(graph);
     GraphTarget *items = Graph_items(graph);
     for (i32 i = 0; i < count; i++)
@@ -851,7 +851,7 @@ static i32 targetIndex(Graph *graph, const utf8 *name) {
  * The artifact path is declared by the graph; a builder invents no layout.
  */
 static utf8 *targetOutput(const GraphTarget *target) {
-    const utf8 *output = GraphTarget_output(target);
+    string output = GraphTarget_output(target);
     if (output == nullptr) {
         THROW("target %s declares no output", GraphTarget_name(target));
         return nullptr;
@@ -863,7 +863,7 @@ static utf8 *targetOutput(const GraphTarget *target) {
  * Object path: a hash of the source bytes and the exact flag words decides the
  * name, so a hit means the inputs are identical and no depfile is needed.
  */
-static utf8 *objectPath(const GraphTarget *target, const utf8 *source) {
+static utf8 *objectPath(const GraphTarget *target, string source) {
     u64 hash = 1469598103934665603ull;
     hash = hashText(hash, source);
     if (!hashFile(&hash, source)) {
@@ -879,8 +879,8 @@ static utf8 *objectPath(const GraphTarget *target, const utf8 *source) {
         hash = hashText(hash, Rows_item(definitions, i));
     for (i32 i = 0; i < Rows_count(includes); i++)
         hash = hashText(hash, Rows_item(includes, i));
-    const utf8 *slash = strrchr(source, '/');
-    const utf8 *base = slash ? slash + 1 : source;
+    string slash = strrchr(source, '/');
+    string base = slash ? slash + 1 : source;
     utf8 label[256];
     snprintf(label, sizeof label, "%s", base);
     utf8 *dot = strrchr(label, '.');
@@ -888,14 +888,14 @@ static utf8 *objectPath(const GraphTarget *target, const utf8 *source) {
         *dot = 0;
     utf8 hex[24];
     snprintf(hex, sizeof hex, "%016llx", (u64) hash);
-    const utf8 *targetName = GraphTarget_name(target);
+    string targetName = GraphTarget_name(target);
     bytes size = strlen(targetName) + strlen(label) + sizeof hex + 32;
     utf8 *path = Util_allocate(size);
     snprintf(path, size, ".b/objects/%s/%s-%s.o", targetName, label, hex);
     return path;
 }
 
-static bool compileSource(const GraphTarget *target, const utf8 *source, utf8 **objectOut) {
+static bool compileSource(const GraphTarget *target, string source, utf8 **objectOut) {
     utf8 *object = objectPath(target, source);
     if (object == nullptr)
         return false;
@@ -930,7 +930,7 @@ static bool compileSource(const GraphTarget *target, const utf8 *source, utf8 **
 }
 
 /** Run the recorded generator for an external artifact and confirm it appeared. */
-static bool generateExternal(const GraphTarget *target, const utf8 *output) {
+static bool generateExternal(const GraphTarget *target, string output) {
     if (access(output, F_OK) == 0)
         return true;
     const Rows *generator = GraphTarget_generator(target);
@@ -959,8 +959,8 @@ static bool generateExternal(const GraphTarget *target, const utf8 *output) {
     return true;
 }
 
-static bool linkTarget(Graph *graph, GraphTarget *target, const Rows *objects, const utf8 *output) {
-    const utf8 *kind = GraphTarget_kind(target) ? GraphTarget_kind(target) : "exe";
+static bool linkTarget(Graph *graph, GraphTarget *target, const Rows *objects, string output) {
+    string kind = GraphTarget_kind(target) ? GraphTarget_kind(target) : "exe";
     utf8 *directory = Util_parentDirectory(output);
     bool made = Util_makeDirectory(directory);
     Util_release(directory);
@@ -991,7 +991,7 @@ static bool linkTarget(Graph *graph, GraphTarget *target, const Rows *objects, c
         const Rows *linkFlags = GraphTarget_linkFlags(target);
         GraphTarget *items = Graph_items(graph);
         for (i32 i = 0; i < Rows_count(links); i++) {
-            const utf8 *linkName = Rows_item(links, i);
+            string linkName = Rows_item(links, i);
             i32 index = targetIndex(graph, linkName);
             if (index < 0) {
                 THROW("link plan names an unknown target: %s", linkName);
@@ -1011,7 +1011,7 @@ static bool linkTarget(Graph *graph, GraphTarget *target, const Rows *objects, c
 }
 
 /** Read a small text file into a caller buffer; false when it is absent. */
-static bool readSmallText(const utf8 *path, utf8 *text, bytes size) {
+static bool readSmallText(string path, utf8 *text, bytes size) {
     FILE *file = fopen(path, "rb");
     if (file == nullptr)
         return false;
@@ -1021,7 +1021,7 @@ static bool readSmallText(const utf8 *path, utf8 *text, bytes size) {
     return true;
 }
 
-static utf8 *signaturePath(const utf8 *name) {
+static utf8 *signaturePath(string name) {
     bytes size = strlen(name) + 32;
     utf8 *path = Util_allocate(size);
     snprintf(path, size, ".b/meta/%s.sig", name);
@@ -1048,7 +1048,7 @@ static u64 linkSignature(Graph *graph, GraphTarget *target, const Rows *objects)
         if (index < 0)
             continue;
         GraphTarget *dep = &items[index];
-        const utf8 *kind = GraphTarget_kind(dep) ? GraphTarget_kind(dep) : "exe";
+        string kind = GraphTarget_kind(dep) ? GraphTarget_kind(dep) : "exe";
         if (bStrEq(kind, "ext")) {
             utf8 *output = targetOutput(dep);
             struct stat info;
@@ -1069,7 +1069,7 @@ static u64 linkSignature(Graph *graph, GraphTarget *target, const Rows *objects)
     return hash;
 }
 
-static fn writeSignature(const utf8 *name, u64 signature) {
+static fn writeSignature(string name, u64 signature) {
     utf8 *path = signaturePath(name);
     utf8 *directory = Util_parentDirectory(path);
     if (Util_makeDirectory(directory)) {
@@ -1086,7 +1086,7 @@ static fn writeSignature(const utf8 *name, u64 signature) {
 }
 
 /** True when the artifact exists and its recorded signature still matches. */
-static bool artifactFresh(const utf8 *name, const utf8 *output, u64 signature) {
+static bool artifactFresh(string name, string output, u64 signature) {
     if (access(output, F_OK) != 0)
         return false;
     utf8 *path = signaturePath(name);
@@ -1113,7 +1113,7 @@ static bool runGenerated(Graph *graph) {
         const Rows *sources = GenStep_sources(step);
         const Rows *generator = GenStep_generator(step);
         for (i32 s = 0; s < Rows_count(sources); s++) {
-            const utf8 *source = Rows_item(sources, s);
+            string source = Rows_item(sources, s);
             hash = hashText(hash, source);
             if (!hashFile(&hash, source)) {
                 THROW("cannot read generator input: %s", source);
@@ -1122,7 +1122,7 @@ static bool runGenerated(Graph *graph) {
         }
         for (i32 g = 0; g < Rows_count(generator); g++)
             hash = hashText(hash, Rows_item(generator, g));
-        const utf8 *stepOutput = GenStep_output(step);
+        string stepOutput = GenStep_output(step);
         u64 key = hashText(1469598103934665603ull, stepOutput);
         utf8 name[64];
         snprintf(name, sizeof name, "gen-%016llx", (u64) key);
@@ -1151,7 +1151,7 @@ static bool runGenerated(Graph *graph) {
             return false;
         }
         writeSignature(name, hash);
-        fprintf(stderr, "b.sh: generated %s\n", stepOutput);
+        fprint(stderr, "b.sh: generated ", stepOutput);
     }
     return true;
 }
@@ -1160,11 +1160,11 @@ static bool buildTarget(Graph *graph, GraphTarget *target) {
     utf8 *output = targetOutput(target);
     if (output == nullptr)
         return false;
-    const utf8 *kind = GraphTarget_kind(target) ? GraphTarget_kind(target) : "exe";
+    string kind = GraphTarget_kind(target) ? GraphTarget_kind(target) : "exe";
     if (bStrEq(kind, "ext")) {
         bool ok = generateExternal(target, output);
         if (ok)
-            fprintf(stderr, "b.sh: artifact %s\n", output);
+            fprint(stderr, "b.sh: artifact ", output);
         Util_release(output);
         return ok;
     }
@@ -1178,7 +1178,7 @@ static bool buildTarget(Graph *graph, GraphTarget *target) {
             rowsPush(&objects, object);
         Util_release(object);
     }
-    const utf8 *targetName = GraphTarget_name(target);
+    string targetName = GraphTarget_name(target);
     if (ok && Rows_count(sources) == 0 && !bStrEq(kind, "lib")) {
         THROW("target %s has no sources", targetName);
         ok = false;
@@ -1186,7 +1186,7 @@ static bool buildTarget(Graph *graph, GraphTarget *target) {
     if (ok) {
         u64 signature = linkSignature(graph, target, &objects);
         if (artifactFresh(targetName, output, signature)) {
-            fprintf(stderr, "b.sh: up to date %s\n", targetName);
+            fprint(stderr, "b.sh: up to date ", targetName);
             rowsFree(&objects);
             Util_release(output);
             return true;
@@ -1196,7 +1196,7 @@ static bool buildTarget(Graph *graph, GraphTarget *target) {
         ok = linkTarget(graph, target, &objects, output);
     if (ok) {
         writeSignature(targetName, linkSignature(graph, target, &objects));
-        fprintf(stderr, "b.sh: built %s -> %s\n", targetName, output);
+        fprint(stderr, "b.sh: built ", targetName, " -> ", output);
     } else {
         THROW("build failed for %s", targetName);
     }
@@ -1253,7 +1253,7 @@ static bool planVisit(Plan *plan, i32 index) {
             edges = GraphTarget_links(target);
         i32 edgeCount = Rows_count(edges);
         for (i32 i = 0; i < edgeCount; i++) {
-            const utf8 *edgeName = Rows_item(edges, i);
+            string edgeName = Rows_item(edges, i);
             i32 next = targetIndex(graph, edgeName);
             if (next < 0) {
                 THROW("%s depends on unknown target %s",
@@ -1273,21 +1273,20 @@ static bool planVisit(Plan *plan, i32 index) {
 
 /** ── commands ─────────────────────────────────────────────────────────────── */
 
-static i32 listCommand(Graph *graph, const utf8 *path) {
+static i32 listCommand(Graph *graph, string path) {
     i32 targets = 0, tests = 0;
     i32 count = Graph_count(graph);
     GraphTarget *items = Graph_items(graph);
     for (i32 i = 0; i < count; i++) {
         GraphTarget *target = &items[i];
         bool isTest = GraphTarget_isTest(target);
-        printf("%s %s\n", isTest ? "test" : "target", GraphTarget_name(target));
+        print(isTest ? "test" : "target", " ", GraphTarget_name(target));
         if (isTest)
             tests++;
         else
             targets++;
     }
-    fprintf(stderr, "graph: %d targets, %d tests, %d generated (%s)\n",
-            targets, tests, Graph_genCount(graph), path);
+    fprint(stderr, "graph: ", targets, " targets, ", tests, " tests, ", Graph_genCount(graph), " generated (", path, ")");
     return EXIT_SUCCESS;
 }
 
@@ -1328,12 +1327,12 @@ static i32 buildCommand(Graph *graph, i32 argc, utf8 **argv) {
     Util_release(plan.state);
     Util_release(plan.order);
     if (status == EXIT_SUCCESS)
-        fprintf(stderr, "graph: %d target(s) built\n", plan.count);
+        fprint(stderr, "graph: ", plan.count, " target(s) built");
     return status;
 }
 
 /** Build then run one target, forwarding program arguments to it. */
-static i32 runCommand(Graph *graph, const utf8 *name, const Rows *program) {
+static i32 runCommand(Graph *graph, string name, const Rows *program) {
     utf8 *requested[1] = {(utf8*) name};
     i32 status = buildCommand(graph, 1, requested);
     if (status != EXIT_SUCCESS)
@@ -1358,7 +1357,7 @@ static i32 runCommand(Graph *graph, const utf8 *name, const Rows *program) {
 }
 
 /** Build the matching tests, then run each binary; 77 is a declared skip. */
-static i32 testCommand(Graph *graph, const utf8 *filter) {
+static i32 testCommand(Graph *graph, string filter) {
     Rows names = {0};
     i32 count = Graph_count(graph);
     GraphTarget *items = Graph_items(graph);
@@ -1366,7 +1365,7 @@ static i32 testCommand(Graph *graph, const utf8 *filter) {
         GraphTarget *target = &items[i];
         if (!GraphTarget_isTest(target))
             continue;
-        const utf8 *name = GraphTarget_name(target);
+        string name = GraphTarget_name(target);
         if (filter != nullptr && bStrFind(name, filter) == nullptr)
             continue;
         rowsPush(&names, name);
@@ -1396,20 +1395,20 @@ static i32 testCommand(Graph *graph, const utf8 *filter) {
         } else if (code == 77) {
             skipped++;
         } else {
-            fprintf(stderr, "b.sh: FAIL %s (%d)\n", names.items[i], code);
+            fprint(stderr, "b.sh: FAIL ", names.items[i], " (", code, ")");
             failed++;
         }
         Util_release(binary);
     }
-    fprintf(stderr, "tests: %d passed, %d skipped, %d failed\n", passed, skipped, failed);
+    fprint(stderr, "tests: ", passed, " passed, ", skipped, " skipped, ", failed, " failed");
     rowsFree(&names);
     return failed == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 /** Run a graph command: `b.sh graph list|build|test|run [target...] [--file <path>]`. */
 i32 Graph_command(i32 argc, utf8 **argv) {
-    const utf8 *path = ".b/graph.json";
-    const utf8 *command = "list";
+    string path = ".b/graph.json";
+    string command = "list";
     i32 first = 0;
     if (argc > 0 && argv[0][0] != '-') {
         command = argv[0];

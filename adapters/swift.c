@@ -20,7 +20,7 @@
 #include <stdlib.h>
 
 /** Compile the supplied Swift sources into an external native executable. */
-static i32 compileSwift(const utf8 *project, utf8 **sources, bytes count, utf8 **output) {
+static i32 compileSwift(string project, utf8 **sources, bytes count, utf8 **output) {
     if (count > SIZE_MAX / sizeof(utf8*) - 8) {
         THROW("Swift source count overflow");
         return EXIT_FAILURE;
@@ -48,7 +48,7 @@ static i32 compileSwift(const utf8 *project, utf8 **sources, bytes count, utf8 *
 }
 
 /** Discover top-level Swift sources and compile them together. */
-static i32 buildSwift(const utf8 *project, utf8 **output) {
+static i32 buildSwift(string project, utf8 **output) {
     bytes count = 0;
     bool ok = false;
     utf8 **sources = Util_collectSources(project, "/*.swift", &count, &ok);
@@ -60,7 +60,7 @@ static i32 buildSwift(const utf8 *project, utf8 **output) {
 }
 
 /** Interpret the Swift file or compile then launch it, forwarding program arguments. */
-static i32 runSwift(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runSwift(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     if (!buildArtifact) {
         utf8 *prefix[] = { "swift", (utf8*) file };
         return Util_runCommand(prefix, 2, argc, argv);

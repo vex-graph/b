@@ -16,10 +16,10 @@
 #include <sys/stat.h>
 
 /** Forward declaration. */
-static utf8 *joinPath(const utf8 *directory, const utf8 *name);
+static utf8 *joinPath(string directory, string name);
 
 /** Join a directory and one child name into an owned path. */
-static utf8 *joinPath(const utf8 *directory, const utf8 *name) {
+static utf8 *joinPath(string directory, string name) {
     utf8 *slash = Util_combine(directory, "/");
     utf8 *path = Util_combine(slash, name);
     Util_release(slash);
@@ -27,7 +27,7 @@ static utf8 *joinPath(const utf8 *directory, const utf8 *name) {
 }
 
 ;;GETTER
-static inline const utf8 *dirent_d_name(const struct dirent *self)
+static inline string dirent_d_name(const struct dirent *self)
 {
     return (*self).d_name;
 }
@@ -63,7 +63,7 @@ static inline const utf8 *dirent_d_name(const struct dirent *self)
  * A missing file or an empty array yields no roots; a malformed array sets *ok.
  * Two passes size the list exactly, so the reader never grows storage in place.
  */
-static utf8 **assemblyIncludes(const utf8 *project, bytes *count, bool *ok) {
+static utf8 **assemblyIncludes(string project, bytes *count, bool *ok) {
     *count = 0;
     *ok = true;
     utf8 *path = Util_combine(project, "/b.sh.assembly.json");
@@ -109,10 +109,10 @@ static utf8 **assemblyIncludes(const utf8 *project, bytes *count, bool *ok) {
  * Compile the supplied C23 sources into one out-of-tree native executable. Declared
  * include roots resolve against the territory root and are passed as -I paths.
  */
-static utf8 *baseNameOf(const utf8 *path);
-static utf8 *stemOf(const utf8 *path);
+static utf8 *baseNameOf(string path);
+static utf8 *stemOf(string path);
 
-static i32 compileC(const utf8 *project, utf8 **sources, bytes count, const utf8 *name, utf8 **output) {
+static i32 compileC(string project, utf8 **sources, bytes count, string name, utf8 **output) {
     if (count > SIZE_MAX / sizeof(utf8*) - 20) {
         THROW("source argument count overflow");
         return EXIT_FAILURE;
@@ -146,7 +146,7 @@ static i32 compileC(const utf8 *project, utf8 **sources, bytes count, const utf8
             bytes subCount = 0;
             rewinddir(dir);
             while ((e = readdir(dir)) != nullptr) {
-                const utf8 *name = dirent_d_name(e);
+                string name = dirent_d_name(e);
                 if (bStrEq(name, ".") || bStrEq(name, ".."))
                     continue;
                 utf8 *full = joinPath(cur, name);
@@ -171,10 +171,11 @@ static i32 compileC(const utf8 *project, utf8 **sources, bytes count, const utf8
 
             if (hasHeader && !bStrEq(cur, root)) {
                 bytes rootLen = strlen(root);
-                const utf8 *rel = cur;
+                string rel = cur;
                 if (bStrPrefixN(cur, root, rootLen)) {
                     rel = cur + rootLen;
-                    while (*rel == '/') ++rel;
+                    while (*rel == '/'
+                       ) ++rel;
                 }
                 if (*rel != '\0') {
                     utf8 *relDir = Util_combine(rel, "");
@@ -185,7 +186,8 @@ static i32 compileC(const utf8 *project, utf8 **sources, bytes count, const utf8
                         if (includeCount == includeCapacity) {
                             includeCapacity *= 2;
                             utf8 **grown = Util_allocate(includeCapacity * sizeof(utf8*));
-                            for (bytes j = 0; j < includeCount; ++j) grown[j] = includes[j];
+                            for (bytes j = 0; j < includeCount; ++j)
+                               grown[j] = includes[j];
                             free(includes);
                             includes = grown;
                         }
@@ -201,7 +203,8 @@ static i32 compileC(const utf8 *project, utf8 **sources, bytes count, const utf8
                             if (depCount == depCapacity) {
                                 depCapacity = depCapacity == 0 ? 8 : depCapacity * 2;
                                 utf8 **grown = Util_allocate(depCapacity * sizeof(utf8*));
-                                for (bytes j = 0; j < depCount; ++j) grown[j] = deps[j];
+                                for (bytes j = 0; j < depCount; ++j)
+                                   grown[j] = deps[j];
                                 free(deps);
                                 deps = grown;
                             }
@@ -237,7 +240,8 @@ static i32 compileC(const utf8 *project, utf8 **sources, bytes count, const utf8
                     if (depSrcTotal == depSrcCapacity) {
                         depSrcCapacity = depSrcCapacity == 0 ? 8 : depSrcCapacity * 2;
                         utf8 **grown = Util_allocate(depSrcCapacity * sizeof(utf8*));
-                        for (bytes j = 0; j < depSrcTotal; ++j) grown[j] = depSources[j];
+                        for (bytes j = 0; j < depSrcTotal; ++j)
+                           grown[j] = depSources[j];
                         free(depSources);
                         depSources = grown;
                     }
@@ -268,7 +272,7 @@ static i32 compileC(const utf8 *project, utf8 **sources, bytes count, const utf8
     utf8 **paths = Util_allocate((includeCount != 0 ? includeCount : 1) * sizeof(utf8*));
     utf8 **arguments = Util_allocate((count + 20 + 2 * includeCount) * sizeof(utf8*));
     bytes n = 0;
-    const utf8 *compiler = getenv("CC");
+    string compiler = getenv("CC");
     arguments[n++] = (utf8*) (compiler != nullptr && *compiler ? compiler : "cc");
     arguments[n++] = "-std=gnu2x";
     arguments[n++] = "-Wall";
@@ -328,16 +332,16 @@ static i32 compileC(const utf8 *project, utf8 **sources, bytes count, const utf8
  * Discover top-level C sources and compile them as one project executable.
  * Return the last path component of a path; caller-owned.
  */
-static utf8 *baseNameOf(const utf8 *path) {
-    const utf8 *name = path;
-    for (const utf8 *cursor = path; *cursor != '\0'; ++cursor)
+static utf8 *baseNameOf(string path) {
+    string name = path;
+    for (string cursor = path; *cursor != '\0'; ++cursor)
         if (*cursor == '/' || *cursor == '\\')
             name = cursor + 1;
     return Util_combine(name, "");
 }
 
 /** Return the file's name without directory or extension; caller-owned. */
-static utf8 *stemOf(const utf8 *path) {
+static utf8 *stemOf(string path) {
     utf8 *name = baseNameOf(path);
     utf8 *dot = strrchr(name, '.');
     if (dot != nullptr && dot != name)
@@ -350,12 +354,12 @@ static utf8 *stemOf(const utf8 *path) {
  * The ecosystem spells the return type `i32`; a vendored or generated file may
  * still say `int`, so both spellings count.
  */
-static bool hasEntry(const utf8 *source) {
+static bool hasEntry(string source) {
     return Util_fileContains(source, "int main(") || Util_fileContains(source, "i32 main(");
 }
 
 /** Find the unit's program entries. Returns the first one, owned, and counts all. */
-static utf8 *programEntry(const utf8 *project, bytes *count) {
+static utf8 *programEntry(string project, bytes *count) {
     bytes total = 0;
     bool ok = false;
     utf8 **sources = Util_collectSources(project, "/*.c", &total, &ok);
@@ -377,7 +381,7 @@ static utf8 *programEntry(const utf8 *project, bytes *count) {
  * Compile one program: the named entry plus every sibling that is not itself an
  * entry. A unit's shared helpers therefore link into each of its programs.
  */
-static i32 compileEntry(const utf8 *project, const utf8 *entry, utf8 **output) {
+static i32 compileEntry(string project, string entry, utf8 **output) {
     bytes count = 0;
     bool ok = false;
     utf8 **sources = Util_collectSources(project, "/*.c", &count, &ok);
@@ -406,7 +410,7 @@ static i32 compileEntry(const utf8 *project, const utf8 *entry, utf8 **output) {
     return status;
 }
 
-static i32 buildC(const utf8 *project, utf8 **output) {
+static i32 buildC(string project, utf8 **output) {
     bytes count = 0;
     bool ok = false;
     utf8 **sources = Util_collectSources(project, "/*.c", &count, &ok);
@@ -455,7 +459,7 @@ static i32 buildC(const utf8 *project, utf8 **output) {
 }
 
 /** Compile a source entry for exec mode and launch it with the caller's arguments. */
-static i32 runC(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runC(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     if (!buildArtifact) {
         THROW("C has no source runtime; use b.sh run exec to compile then launch");
         return EXIT_FAILURE;
@@ -496,7 +500,7 @@ static i32 runC(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
 }
 
 /** Return an owned path to the top-level C source that defines main(), or nullptr. */
-static utf8 *entryC(const utf8 *project) {
+static utf8 *entryC(string project) {
     bytes count = 0;
     bool ok = false;
     utf8 **sources = Util_collectSources(project, "/*.c", &count, &ok);

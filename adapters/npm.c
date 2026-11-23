@@ -24,7 +24,7 @@
 #include <sys/stat.h>
 
 /** Require a regular package.json before delegating npm script operations. */
-static bool hasManifest(const utf8 *project) {
+static bool hasManifest(string project) {
     utf8 *path = Util_combine(project, "/package.json");
     struct stat info;
     bool ok = stat(path, &info) == 0 && S_ISREG(info.st_mode);
@@ -35,7 +35,7 @@ static bool hasManifest(const utf8 *project) {
 }
 
 /** Run the project's declared npm build script without installing dependencies. */
-static i32 buildNpm(const utf8 *project, utf8 **output) {
+static i32 buildNpm(string project, utf8 **output) {
     if (!hasManifest(project))
         return EXIT_FAILURE;
     utf8 *arguments[] = { "npm", "--prefix", (utf8*) project, "run", "build", nullptr, nullptr };
@@ -46,13 +46,13 @@ static i32 buildNpm(const utf8 *project, utf8 **output) {
 }
 
 /** Run the declared start script, building first only for exec mode. */
-static i32 runNpm(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runNpm(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     utf8 *path = realpath(file, nullptr);
     if (path == nullptr) {
         THROW("npm manifest path is unavailable");
         return EXIT_FAILURE;
     }
-    const utf8 *name = strrchr(path, '/');
+    string name = strrchr(path, '/');
     if (name == nullptr || !bStrEq(name + 1, "package.json")) {
         THROW("npm run requires the project's package.json file");
         free(path);

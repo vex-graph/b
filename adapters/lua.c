@@ -21,19 +21,19 @@
 #include <stdlib.h>
 
 /** Return a nonempty environment override or the supplied executable default. */
-static const utf8 *tool(const utf8 *variable, const utf8 *fallback) {
-    const utf8 *value = getenv(variable);
+static string tool(string envName, string fallback) {
+    string value = getenv(envName);
     return value != nullptr && *value != '\0' ? value : fallback;
 }
 
 /** Parse-check each top-level Lua file without evaluating it. */
-static i32 buildLua(const utf8 *project, utf8 **output) {
+static i32 buildLua(string project, utf8 **output) {
     utf8 *prefix[] = { (utf8*) tool("LUAC", "luac"), "-p" };
     return Util_checkSources(project, "/*.lua", prefix, 2, output);
 }
 
 /** Run a canonicalized Lua script and forward its arguments to the interpreter. */
-static i32 runLua(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runLua(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) buildArtifact;
     utf8 *path = realpath(file, nullptr);
     if (path == nullptr) {

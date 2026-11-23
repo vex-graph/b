@@ -30,7 +30,7 @@
 #include <stdlib.h>
 
 /** Parse every top-level R source without evaluating it. */
-static i32 buildR(const utf8 *project, utf8 **output) {
+static i32 buildR(string project, utf8 **output) {
     bytes count = 0;
     bool ok = false;
     utf8 **sources = Util_collectSources(project, "/*.[Rr]", &count, &ok);
@@ -53,7 +53,7 @@ static i32 buildR(const utf8 *project, utf8 **output) {
 }
 
 /** Run an R script with a clean startup and forward its trailing arguments. */
-static i32 runR(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runR(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) buildArtifact;
     utf8 **arguments = Util_allocate(((bytes) argc + 4) * sizeof(utf8*));
     arguments[0] = "Rscript";

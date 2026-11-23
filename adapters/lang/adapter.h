@@ -7,12 +7,12 @@
  * out-of-tree output path; run either interprets/executes the file as-is or
  * (buildArtifact) compiles it first, then launches it.
  * STRUCT FIELDS:
- * const utf8 *name       CLI adapter name ("c", "cmake", "npm", ...)
- * const utf8 *extension  file selector: suffix, exact manifest basename or null
+ * string name       CLI adapter name ("c", "cmake", "npm", ...)
+ * string extension  file selector: suffix, exact manifest basename or null
  * i32 (*build)(project, output)          compile a directory's sources
  * i32 (*run)(file, argc, argv, buildArtifact)  run one file
- * const utf8 *tools          comma-separated executable requirements
- * const utf8 *capabilities   human-readable supported operations
+ * string tools          comma-separated executable requirements
+ * string capabilities   human-readable supported operations
  */
 
 #pragma once
@@ -28,18 +28,18 @@
  */
 ;;OVERVIEW
 /* CLASS: Adapter. STRUCT FIELDS (declaration order):
- * const utf8 *name, CLI adapter name.
- * const utf8 *extension, file selector: leading dot means suffix; otherwise
+ * string name, CLI adapter name.
+ * string extension, file selector: leading dot means suffix; otherwise
  *     exact basename (Cargo.toml/package.json); nullptr disables file discovery.
- * i32 (*build)(const utf8 *project, utf8 **output), build/check a directory;
+ * i32 (*build)(string project, utf8 **output), build/check a directory;
  *     output is allocated on success and released by the caller.
- * i32 (*run)(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact),
+ * i32 (*run)(string file, i32 argc, utf8 **argv, bool buildArtifact),
  *     direct runtime or compile-then-run operation, with borrowed arguments.
- * const utf8 *tools, comma-separated tools; ENV=default permits an override.
- * const utf8 *capabilities, adapter-owned operation/scope description.
- * utf8 *(*entry)(const utf8 *project), owned path of the source file holding the
+ * string tools, comma-separated tools; ENV=default permits an override.
+ * string capabilities, adapter-owned operation/scope description.
+ * utf8 *(*entry)(string project), owned path of the source file holding the
  *     program entry point; nullptr means none (library or interpreted units).
- * i32 (*archive)(const utf8 *project, utf8 **output), build a library unit into
+ * i32 (*archive)(string project, utf8 **output), build a library unit into
  *     its archive; output is allocated on success, nullptr means the adapter has
  *     no library form and the unit is reported as skipped.
  * PUBLIC: Adapter_forName; Adapter_forFile; Adapter_count; Adapter_at
@@ -51,17 +51,17 @@
 
 
 typedef struct Adapter {
-    const utf8 *name;
-    const utf8 *extension;
-    i32 (*build)(const utf8 *project, utf8 **output);
-    i32 (*run)(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact);
-    const utf8 *tools;
-    const utf8 *capabilities;
-    utf8 *(*entry)(const utf8 *project);
-    i32 (*archive)(const utf8 *project, utf8 **output);
+    string name;
+    string extension;
+    i32 (*build)(string project, utf8 **output);
+    i32 (*run)(string file, i32 argc, utf8 **argv, bool buildArtifact);
+    string tools;
+    string capabilities;
+    utf8 *(*entry)(string project);
+    i32 (*archive)(string project, utf8 **output);
 } Adapter;
 
-const Adapter *Adapter_forName(const utf8 *name);
-const Adapter *Adapter_forFile(const utf8 *path);
+const Adapter *Adapter_forName(string name);
+const Adapter *Adapter_forFile(string path);
 bytes Adapter_count();
 const Adapter *Adapter_at(bytes index);

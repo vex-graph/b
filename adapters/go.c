@@ -24,13 +24,13 @@
 #include <stdlib.h>
 
 /** Select the configured Go executable or the standard command name. */
-static const utf8 *tool() {
-    const utf8 *value = getenv("GO");
+static string tool() {
+    string value = getenv("GO");
     return value != nullptr && *value != '\0' ? value : "go";
 }
 
 /** Build one Go file or the selected project package into b.sh's external state. */
-static i32 compileGo(const utf8 *project, const utf8 *file, utf8 **output) {
+static i32 compileGo(string project, string file, utf8 **output) {
     utf8 *directory = Util_outputDirectory(project);
     if (directory == nullptr)
         return EXIT_FAILURE;
@@ -47,12 +47,12 @@ static i32 compileGo(const utf8 *project, const utf8 *file, utf8 **output) {
 }
 
 /** Build the selected Go package without creating or modifying module metadata. */
-static i32 buildGo(const utf8 *project, utf8 **output) {
+static i32 buildGo(string project, utf8 **output) {
     return compileGo(project, nullptr, output);
 }
 
 /** Run a Go source file through go run or compile it before native execution. */
-static i32 runGo(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runGo(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     utf8 *path = realpath(file, nullptr);
     if (path == nullptr) {
         THROW("Go source cannot be resolved");

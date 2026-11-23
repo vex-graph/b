@@ -24,7 +24,7 @@
 #include <sys/stat.h>
 
 /** Configure and build a declared CMake project in b.sh's external build directory. */
-static i32 buildCmake(const utf8 *project, utf8 **output) {
+static i32 buildCmake(string project, utf8 **output) {
     utf8 *manifest = Util_combine(project, "/CMakeLists.txt");
     struct stat info;
     bool valid = stat(manifest, &info) == 0 && S_ISREG(info.st_mode);
@@ -48,7 +48,7 @@ static i32 buildCmake(const utf8 *project, utf8 **output) {
 }
 
 /** Reject source execution because CMake does not identify a unique runnable target. */
-static i32 runCmake(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runCmake(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) file;
     (discard) argc;
     (discard) argv;

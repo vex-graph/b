@@ -33,7 +33,7 @@
 #include <stdlib.h>
 
 /** Build one .NET file-based C# application into an external managed output path. */
-static i32 compileCsharp(const utf8 *project, const utf8 *file, utf8 **output) {
+static i32 compileCsharp(string project, string file, utf8 **output) {
     utf8 *directory = Util_outputDirectory(project);
     if (directory == nullptr)
         return EXIT_FAILURE;
@@ -49,7 +49,7 @@ static i32 compileCsharp(const utf8 *project, const utf8 *file, utf8 **output) {
 }
 
 /** Require exactly one top-level C# source and build it as a file application. */
-static i32 buildCsharp(const utf8 *project, utf8 **output) {
+static i32 buildCsharp(string project, utf8 **output) {
     bytes count = 0;
     bool ok = false;
     utf8 **sources = Util_collectSources(project, "/*.cs", &count, &ok);
@@ -65,7 +65,7 @@ static i32 buildCsharp(const utf8 *project, utf8 **output) {
 }
 
 /** Use dotnet's file runner in instance mode or build and launch the DLL in exec mode. */
-static i32 runCsharp(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runCsharp(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     utf8 *project = Util_projectDirectory(file);
     utf8 *output = nullptr;
     i32 status = buildArtifact ? compileCsharp(project, file, &output) : 0;

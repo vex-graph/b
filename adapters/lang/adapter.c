@@ -103,17 +103,17 @@ static const Adapter *const ADAPTERS[] = {
 };
 
 ;;GETTER
-static inline const utf8 *Adapter_name(const Adapter *self)
+static inline string Adapter_name(const Adapter *self)
 {
     return (*self).name;
 }
 ;;GETTER
-static inline const utf8 *Adapter_extension(const Adapter *self)
+static inline string Adapter_extension(const Adapter *self)
 {
     return (*self).extension;
 }
 
-const Adapter *Adapter_forName(const utf8 *name) {
+const Adapter *Adapter_forName(string name) {
     if (name == nullptr) {
         THROW("adapter name is null");
         return nullptr;
@@ -124,16 +124,16 @@ const Adapter *Adapter_forName(const utf8 *name) {
     return nullptr;
 }
 
-const Adapter *Adapter_forFile(const utf8 *path) {
+const Adapter *Adapter_forFile(string path) {
     if (path == nullptr) {
         THROW("adapter file path is null");
         return nullptr;
     }
-    const utf8 *basename = strrchr(path, '/');
+    string basename = strrchr(path, '/');
     basename = basename != nullptr ? basename + 1 : path;
     for (bytes i = 0; i < Adapter_count(); ++i) {
         const Adapter *adapter = ADAPTERS[i];
-        const utf8 *selector = Adapter_extension(adapter);
+        string selector = Adapter_extension(adapter);
         if (selector == nullptr)
             continue;
         if (*selector == '.' ? Util_endsWith(basename, selector) : bStrEq(basename, selector))

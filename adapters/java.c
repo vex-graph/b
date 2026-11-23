@@ -32,7 +32,7 @@
 #include <string.h>
 
 /** Compile Java sources into the project's external classes directory. */
-static i32 compileJava(const utf8 *project, utf8 **sources, bytes count, utf8 **output) {
+static i32 compileJava(string project, utf8 **sources, bytes count, utf8 **output) {
     utf8 *directory = Util_outputDirectory(project);
     if (directory == nullptr)
         return EXIT_FAILURE;
@@ -55,8 +55,8 @@ static i32 compileJava(const utf8 *project, utf8 **sources, bytes count, utf8 **
 }
 
 /** Return the filename stem used as the default-package Java main class name. */
-static utf8 *mainClass(const utf8 *file) {
-    const utf8 *base = strrchr(file, '/');
+static utf8 *mainClass(string file) {
+    string base = strrchr(file, '/');
     utf8 *name = Util_combine(base != nullptr ? base + 1 : file, "");
     utf8 *dot = strrchr(name, '.');
     if (dot != nullptr)
@@ -65,7 +65,7 @@ static utf8 *mainClass(const utf8 *file) {
 }
 
 /** Discover top-level Java sources and compile them into the shared classes output. */
-static i32 buildJava(const utf8 *project, utf8 **output) {
+static i32 buildJava(string project, utf8 **output) {
     bytes count = 0;
     bool ok = false;
     utf8 **sources = Util_collectSources(project, "/*.java", &count, &ok);
@@ -77,7 +77,7 @@ static i32 buildJava(const utf8 *project, utf8 **output) {
 }
 
 /** Launch via the JDK source runner or compile then execute the filename class. */
-static i32 runJava(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runJava(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     if (!buildArtifact) {
         utf8 **arguments = Util_allocate(((bytes) argc + 3) * sizeof(utf8*));
         bytes n = 0;

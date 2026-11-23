@@ -46,7 +46,7 @@ typedef struct {
 
 /** Read cursor over a NUL-terminated JSON graph buffer. */
 typedef struct {
-    const utf8 *p;
+    string p;
 } Cursor;
 
 /** Topological DFS build-order planner state over a Graph. */

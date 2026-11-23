@@ -19,13 +19,13 @@
  */
 
 /** Syntax-check supported top-level JavaScript module files with Node. */
-static i32 buildJavascript(const utf8 *project, utf8 **output) {
+static i32 buildJavascript(string project, utf8 **output) {
     utf8 *prefix[] = { "node", "--check" };
     return Util_checkSources(project, "/*.{js,mjs,cjs}", prefix, 2, output);
 }
 
 /** Run the selected JavaScript source with Node and forward program arguments. */
-static i32 runJavascript(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runJavascript(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) buildArtifact;
     utf8 *prefix[] = { "node", (utf8*) file };
     return Util_runCommand(prefix, 2, argc, argv);

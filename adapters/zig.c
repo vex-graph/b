@@ -23,13 +23,13 @@
 #include <sys/stat.h>
 
 /** Select the configured Zig executable or the standard command name. */
-static const utf8 *tool() {
-    const utf8 *value = getenv("ZIG");
+static string tool() {
+    string value = getenv("ZIG");
     return value != nullptr && *value != '\0' ? value : "zig";
 }
 
 /** Compile one Zig source root into an external ReleaseSafe executable. */
-static i32 compileZig(const utf8 *project, const utf8 *file, utf8 **output) {
+static i32 compileZig(string project, string file, utf8 **output) {
     utf8 *directory = Util_outputDirectory(project);
     if (directory == nullptr)
         return EXIT_FAILURE;
@@ -47,7 +47,7 @@ static i32 compileZig(const utf8 *project, const utf8 *file, utf8 **output) {
 }
 
 /** Delegate to build.zig or select an unambiguous standalone source root. */
-static i32 buildZig(const utf8 *project, utf8 **output) {
+static i32 buildZig(string project, utf8 **output) {
     utf8 *script = Util_combine(project, "/build.zig");
     struct stat info;
     if (stat(script, &info) == 0 && S_ISREG(info.st_mode)) {
@@ -90,7 +90,7 @@ static i32 buildZig(const utf8 *project, utf8 **output) {
 }
 
 /** Compile the resolved Zig source and run the resulting program with its arguments. */
-static i32 runZig(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runZig(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) buildArtifact;
     utf8 *path = realpath(file, nullptr);
     if (path == nullptr) {

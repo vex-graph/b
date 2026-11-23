@@ -22,7 +22,7 @@
 #include <stdlib.h>
 
 /** Compile Objective-C sources with ARC/Foundation on the supported Apple host. */
-static i32 compileObjc(const utf8 *project, utf8 **sources, bytes count, utf8 **output) {
+static i32 compileObjc(string project, utf8 **sources, bytes count, utf8 **output) {
 #ifndef __APPLE__
     (discard) project;
     (discard) sources;
@@ -42,7 +42,7 @@ static i32 compileObjc(const utf8 *project, utf8 **sources, bytes count, utf8 **
     free(directory);
     utf8 **arguments = Util_allocate((count + 20) * sizeof(utf8*));
     bytes n = 0;
-    const utf8 *compiler = getenv("CC");
+    string compiler = getenv("CC");
     arguments[n++] = (utf8*) (compiler != nullptr && *compiler ? compiler : "clang");
     arguments[n++] = "-x";
     arguments[n++] = "objective-c";
@@ -69,7 +69,7 @@ static i32 compileObjc(const utf8 *project, utf8 **sources, bytes count, utf8 **
 }
 
 /** Discover top-level Objective-C files and compile them into one program. */
-static i32 buildObjc(const utf8 *project, utf8 **output) {
+static i32 buildObjc(string project, utf8 **output) {
     bytes count = 0;
     bool ok = false;
     utf8 **sources = Util_collectSources(project, "/*.m", &count, &ok);
@@ -81,7 +81,7 @@ static i32 buildObjc(const utf8 *project, utf8 **output) {
 }
 
 /** Compile one Objective-C source for exec mode and launch it with caller arguments. */
-static i32 runObjc(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runObjc(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     if (!buildArtifact) {
         THROW("Objective-C has no source runtime; use b.sh run exec");
         return EXIT_FAILURE;

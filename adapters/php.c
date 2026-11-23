@@ -17,13 +17,13 @@
  */
 
 /** Lint each top-level PHP source without executing application code. */
-static i32 buildPhp(const utf8 *project, utf8 **output) {
+static i32 buildPhp(string project, utf8 **output) {
     utf8 *prefix[] = { "php", "-l" };
     return Util_checkSources(project, "/*.php", prefix, 2, output);
 }
 
 /** Execute a PHP source file through the CLI and forward its arguments. */
-static i32 runPhp(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runPhp(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) buildArtifact;
     utf8 *prefix[] = { "php", (utf8*) file };
     return Util_runCommand(prefix, 2, argc, argv);

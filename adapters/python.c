@@ -32,7 +32,7 @@
 #include <stdlib.h>
 
 /** Byte-compile project Python sources with the cache redirected out of source. */
-static i32 buildPython(const utf8 *project, utf8 **output) {
+static i32 buildPython(string project, utf8 **output) {
     bytes count = 0;
     bool ok = false;
     utf8 **sources = Util_collectSources(project, "/*.py", &count, &ok);
@@ -66,7 +66,7 @@ static i32 buildPython(const utf8 *project, utf8 **output) {
 }
 
 /** Execute the source file with Python and forward the remaining arguments. */
-static i32 runPython(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runPython(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) buildArtifact;
     utf8 **arguments = Util_allocate(((bytes) argc + 3) * sizeof(utf8*));
     bytes n = 0;

@@ -25,7 +25,7 @@
 #include <string.h>
 
 /** Reject standalone SQL compilation because parsing requires database context. */
-static i32 buildSql(const utf8 *project, utf8 **output) {
+static i32 buildSql(string project, utf8 **output) {
     (discard) project;
     (discard) output;
     THROW("SQL has no standalone compile here; run against an explicitly selected disposable database");
@@ -33,10 +33,10 @@ static i32 buildSql(const utf8 *project, utf8 **output) {
 }
 
 /** Execute a SQL file only against the explicitly named PostgreSQL database. */
-static i32 runSql(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runSql(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) argv;
     (discard) buildArtifact;
-    const utf8 *database = getenv("B_SQL_DATABASE");
+    string database = getenv("B_SQL_DATABASE");
     if (database == nullptr || *database == '\0') {
         THROW("SQL execution requires B_SQL_DATABASE; no existing database is auto-selected");
         return EXIT_FAILURE;
@@ -45,7 +45,7 @@ static i32 runSql(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
         THROW("SQL program arguments are not supported; use libpq environment settings for connection configuration");
         return EXIT_FAILURE;
     }
-    for (const utf8 *p = database; *p != '\0'; ++p) {
+    for (string p = database; *p != '\0'; ++p) {
         bool valid = (*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
             (*p >= '0' && *p <= '9') || *p == '_' || (*p == '-' && p != database);
         if (!valid) {

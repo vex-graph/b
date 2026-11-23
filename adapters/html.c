@@ -23,7 +23,7 @@
 #include <stdlib.h>
 
 /** Reject a guessed HTML build because no bundling pipeline is declared. */
-static i32 buildHtml(const utf8 *project, utf8 **output) {
+static i32 buildHtml(string project, utf8 **output) {
     (discard) project;
     (discard) output;
     THROW("HTML has no guessed build pipeline; use b.sh build npm for a declared web build script");
@@ -31,7 +31,7 @@ static i32 buildHtml(const utf8 *project, utf8 **output) {
 }
 
 /** Open a resolved local HTML document with the configured host browser. */
-static i32 runHtml(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runHtml(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) argv;
     (discard) buildArtifact;
     if (argc != 0) {
@@ -43,7 +43,7 @@ static i32 runHtml(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) 
         THROW("HTML file cannot be resolved");
         return EXIT_FAILURE;
     }
-    const utf8 *browser = getenv("B_BROWSER");
+    string browser = getenv("B_BROWSER");
     if (browser == nullptr || *browser == '\0') {
 #ifdef __APPLE__
         browser = "open";

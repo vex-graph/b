@@ -26,13 +26,13 @@
 #include <sys/stat.h>
 
 /** Select the configured Cargo executable or the standard command name. */
-static const utf8 *tool() {
-    const utf8 *value = getenv("CARGO");
+static string tool() {
+    string value = getenv("CARGO");
     return value != nullptr && *value != '\0' ? value : "cargo";
 }
 
 /** Return the project's regular Cargo manifest, reporting its absence otherwise. */
-static utf8 *manifest(const utf8 *project) {
+static utf8 *manifest(string project) {
     utf8 *path = Util_combine(project, "/Cargo.toml");
     struct stat info;
     if (stat(path, &info) == 0 && S_ISREG(info.st_mode))
@@ -43,7 +43,7 @@ static utf8 *manifest(const utf8 *project) {
 }
 
 /** Build the existing Cargo package offline into b.sh's external target directory. */
-static i32 buildCargo(const utf8 *project, utf8 **output) {
+static i32 buildCargo(string project, utf8 **output) {
     utf8 *path = manifest(project);
     if (path == nullptr)
         return EXIT_FAILURE;
@@ -66,13 +66,13 @@ static i32 buildCargo(const utf8 *project, utf8 **output) {
 }
 
 /** Validate a Cargo.toml input and run its package offline, forwarding program args. */
-static i32 runCargo(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runCargo(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     utf8 *path = realpath(file, nullptr);
     if (path == nullptr) {
         THROW("Cargo manifest cannot be resolved");
         return EXIT_FAILURE;
     }
-    const utf8 *name = strrchr(path, '/');
+    string name = strrchr(path, '/');
     if (name == nullptr || !bStrEq(name + 1, "Cargo.toml")) {
         THROW("Cargo run requires the project's Cargo.toml file");
         free(path);

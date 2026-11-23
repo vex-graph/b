@@ -21,7 +21,7 @@
 #include <stdlib.h>
 
 /** Compile the provided C++23 sources into one external native executable. */
-static i32 compileCpp(const utf8 *project, utf8 **sources, bytes count, utf8 **output) {
+static i32 compileCpp(string project, utf8 **sources, bytes count, utf8 **output) {
     if (count > SIZE_MAX / sizeof(utf8*) - 16) {
         THROW("C++ source count overflow");
         return EXIT_FAILURE;
@@ -33,7 +33,7 @@ static i32 compileCpp(const utf8 *project, utf8 **sources, bytes count, utf8 **o
     free(directory);
     utf8 **arguments = Util_allocate((count + 16) * sizeof(utf8*));
     bytes n = 0;
-    const utf8 *compiler = getenv("CXX");
+    string compiler = getenv("CXX");
     arguments[n++] = (utf8*) (compiler != nullptr && *compiler ? compiler : "c++");
     arguments[n++] = "-std=c++23";
     arguments[n++] = "-Wall";
@@ -57,7 +57,7 @@ static i32 compileCpp(const utf8 *project, utf8 **sources, bytes count, utf8 **o
 }
 
 /** Collect supported top-level C++ extensions and compile the project together. */
-static i32 buildCpp(const utf8 *project, utf8 **output) {
+static i32 buildCpp(string project, utf8 **output) {
     bytes count = 0;
     bool ok = false;
     utf8 **sources = Util_collectSources(project, "/*.{cpp,cc,cxx}", &count, &ok);
@@ -69,7 +69,7 @@ static i32 buildCpp(const utf8 *project, utf8 **output) {
 }
 
 /** Compile one source entry for exec mode, then launch with forwarded arguments. */
-static i32 runCpp(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runCpp(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     if (!buildArtifact) {
         THROW("C++ has no source runtime; use b.sh run exec");
         return EXIT_FAILURE;

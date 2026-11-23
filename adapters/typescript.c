@@ -22,14 +22,14 @@
  */
 
 /** Validate TypeScript erasability with Node's native stripping parser, not tsc. */
-static i32 buildTypescript(const utf8 *project, utf8 **output) {
+static i32 buildTypescript(string project, utf8 **output) {
     utf8 *prefix[] = { "node", "-e",
         "require('node:module').stripTypeScriptTypes(require('node:fs').readFileSync(process.argv[1], 'utf8'), {mode:'strip', sourceUrl:process.argv[1]})", "--" };
     return Util_checkSources(project, "/*.{ts,mts,cts}", prefix, 4, output);
 }
 
 /** Run a TypeScript source through Node's native type-stripping support. */
-static i32 runTypescript(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runTypescript(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) buildArtifact;
     utf8 *prefix[] = { "node", (utf8*) file };
     return Util_runCommand(prefix, 2, argc, argv);

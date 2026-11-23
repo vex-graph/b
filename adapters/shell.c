@@ -17,13 +17,13 @@
  */
 
 /** Syntax-check each top-level shell script without executing it. */
-static i32 buildShell(const utf8 *project, utf8 **output) {
+static i32 buildShell(string project, utf8 **output) {
     utf8 *prefix[] = { "/bin/sh", "-n" };
     return Util_checkSources(project, "/*.sh", prefix, 2, output);
 }
 
 /** Run a script through POSIX sh and append the supplied arguments literally. */
-static i32 runShell(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runShell(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) buildArtifact;
     utf8 *prefix[] = { "/bin/sh", (utf8*) file };
     return Util_runCommand(prefix, 2, argc, argv);

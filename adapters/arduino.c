@@ -51,13 +51,13 @@
 #include "adapters/lang/adapter.h"
 
 /** Resolve the Arduino CLI override, PATH executable, or macOS IDE-bundled tool. */
-static const utf8 *cli() {
-    const utf8 *override = getenv("ARDUINO_CLI");
+static string cli() {
+    string override = getenv("ARDUINO_CLI");
     if (override != nullptr && *override != '\0')
         return override;
 #ifdef __APPLE__
-    const utf8 *bundle = "/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/arduino-cli";
-    const utf8 *path = getenv("PATH");
+    string bundle = "/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/arduino-cli";
+    string path = getenv("PATH");
     if (path != nullptr) {
         utf8 *copy = Util_combine(path, "");
         utf8 *save = nullptr;
@@ -79,8 +79,8 @@ static const utf8 *cli() {
 }
 
 /** Copy a standalone .ino into an out-of-tree, correctly named sketch directory. */
-static utf8 *stageFile(const utf8 *file, const utf8 *parent) {
-    const utf8 *name = strrchr(file, '/');
+static utf8 *stageFile(string file, string parent) {
+    string name = strrchr(file, '/');
     name = name == nullptr ? file : name + 1;
     utf8 *stem = Util_combine(name, "");
     stem[strlen(stem) - strlen(".ino")] = '\0';
@@ -127,7 +127,7 @@ static utf8 *stageFile(const utf8 *file, const utf8 *parent) {
 }
 
 /** Resolve a sketch directory, staging standalone or non-primary .ino inputs. */
-static utf8 *sketchDirectory(const utf8 *input) {
+static utf8 *sketchDirectory(string input) {
     utf8 *path = realpath(input, nullptr);
     struct stat info;
     if (path == nullptr || stat(path, &info) != 0) {
@@ -146,10 +146,10 @@ static utf8 *sketchDirectory(const utf8 *input) {
     bytes length = strlen(directory);
     if (length > 1 && directory[length - 1] == '/')
         directory[length - 1] = '\0';
-    const utf8 *folder = strrchr(directory, '/');
+    string folder = strrchr(directory, '/');
     folder = folder == nullptr ? directory : folder + 1;
     utf8 *mainName = Util_combine(folder, ".ino");
-    const utf8 *name = strrchr(path, '/');
+    string name = strrchr(path, '/');
     if (!bStrEq(name == nullptr ? path : name + 1, mainName)) {
         utf8 *staged = stageFile(path, directory);
         free(directory);
@@ -161,8 +161,8 @@ static utf8 *sketchDirectory(const utf8 *input) {
 }
 
 /** Read and validate the primary sketch's bounded first-line FQBN declaration. */
-static utf8 *boardFromHeader(const utf8 *sketch) {
-    const utf8 *name = strrchr(sketch, '/');
+static utf8 *boardFromHeader(string sketch) {
+    string name = strrchr(sketch, '/');
     name = name == nullptr ? sketch : name + 1;
     utf8 *prefix = Util_combine(sketch, "/");
     utf8 *stem = Util_combine(prefix, name);
@@ -181,7 +181,7 @@ static utf8 *boardFromHeader(const utf8 *sketch) {
     if (ok && bStrFindChar(header, '\n') == nullptr && !feof(input))
         ok = false;
     fclose(input);
-    const utf8 *marker = "// b_build(\"";
+    string marker = "// b_build(\"";
     if (!ok || !bStrPrefix(header, marker)) {
         THROW("Arduino sketch must start with // b_build(\"vendor:arch:board\")");
         return nullptr;
@@ -194,7 +194,7 @@ static utf8 *boardFromHeader(const utf8 *sketch) {
     }
     *end = '\0';
     bytes colons = 0;
-    for (const utf8 *p = board; *p != '\0'; ++p) {
+    for (string p = board; *p != '\0'; ++p) {
         bool valid = (*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
             (*p >= '0' && *p <= '9') || bStrFindChar("_-:,.=", *p) != nullptr;
         if (!valid) {
@@ -212,7 +212,7 @@ static utf8 *boardFromHeader(const utf8 *sketch) {
 }
 
 /** Compile for the declared board and optionally return its pinned identifier. */
-static i32 compileSketch(const utf8 *sketch, const utf8 *fqbn, utf8 **output, utf8 **outBoard) {
+static i32 compileSketch(string sketch, string fqbn, utf8 **output, utf8 **outBoard) {
     utf8 *board = boardFromHeader(sketch);
     if (board == nullptr)
         return EXIT_FAILURE;
@@ -241,12 +241,12 @@ static i32 compileSketch(const utf8 *sketch, const utf8 *fqbn, utf8 **output, ut
 }
 
 /** Build the selected sketch using its required b_build board declaration. */
-static i32 buildArduino(const utf8 *project, utf8 **output) {
+static i32 buildArduino(string project, utf8 **output) {
     return compileSketch(project, nullptr, output, nullptr);
 }
 
 /** Reject host execution because Arduino sketches require an explicit hardware upload. */
-static i32 runArduino(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+static i32 runArduino(string file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) file;
     (discard) argc;
     (discard) argv;
@@ -257,8 +257,8 @@ static i32 runArduino(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifac
 
 /** Validate upload options, compile the sketch, then flash its explicitly chosen port. */
 i32 Arduino_upload(i32 argc, utf8 **argv) {
-    const utf8 *fqbn = nullptr;
-    const utf8 *port = nullptr;
+    string fqbn = nullptr;
+    string port = nullptr;
     if (argc < 1) {
         THROW("upload needs a sketch and --port");
         return EXIT_FAILURE;

@@ -68,22 +68,22 @@ static inline fn BuildSlot_setAdapter(BuildSlot *self, const Adapter *adapter)
     (*self).adapter = adapter;
 }
 ;;GETTER
-static inline const utf8 *Adapter_name(const Adapter *self)
+static inline string Adapter_name(const Adapter *self)
 {
     return (*self).name;
 }
 ;;GETTER
-static inline const utf8 *Adapter_tools(const Adapter *self)
+static inline string Adapter_tools(const Adapter *self)
 {
     return (*self).tools;
 }
 ;;GETTER
-static inline i32 (*Adapter_build(const Adapter *self))(const utf8 *, utf8 **)
+static inline i32 (*Adapter_build(const Adapter *self))(string , utf8 **)
 {
     return (*self).build;
 }
 ;;GETTER
-static inline const utf8 *dirent_d_name(const struct dirent *self)
+static inline string dirent_d_name(const struct dirent *self)
 {
     return (*self).d_name;
 }
@@ -114,8 +114,8 @@ static bool grow(bytes count, bytes size, bytes *capacity, any *storage) {
 }
 
 /** Fixed generated/cache/control names are excluded; ordinary dot directories remain. */
-static bool ignored(const utf8 *name) {
-    const utf8 *names[] = { ".", "..", ".git", ".hg", ".svn", "node_modules",
+static bool ignored(string name) {
+    string names[] = { ".", "..", ".git", ".hg", ".svn", "node_modules",
         "target", "build", "dist", "out", ".cache", "__pycache__", ".venv", "venv" };
     for (bytes i = 0; i < sizeof names / sizeof names[0]; ++i)
         if (bStrEq(name, names[i]))
@@ -124,14 +124,14 @@ static bool ignored(const utf8 *name) {
 }
 
 /** Detect filesystem/home roots and common broad user folders after canonicalization. */
-static bool broad(const utf8 *root) {
+static bool broad(string root) {
     if (bStrEq(root, "/"))
         return true;
-    const utf8 *name = strrchr(root, '/');
+    string name = strrchr(root, '/');
     if (name != nullptr && (bStrEq(name, "/Downloads") || bStrEq(name, "/Documents") ||
                             bStrEq(name, "/Desktop")))
         return true;
-    const utf8 *home = getenv("HOME");
+    string home = getenv("HOME");
     utf8 *resolved = home == nullptr ? nullptr : realpath(home, nullptr);
     bytes length = strlen(root);
     bool result = resolved != nullptr && bStrPrefixN(root, resolved, length) &&
@@ -149,8 +149,8 @@ static bool addUnit(utf8 *path, const Adapter *adapter, BuildSlot **units, bytes
         const Adapter *prior = BuildSlot_adapter(unit);
         if (Adapter_build(prior) == Adapter_build(adapter))
             return true;
-        const utf8 *adapterName = Adapter_name(adapter);
-        const utf8 *priorName = Adapter_name(prior);
+        string adapterName = Adapter_name(adapter);
+        string priorName = Adapter_name(prior);
         bool native = bStrEq(adapterName, "c") || bStrEq(adapterName, "objc") ||
             bStrEq(adapterName, "cpp") || bStrEq(adapterName, "cxx") || bStrEq(adapterName, "c++");
         bool priorNative = bStrEq(priorName, "c") || bStrEq(priorName, "objc") ||
@@ -180,7 +180,7 @@ static bool addUnit(utf8 *path, const Adapter *adapter, BuildSlot **units, bytes
 static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
                    BuildSlot **units, bytes *unitCount, bytes *unitCapacity,
                    bytes *files, bytes *unassigned, bytes *skipped) {
-    const utf8 *state = getenv("B_HOME");
+    string state = getenv("B_HOME");
     utf8 *cache = state == nullptr ? nullptr : realpath(state, nullptr);
     bool ok = true;
     for (bytes index = 0; index < *dirCount && ok; ++index) {
@@ -195,8 +195,8 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
         const Adapter *owner = nullptr;
         for (i32 i = 0; i < total && ok && !current.owned; ++i) {
             struct dirent *entry = entries[i];
-            const utf8 *name = dirent_d_name(entry);
-            const utf8 *backend = bStrEq(name, "Cargo.toml") ? "cargo" :
+            string name = dirent_d_name(entry);
+            string backend = bStrEq(name, "Cargo.toml") ? "cargo" :
                 bStrEq(name, "package.json") ? "npm" :
                 bStrEq(name, "CMakeLists.txt") ? "cmake" :
                 bStrEq(name, "build.zig") ? "zig" : nullptr;
@@ -223,7 +223,7 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
             ok = addUnit(current.path, owner, units, unitCount, unitCapacity);
         for (i32 i = 0; i < total && ok; ++i) {
             struct dirent *entry = entries[i];
-            const utf8 *name = dirent_d_name(entry);
+            string name = dirent_d_name(entry);
             if (ignored(name)) {
                 if (!bStrEq(name, ".") && !bStrEq(name, ".."))
                     ++*skipped;
@@ -261,7 +261,7 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
                 ++*files;
                 const Adapter *adapter = Adapter_forFile(path);
                 if (!current.owned && owner == nullptr) {
-                    const utf8 *adapterName = adapter ? Adapter_name(adapter) : nullptr;
+                    string adapterName = adapter ? Adapter_name(adapter) : nullptr;
                     if (adapter == nullptr || bStrEq(adapterName, "html") ||
                         bStrEq(adapterName, "web") || bStrEq(adapterName, "sql"))
                         ++*unassigned;
@@ -315,12 +315,11 @@ i32 Workspace_command(i32 argc, utf8 **argv) {
     bool plan = argc == 2 && bStrEq(argv[1], "--plan");
     bool confirmed = argc == 2 && bStrEq(argv[1], "--confirm");
     if (ok) {
-        printf("Assessment: %zu files, %zu directories, %zu build units; %zu unassigned, %zu excluded entries\n",
-               files, dirCount, unitCount, unassigned, skipped);
+        print("Assessment: ", files, " files, ", dirCount, " directories, ", unitCount, " build units; ", unassigned, " unassigned, ", skipped, " excluded entries");
         for (bytes i = 0; i < unitCount; ++i) {
             BuildSlot *unit = &units[i];
             const Adapter *adapter = BuildSlot_adapter(unit);
-            printf("  %s: %s [tools: %s]\n", Adapter_name(adapter), BuildSlot_path(unit), Adapter_tools(adapter));
+            print("  ", Adapter_name(adapter), ": ", BuildSlot_path(unit), " [tools: ", Adapter_tools(adapter), "]");
         }
         if (!plan && !confirmed && (broad(root) || files >= WORKSPACE_REVIEW_FILES || unitCount >= WORKSPACE_REVIEW_UNITS)) {
             THROW("broad workspace: review --plan then repeat with --confirm; sudo is not required");
@@ -332,18 +331,16 @@ i32 Workspace_command(i32 argc, utf8 **argv) {
         for (bytes i = 0; i < unitCount; ++i) {
             BuildSlot *unit = &units[i];
             const Adapter *adapter = BuildSlot_adapter(unit);
-            const utf8 *unitPath = BuildSlot_path(unit);
-            printf("[%zu/%zu] Building %s: %s\n", i + 1, unitCount, Adapter_name(adapter), unitPath);
+            string unitPath = BuildSlot_path(unit);
+            print("[", i + 1, "/", unitCount, "] Building ", Adapter_name(adapter), ": ", unitPath);
             fflush(stdout);
             utf8 *output = nullptr;
             i32 status = Adapter_build(adapter)(unitPath, &output);
             failed += status != 0;
-            printf("Building %.0f%%, %s%s%s\n", 100.0 * (d64) (i + 1) / (d64) unitCount,
-                   status == 0 ? "OK" : "FAIL", output == nullptr ? "" : ": ", output == nullptr ? "" : output);
+            print("Building ", 100.0 * (d64) (i + 1) / (d64) unitCount, "%, ", status == 0 ? "OK" : "FAIL", output == nullptr ? "" : ": ", output == nullptr ? "" : output);
             free(output);
         }
-        printf("Complete: %zu succeeded, %zu failed%s\n", unitCount - failed, failed,
-               unitCount == 0 ? " (no buildable units)" : "");
+        print("Complete: ", unitCount - failed, " succeeded, ", failed, " failed", unitCount == 0 ? " (no buildable units)" : "");
         ok = failed == 0;
     }
     free(units);
