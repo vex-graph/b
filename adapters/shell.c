@@ -11,21 +11,21 @@
 ;;OVERVIEW
 /* MODULE: POSIX shell adapter; PUBLIC RECORD: SHELL_ADAPTER (shell.h).
  * METADATA: tools="/bin/sh"; capabilities="POSIX syntax-check; instance/exec runtime".
- * PRIVATE STATIC: buildShell — sh -n syntax checks; runShell — sh file execution.
+ * PRIVATE STATIC: buildShell, sh -n syntax checks; runShell, sh file execution.
  * RECORD FIELDS: name="shell", extension=".sh", build=buildShell, run=runShell.
  * No persistent state; program arguments and script paths are borrowed.
  */
 
-// Syntax-check each top-level shell script without executing it.
-static i32 buildShell(const char *project, char **output) {
-    char *prefix[] = { "/bin/sh", "-n" };
+/** Syntax-check each top-level shell script without executing it. */
+static i32 buildShell(const utf8 *project, utf8 **output) {
+    utf8 *prefix[] = { "/bin/sh", "-n" };
     return Util_checkSources(project, "/*.sh", prefix, 2, output);
 }
 
-// Run a script through POSIX sh and append the supplied arguments literally.
-static i32 runShell(const char *file, i32 argc, char **argv, bool buildArtifact) {
+/** Run a script through POSIX sh and append the supplied arguments literally. */
+static i32 runShell(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) buildArtifact;
-    char *prefix[] = { "/bin/sh", (char*) file };
+    utf8 *prefix[] = { "/bin/sh", (utf8*) file };
     return Util_runCommand(prefix, 2, argc, argv);
 }
 

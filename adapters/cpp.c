@@ -13,28 +13,28 @@
  * CXX_ADAPTER {cxx/.cc}, CPP_LONG_ADAPTER {c++/.cxx}; build=buildCpp, run=runCpp.
  * METADATA (all records): tools="CXX=c++";
  * capabilities="native build/exec; source instance rejects".
- * PRIVATE STATIC: compileCpp — compile explicit sources; buildCpp — discover
- * directory sources; runCpp — compile-before-launch, reject instance.
+ * PRIVATE STATIC: compileCpp, compile explicit sources; buildCpp, discover
+ * directory sources; runCpp, compile-before-launch, reject instance.
  * Temporary paths/source lists/argv freed; native child status preserved.
  */
 
 #include <stdlib.h>
 
-// Compile the provided C++23 sources into one external native executable.
-static i32 compileCpp(const char *project, char **sources, bytes count, char **output) {
-    if (count > SIZE_MAX / sizeof(char*) - 16) {
+/** Compile the provided C++23 sources into one external native executable. */
+static i32 compileCpp(const utf8 *project, utf8 **sources, bytes count, utf8 **output) {
+    if (count > SIZE_MAX / sizeof(utf8*) - 16) {
         THROW("C++ source count overflow");
         return EXIT_FAILURE;
     }
-    char *directory = Util_outputDirectory(project);
+    utf8 *directory = Util_outputDirectory(project);
     if (directory == nullptr)
         return EXIT_FAILURE;
     *output = Util_combine(directory, "/cpp-program");
     free(directory);
-    char **arguments = Util_allocate((count + 16) * sizeof(char*));
+    utf8 **arguments = Util_allocate((count + 16) * sizeof(utf8*));
     bytes n = 0;
-    const char *compiler = getenv("CXX");
-    arguments[n++] = (char*) (compiler != nullptr && *compiler ? compiler : "c++");
+    const utf8 *compiler = getenv("CXX");
+    arguments[n++] = (utf8*) (compiler != nullptr && *compiler ? compiler : "c++");
     arguments[n++] = "-std=c++23";
     arguments[n++] = "-Wall";
     arguments[n++] = "-Wextra";
@@ -46,7 +46,7 @@ static i32 compileCpp(const char *project, char **sources, bytes count, char **o
     arguments[n++] = "-mmacosx-version-min=14.0";
 #endif
     arguments[n++] = "-I";
-    arguments[n++] = (char*) project;
+    arguments[n++] = (utf8*) project;
     arguments[n++] = "-o";
     arguments[n++] = *output;
     for (bytes i = 0; i < count; ++i)
@@ -56,11 +56,11 @@ static i32 compileCpp(const char *project, char **sources, bytes count, char **o
     return status;
 }
 
-// Collect supported top-level C++ extensions and compile the project together.
-static i32 buildCpp(const char *project, char **output) {
+/** Collect supported top-level C++ extensions and compile the project together. */
+static i32 buildCpp(const utf8 *project, utf8 **output) {
     bytes count = 0;
     bool ok = false;
-    char **sources = Util_collectSources(project, "/*.{cpp,cc,cxx}", &count, &ok);
+    utf8 **sources = Util_collectSources(project, "/*.{cpp,cc,cxx}", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
     i32 status = compileCpp(project, sources, count, output);
@@ -68,18 +68,18 @@ static i32 buildCpp(const char *project, char **output) {
     return status;
 }
 
-// Compile one source entry for exec mode, then launch with forwarded arguments.
-static i32 runCpp(const char *file, i32 argc, char **argv, bool buildArtifact) {
+/** Compile one source entry for exec mode, then launch with forwarded arguments. */
+static i32 runCpp(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
     if (!buildArtifact) {
         THROW("C++ has no source runtime; use b.sh run exec");
         return EXIT_FAILURE;
     }
-    char *project = Util_projectDirectory(file);
-    char *output = nullptr;
-    char *sources[] = { (char*) file };
+    utf8 *project = Util_projectDirectory(file);
+    utf8 *output = nullptr;
+    utf8 *sources[] = { (utf8*) file };
     i32 status = compileCpp(project, sources, 1, &output);
     if (status == 0) {
-        char *prefix[] = { output };
+        utf8 *prefix[] = { output };
         status = Util_runCommand(prefix, 1, argc, argv);
     }
     free(output);

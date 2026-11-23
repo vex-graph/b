@@ -1,6 +1,7 @@
 #include "vex.h"
 #include "adapters/cargo.h"
 #include "b.h"
+#include "b/b_str.h"
 
 ;;DEFINITION
 /* Existing Cargo.toml owns the package graph and native target selection. Build
@@ -14,8 +15,8 @@
 /* MODULE: Cargo adapter. PUBLIC RECORD (cargo.h): CARGO_ADAPTER.
  * RECORD FIELDS: name="cargo", extension="Cargo.toml", build=buildCargo,
  * run=runCargo, tools="CARGO=cargo,rustc", capabilities="offline project build/run".
- * PRIVATE STATIC: tool — CARGO override; manifest — require regular Cargo.toml;
- * buildCargo — offline directory build; runCargo — literal manifest/name validation
+ * PRIVATE STATIC: tool, CARGO override; manifest, require regular Cargo.toml;
+ * buildCargo, offline directory build; runCargo, literal manifest/name validation
  * and offline native run, with program arguments forwarded after Cargo's --.
  * Temporary paths freed; target directory persists; child status preserved.
  */
@@ -24,15 +25,15 @@
 #include <string.h>
 #include <sys/stat.h>
 
-// Select the configured Cargo executable or the standard command name.
-static const char *tool() {
-    const char *value = getenv("CARGO");
+/** Select the configured Cargo executable or the standard command name. */
+static const utf8 *tool() {
+    const utf8 *value = getenv("CARGO");
     return value != nullptr && *value != '\0' ? value : "cargo";
 }
 
-// Return the project's regular Cargo manifest, reporting its absence otherwise.
-static char *manifest(const char *project) {
-    char *path = Util_combine(project, "/Cargo.toml");
+/** Return the project's regular Cargo manifest, reporting its absence otherwise. */
+static utf8 *manifest(const utf8 *project) {
+    utf8 *path = Util_combine(project, "/Cargo.toml");
     struct stat info;
     if (stat(path, &info) == 0 && S_ISREG(info.st_mode))
         return path;
@@ -41,19 +42,19 @@ static char *manifest(const char *project) {
     return nullptr;
 }
 
-// Build the existing Cargo package offline into b.sh's external target directory.
-static i32 buildCargo(const char *project, char **output) {
-    char *path = manifest(project);
+/** Build the existing Cargo package offline into b.sh's external target directory. */
+static i32 buildCargo(const utf8 *project, utf8 **output) {
+    utf8 *path = manifest(project);
     if (path == nullptr)
         return EXIT_FAILURE;
-    char *directory = Util_outputDirectory(project);
+    utf8 *directory = Util_outputDirectory(project);
     if (directory == nullptr) {
         free(path);
         return EXIT_FAILURE;
     }
-    char *target = Util_combine(directory, "/cargo-target");
+    utf8 *target = Util_combine(directory, "/cargo-target");
     free(directory);
-    char *arguments[] = { (char*) tool(), "build", "--offline", "--manifest-path", path,
+    utf8 *arguments[] = { (utf8*) tool(), "build", "--offline", "--manifest-path", path,
         "--target-dir", target, nullptr, nullptr };
     i32 status = Util_executeBuild(arguments);
     if (status == 0)
@@ -64,33 +65,33 @@ static i32 buildCargo(const char *project, char **output) {
     return status;
 }
 
-// Validate a Cargo.toml input and run its package offline, forwarding program args.
-static i32 runCargo(const char *file, i32 argc, char **argv, bool buildArtifact) {
-    char *path = realpath(file, nullptr);
+/** Validate a Cargo.toml input and run its package offline, forwarding program args. */
+static i32 runCargo(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+    utf8 *path = realpath(file, nullptr);
     if (path == nullptr) {
         THROW("Cargo manifest cannot be resolved");
         return EXIT_FAILURE;
     }
-    const char *name = strrchr(path, '/');
-    if (name == nullptr || strcmp(name + 1, "Cargo.toml") != 0) {
+    const utf8 *name = strrchr(path, '/');
+    if (name == nullptr || !bStrEq(name + 1, "Cargo.toml")) {
         THROW("Cargo run requires the project's Cargo.toml file");
         free(path);
         return EXIT_FAILURE;
     }
-    char *parent = Util_projectDirectory(path);
-    char *project = realpath(parent, nullptr);
+    utf8 *parent = Util_projectDirectory(path);
+    utf8 *project = realpath(parent, nullptr);
     free(parent);
     if (project == nullptr) {
         THROW("Cargo project cannot be resolved");
         free(path);
         return EXIT_FAILURE;
     }
-    char *target = nullptr;
+    utf8 *target = nullptr;
     i32 status = 0;
     if (buildArtifact)
         status = buildCargo(project, &target);
     else {
-        char *directory = Util_outputDirectory(project);
+        utf8 *directory = Util_outputDirectory(project);
         if (directory != nullptr) {
             target = Util_combine(directory, "/cargo-target");
             free(directory);
@@ -98,7 +99,7 @@ static i32 runCargo(const char *file, i32 argc, char **argv, bool buildArtifact)
             status = EXIT_FAILURE;
     }
     if (status == 0) {
-        char *prefix[] = { (char*) tool(), "run", "--offline", "--manifest-path", path,
+        utf8 *prefix[] = { (utf8*) tool(), "run", "--offline", "--manifest-path", path,
             "--target-dir", target, "--" };
         status = Util_runCommand(prefix, 8, argc, argv);
     }

@@ -1,6 +1,7 @@
 #include "vex.h"
 #include "adapters/npm.h"
 #include "b.h"
+#include "b/b_str.h"
 
 ;;DEFINITION
 /* b.sh delegates to the scripts declared in package.json, never invents a bundler.
@@ -11,8 +12,8 @@
  */
 ;;OVERVIEW
 /* MODULE: npm backend; PUBLIC RECORD: NPM_ADAPTER (npm.h).
- * PRIVATE STATIC: hasManifest — validate package.json; buildNpm — native build
- * script; runNpm — require literal package.json entry and forward start args.
+ * PRIVATE STATIC: hasManifest, validate package.json; buildNpm, native build
+ * script; runNpm, require literal package.json entry and forward start args.
  * RECORD FIELDS: name="npm", extension="package.json", build=buildNpm, run=runNpm.
  * METADATA: tools="npm,node"; capabilities="build/start scripts; exec builds then starts".
  * Return paths are caller-owned; child diagnostics/status are preserved.
@@ -22,9 +23,9 @@
 #include <string.h>
 #include <sys/stat.h>
 
-// Require a regular package.json before delegating npm script operations.
-static bool hasManifest(const char *project) {
-    char *path = Util_combine(project, "/package.json");
+/** Require a regular package.json before delegating npm script operations. */
+static bool hasManifest(const utf8 *project) {
+    utf8 *path = Util_combine(project, "/package.json");
     struct stat info;
     bool ok = stat(path, &info) == 0 && S_ISREG(info.st_mode);
     free(path);
@@ -33,36 +34,36 @@ static bool hasManifest(const char *project) {
     return ok;
 }
 
-// Run the project's declared npm build script without installing dependencies.
-static i32 buildNpm(const char *project, char **output) {
+/** Run the project's declared npm build script without installing dependencies. */
+static i32 buildNpm(const utf8 *project, utf8 **output) {
     if (!hasManifest(project))
         return EXIT_FAILURE;
-    char *arguments[] = { "npm", "--prefix", (char*) project, "run", "build", nullptr, nullptr };
+    utf8 *arguments[] = { "npm", "--prefix", (utf8*) project, "run", "build", nullptr, nullptr };
     i32 status = Util_executeBuild(arguments);
     if (status == 0)
         *output = Util_combine(project, "");
     return status;
 }
 
-// Run the declared start script, building first only for exec mode.
-static i32 runNpm(const char *file, i32 argc, char **argv, bool buildArtifact) {
-    char *path = realpath(file, nullptr);
+/** Run the declared start script, building first only for exec mode. */
+static i32 runNpm(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+    utf8 *path = realpath(file, nullptr);
     if (path == nullptr) {
         THROW("npm manifest path is unavailable");
         return EXIT_FAILURE;
     }
-    const char *name = strrchr(path, '/');
-    if (name == nullptr || strcmp(name + 1, "package.json") != 0) {
+    const utf8 *name = strrchr(path, '/');
+    if (name == nullptr || !bStrEq(name + 1, "package.json")) {
         THROW("npm run requires the project's package.json file");
         free(path);
         return EXIT_FAILURE;
     }
-    char *project = Util_projectDirectory(path);
+    utf8 *project = Util_projectDirectory(path);
     free(path);
-    char *output = nullptr;
+    utf8 *output = nullptr;
     i32 status = buildArtifact ? buildNpm(project, &output) : 0;
     if (status == 0) {
-        char *prefix[] = { "npm", "--prefix", project, "run", "start", "--" };
+        utf8 *prefix[] = { "npm", "--prefix", project, "run", "start", "--" };
         status = Util_runCommand(prefix, 6, argc, argv);
     }
     free(output);

@@ -11,21 +11,21 @@
 ;;OVERVIEW
 /* MODULE: PHP adapter; PUBLIC RECORD: PHP_ADAPTER (php.h).
  * METADATA: tools="php"; capabilities="parse-check; instance/exec CLI runtime".
- * PRIVATE STATIC: buildPhp — independent parse checks; runPhp — CLI execution.
+ * PRIVATE STATIC: buildPhp, independent parse checks; runPhp, CLI execution.
  * RECORD FIELDS: name="php", extension=".php", build=buildPhp, run=runPhp.
  * Arguments are borrowed, checker argv temporary, child status preserved.
  */
 
-// Lint each top-level PHP source without executing application code.
-static i32 buildPhp(const char *project, char **output) {
-    char *prefix[] = { "php", "-l" };
+/** Lint each top-level PHP source without executing application code. */
+static i32 buildPhp(const utf8 *project, utf8 **output) {
+    utf8 *prefix[] = { "php", "-l" };
     return Util_checkSources(project, "/*.php", prefix, 2, output);
 }
 
-// Execute a PHP source file through the CLI and forward its arguments.
-static i32 runPhp(const char *file, i32 argc, char **argv, bool buildArtifact) {
+/** Execute a PHP source file through the CLI and forward its arguments. */
+static i32 runPhp(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) buildArtifact;
-    char *prefix[] = { "php", (char*) file };
+    utf8 *prefix[] = { "php", (utf8*) file };
     return Util_runCommand(prefix, 2, argc, argv);
 }
 

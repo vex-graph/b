@@ -1,9 +1,11 @@
-// MODULE: R adapter — Rscript execution and parse-only builds; no owned class.
-// DEFINITION: Uses the installed Rscript with --vanilla for reproducible startup.
-// Both run modes execute source; R has no standalone executable compilation here.
-// Build parses each top-level .R/.r file without evaluating it and returns the
-// checked directory, not a fabricated binary. Package installation is not owned.
-// OVERVIEW: buildR; runR; R_ADAPTER and R_LOWER_ADAPTER (.R/.r aliases).
+/**
+ * MODULE: R adapter, Rscript execution and parse-only builds; no owned class.
+ * DEFINITION: Uses the installed Rscript with --vanilla for reproducible startup.
+ * Both run modes execute source; R has no standalone executable compilation here.
+ * Build parses each top-level .R/.r file without evaluating it and returns the
+ * checked directory, not a fabricated binary. Package installation is not owned.
+ * OVERVIEW: buildR; runR; R_ADAPTER and R_LOWER_ADAPTER (.R/.r aliases).
+ */
 
 #include "vex.h"
 #include "adapters/r.h"
@@ -18,7 +20,7 @@
  */
 ;;OVERVIEW
 /* MODULE: R adapter; exported records: R_ADAPTER/R_LOWER_ADAPTER (r.h).
- * PRIVATE STATIC: buildR — parse-only directory validation; runR — Rscript run.
+ * PRIVATE STATIC: buildR, parse-only directory validation; runR, Rscript run.
  * RECORD FIELDS: R_ADAPTER {name="r", extension=".R", build=buildR, run=runR};
  * R_LOWER_ADAPTER {name="R", extension=".r", build=buildR, run=runR}.
  * METADATA (both): tools="Rscript"; capabilities="parse-check; instance/exec runtime".
@@ -27,14 +29,14 @@
 
 #include <stdlib.h>
 
-// Parse every top-level R source without evaluating it.
-static i32 buildR(const char *project, char **output) {
+/** Parse every top-level R source without evaluating it. */
+static i32 buildR(const utf8 *project, utf8 **output) {
     bytes count = 0;
     bool ok = false;
-    char **sources = Util_collectSources(project, "/*.[Rr]", &count, &ok);
+    utf8 **sources = Util_collectSources(project, "/*.[Rr]", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
-    char **arguments = Util_allocate((count + 6) * sizeof(char*));
+    utf8 **arguments = Util_allocate((count + 6) * sizeof(utf8*));
     bytes n = 0;
     arguments[n++] = "Rscript";
     arguments[n++] = "--vanilla";
@@ -50,13 +52,13 @@ static i32 buildR(const char *project, char **output) {
     return status;
 }
 
-// Run an R script with a clean startup and forward its trailing arguments.
-static i32 runR(const char *file, i32 argc, char **argv, bool buildArtifact) {
-    (discard) buildArtifact; // Interpreter execution in both modes; no packaging.
-    char **arguments = Util_allocate(((bytes) argc + 4) * sizeof(char*));
+/** Run an R script with a clean startup and forward its trailing arguments. */
+static i32 runR(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+    (discard) buildArtifact;
+    utf8 **arguments = Util_allocate(((bytes) argc + 4) * sizeof(utf8*));
     arguments[0] = "Rscript";
     arguments[1] = "--vanilla";
-    arguments[2] = (char*) file;
+    arguments[2] = (utf8*) file;
     for (i32 i = 0; i < argc; ++i)
         arguments[i + 3] = argv[i];
     i32 status = Util_execute(arguments);

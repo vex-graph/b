@@ -11,26 +11,26 @@
 ;;OVERVIEW
 /* MODULE: Swift adapter; PUBLIC RECORD: SWIFT_ADAPTER (swift.h).
  * METADATA: tools="swift,swiftc"; capabilities="native build/exec; script instance".
- * PRIVATE STATIC: compileSwift — compile explicit sources into external program;
- * buildSwift — discover directory sources; runSwift — interpreter or native exec.
+ * PRIVATE STATIC: compileSwift, compile explicit sources into external program;
+ * buildSwift, discover directory sources; runSwift, interpreter or native exec.
  * RECORD FIELDS: name="swift", extension=".swift", build=buildSwift, run=runSwift.
  * Paths/argv are temporary, source strings borrowed; child exit status propagates.
  */
 
 #include <stdlib.h>
 
-// Compile the supplied Swift sources into an external native executable.
-static i32 compileSwift(const char *project, char **sources, bytes count, char **output) {
-    if (count > SIZE_MAX / sizeof(char*) - 8) {
+/** Compile the supplied Swift sources into an external native executable. */
+static i32 compileSwift(const utf8 *project, utf8 **sources, bytes count, utf8 **output) {
+    if (count > SIZE_MAX / sizeof(utf8*) - 8) {
         THROW("Swift source count overflow");
         return EXIT_FAILURE;
     }
-    char *directory = Util_outputDirectory(project);
+    utf8 *directory = Util_outputDirectory(project);
     if (directory == nullptr)
         return EXIT_FAILURE;
     *output = Util_combine(directory, "/swift-program");
     free(directory);
-    char **arguments = Util_allocate((count + 8) * sizeof(char*));
+    utf8 **arguments = Util_allocate((count + 8) * sizeof(utf8*));
     bytes n = 0;
     arguments[n++] = "swiftc";
     arguments[n++] = "-warnings-as-errors";
@@ -47,11 +47,11 @@ static i32 compileSwift(const char *project, char **sources, bytes count, char *
     return status;
 }
 
-// Discover top-level Swift sources and compile them together.
-static i32 buildSwift(const char *project, char **output) {
+/** Discover top-level Swift sources and compile them together. */
+static i32 buildSwift(const utf8 *project, utf8 **output) {
     bytes count = 0;
     bool ok = false;
-    char **sources = Util_collectSources(project, "/*.swift", &count, &ok);
+    utf8 **sources = Util_collectSources(project, "/*.swift", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
     i32 status = compileSwift(project, sources, count, output);
@@ -59,18 +59,18 @@ static i32 buildSwift(const char *project, char **output) {
     return status;
 }
 
-// Interpret the Swift file or compile then launch it, forwarding program arguments.
-static i32 runSwift(const char *file, i32 argc, char **argv, bool buildArtifact) {
+/** Interpret the Swift file or compile then launch it, forwarding program arguments. */
+static i32 runSwift(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
     if (!buildArtifact) {
-        char *prefix[] = { "swift", (char*) file };
+        utf8 *prefix[] = { "swift", (utf8*) file };
         return Util_runCommand(prefix, 2, argc, argv);
     }
-    char *project = Util_projectDirectory(file);
-    char *output = nullptr;
-    char *sources[] = { (char*) file };
+    utf8 *project = Util_projectDirectory(file);
+    utf8 *output = nullptr;
+    utf8 *sources[] = { (utf8*) file };
     i32 status = compileSwift(project, sources, 1, &output);
     if (status == 0) {
-        char *prefix[] = { output };
+        utf8 *prefix[] = { output };
         status = Util_runCommand(prefix, 1, argc, argv);
     }
     free(output);

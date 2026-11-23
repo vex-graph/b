@@ -1,9 +1,11 @@
-// CLASS: Python language adapter.
-// DEFINITION: Python is interpreted, so `run instance` and `run exec` both
-// launch the interpreter on the file; there is no compiled artifact to build.
-// `build` is a bytecode syntax check: py_compile runs with PYTHONPYCACHEPREFIX
-// redirected to the out-of-tree output directory, so no __pycache__ is written
-// into the source tree.
+/**
+ * CLASS: Python language adapter.
+ * DEFINITION: Python is interpreted, so `run instance` and `run exec` both
+ * launch the interpreter on the file; there is no compiled artifact to build.
+ * `build` is a bytecode syntax check: py_compile runs with PYTHONPYCACHEPREFIX
+ * redirected to the out-of-tree output directory, so no __pycache__ is written
+ * into the source tree.
+ */
 
 #include "vex.h"
 #include "adapters/python.h"
@@ -19,8 +21,8 @@
 ;;OVERVIEW
 /* MODULE: Python adapter; exported record: PYTHON_ADAPTER (adapters/python.h).
  * METADATA: tools="python3"; capabilities="bytecode check; instance/exec runtime".
- * PRIVATE STATIC: buildPython — collect .py inputs and invoke py_compile with
- * PYTHONPYCACHEPREFIX; runPython — interpreter invocation with program args.
+ * PRIVATE STATIC: buildPython, collect .py inputs and invoke py_compile with
+ * PYTHONPYCACHEPREFIX; runPython, interpreter invocation with program args.
  * RECORD FIELDS: name="python"; extension=".py";
  * build=buildPython; run=runPython.
  * CAPABILITIES: source execution, bytecode check, exit-code forwarding;
@@ -29,14 +31,14 @@
 
 #include <stdlib.h>
 
-// Byte-compile project Python sources with the cache redirected out of source.
-static i32 buildPython(const char *project, char **output) {
+/** Byte-compile project Python sources with the cache redirected out of source. */
+static i32 buildPython(const utf8 *project, utf8 **output) {
     bytes count = 0;
     bool ok = false;
-    char **sources = Util_collectSources(project, "/*.py", &count, &ok);
+    utf8 **sources = Util_collectSources(project, "/*.py", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
-    char *directory = Util_outputDirectory(project);
+    utf8 *directory = Util_outputDirectory(project);
     if (directory == nullptr) {
         Util_freeSources(sources, count);
         return EXIT_FAILURE;
@@ -47,14 +49,14 @@ static i32 buildPython(const char *project, char **output) {
         Util_freeSources(sources, count);
         return EXIT_FAILURE;
     }
-    char **arguments = Util_allocate((count + 4) * sizeof(char*));
+    utf8 **arguments = Util_allocate((count + 4) * sizeof(utf8*));
     bytes n = 0;
     arguments[n++] = "python3";
     arguments[n++] = "-m";
     arguments[n++] = "py_compile";
     for (bytes i = 0; i < count; ++i)
         arguments[n++] = sources[i];
-    char **environment = Util_environmentWith("PYTHONPYCACHEPREFIX", *output);
+    utf8 **environment = Util_environmentWith("PYTHONPYCACHEPREFIX", *output);
     i32 status = Util_executeWithEnvironment(arguments, environment);
     Util_freeEnvironment(environment);
     free(arguments);
@@ -63,13 +65,13 @@ static i32 buildPython(const char *project, char **output) {
     return status;
 }
 
-// Execute the source file with Python and forward the remaining arguments.
-static i32 runPython(const char *file, i32 argc, char **argv, bool buildArtifact) {
-    (discard) buildArtifact; // interpreted: instance and exec both run the source
-    char **arguments = Util_allocate(((bytes) argc + 3) * sizeof(char*));
+/** Execute the source file with Python and forward the remaining arguments. */
+static i32 runPython(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+    (discard) buildArtifact;
+    utf8 **arguments = Util_allocate(((bytes) argc + 3) * sizeof(utf8*));
     bytes n = 0;
     arguments[n++] = "python3";
-    arguments[n++] = (char*) file;
+    arguments[n++] = (utf8*) file;
     for (i32 i = 0; i < argc; ++i)
         arguments[n++] = argv[i];
     i32 status = Util_execute(arguments);

@@ -1,8 +1,10 @@
-// CLASS: Rust language adapter.
-// DEFINITION: Compiles a directory's single crate root with rustc (edition
-// 2021) into one native executable; `run exec` compiles a single file on demand.
-// Rust has no source runtime, so `run instance` rejects. Requires rustc on PATH;
-// b.sh does not download it. Cargo projects use the separate cargo adapter.
+/**
+ * CLASS: Rust language adapter.
+ * DEFINITION: Compiles a directory's single crate root with rustc (edition
+ * 2021) into one native executable; `run exec` compiles a single file on demand.
+ * Rust has no source runtime, so `run instance` rejects. Requires rustc on PATH;
+ * b.sh does not download it. Cargo projects use the separate cargo adapter.
+ */
 
 #include "vex.h"
 #include "adapters/rust.h"
@@ -17,9 +19,9 @@
  */
 ;;OVERVIEW
 /* MODULE: Rust adapter; exported record: RUST_ADAPTER (adapters/rust.h).
- * PRIVATE STATIC: compileRust — rustc edition-2021 compilation;
- * buildRust — choose directory crate root and compile;
- * runRust — reject instance or compile then execute with program args.
+ * PRIVATE STATIC: compileRust, rustc edition-2021 compilation;
+ * buildRust, choose directory crate root and compile;
+ * runRust, reject instance or compile then execute with program args.
  * RECORD FIELDS: name="rust"; extension=".rs"; build=buildRust; run=runRust.
  * METADATA: tools="rustc"; capabilities="native build/exec; source instance rejects".
  * OWNERSHIP: temporary paths/source lists/argv are released after child status.
@@ -29,17 +31,17 @@
 #include <string.h>
 #include <unistd.h>
 
-// Compile the chosen Rust crate root with rustc edition 2021.
-static i32 compileRust(const char *project, char **sources, bytes count, char **output) {
-    if (count > SIZE_MAX / sizeof(char*) - 8) {
+/** Compile the chosen Rust crate root with rustc edition 2021. */
+static i32 compileRust(const utf8 *project, utf8 **sources, bytes count, utf8 **output) {
+    if (count > SIZE_MAX / sizeof(utf8*) - 8) {
         THROW("source argument count overflow");
         return EXIT_FAILURE;
     }
-    char *directory = Util_outputDirectory(project);
+    utf8 *directory = Util_outputDirectory(project);
     if (directory == nullptr)
         return EXIT_FAILURE;
     *output = Util_combine(directory, "/program");
-    char **arguments = Util_allocate((count + 8) * sizeof(char*));
+    utf8 **arguments = Util_allocate((count + 8) * sizeof(utf8*));
     bytes n = 0;
     arguments[n++] = "rustc";
     arguments[n++] = "--edition=2021";
@@ -53,16 +55,15 @@ static i32 compileRust(const char *project, char **sources, bytes count, char **
     return status;
 }
 
-// Choose main.rs or the sole Rust source as crate root and compile it.
-static i32 buildRust(const char *project, char **output) {
+/** Choose main.rs or the sole Rust source as crate root and compile it. */
+static i32 buildRust(const utf8 *project, utf8 **output) {
     bytes count = 0;
     bool ok = false;
-    char **sources = Util_collectSources(project, "/*.rs", &count, &ok);
+    utf8 **sources = Util_collectSources(project, "/*.rs", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
-    // rustc accepts one crate root; sibling modules are discovered by `mod`.
-    char *mainFile = Util_combine(project, "/main.rs");
-    char *root = access(mainFile, R_OK) == 0 ? mainFile : count == 1 ? sources[0] : nullptr;
+    utf8 *mainFile = Util_combine(project, "/main.rs");
+    utf8 *root = access(mainFile, R_OK) == 0 ? mainFile : count == 1 ? sources[0] : nullptr;
     i32 status = EXIT_FAILURE;
     if (root == nullptr)
         THROW("multiple Rust files need a main.rs crate root; Cargo projects are not supported yet");
@@ -73,18 +74,18 @@ static i32 buildRust(const char *project, char **output) {
     return status;
 }
 
-// Compile one Rust entry source for exec mode and run it with forwarded arguments.
-static i32 runRust(const char *file, i32 argc, char **argv, bool buildArtifact) {
+/** Compile one Rust entry source for exec mode and run it with forwarded arguments. */
+static i32 runRust(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
     if (!buildArtifact) {
         THROW("Rust has no source runtime; use b.sh run exec to compile then launch");
         return EXIT_FAILURE;
     }
-    char *project = Util_projectDirectory(file);
-    char *output = nullptr;
-    char *sources[1] = { (char*) file };
+    utf8 *project = Util_projectDirectory(file);
+    utf8 *output = nullptr;
+    utf8 *sources[1] = { (utf8*) file };
     i32 status = compileRust(project, sources, 1, &output);
     if (status == 0) {
-        char **arguments = Util_allocate(((bytes) argc + 2) * sizeof(char*));
+        utf8 **arguments = Util_allocate(((bytes) argc + 2) * sizeof(utf8*));
         arguments[0] = output;
         for (i32 i = 0; i < argc; ++i)
             arguments[i + 1] = argv[i];
@@ -96,12 +97,12 @@ static i32 runRust(const char *file, i32 argc, char **argv, bool buildArtifact) 
     return status;
 }
 
-// Return an owned path to the top-level Rust source that defines main(), or nullptr.
-static char *entryRust(const char *project) {
+/** Return an owned path to the top-level Rust source that defines main(), or nullptr. */
+static utf8 *entryRust(const utf8 *project) {
     bytes count = 0;
     bool ok = false;
-    char **sources = Util_collectSources(project, "/*.rs", &count, &ok);
-    char *found = nullptr;
+    utf8 **sources = Util_collectSources(project, "/*.rs", &count, &ok);
+    utf8 *found = nullptr;
     for (bytes i = 0; ok && i < count && found == nullptr; ++i)
         if (Util_fileContains(sources[i], "fn main("))
             found = Util_combine(sources[i], "");

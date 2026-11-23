@@ -13,8 +13,8 @@
 ;;OVERVIEW
 /* MODULE: CMake build backend; exported record: CMAKE_ADAPTER (cmake.h).
  * METADATA: tools="cmake"; capabilities="project configure/build; no source run".
- * PRIVATE STATIC: buildCmake — require CMakeLists.txt, configure, build;
- * runCmake — reject source execution and explain artifact selection.
+ * PRIVATE STATIC: buildCmake, require CMakeLists.txt, configure, build;
+ * runCmake, reject source execution and explain artifact selection.
  * RECORD FIELDS: name="cmake"; extension=nullptr (no filename dispatch);
  * build=buildCmake; run=runCmake.
  * Temporary paths are freed; CMake's external build state persists for reuse.
@@ -23,9 +23,9 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
-// Configure and build a declared CMake project in b.sh's external build directory.
-static i32 buildCmake(const char *project, char **output) {
-    char *manifest = Util_combine(project, "/CMakeLists.txt");
+/** Configure and build a declared CMake project in b.sh's external build directory. */
+static i32 buildCmake(const utf8 *project, utf8 **output) {
+    utf8 *manifest = Util_combine(project, "/CMakeLists.txt");
     struct stat info;
     bool valid = stat(manifest, &info) == 0 && S_ISREG(info.st_mode);
     free(manifest);
@@ -33,22 +33,22 @@ static i32 buildCmake(const char *project, char **output) {
         THROW("CMake build requires CMakeLists.txt in the selected directory");
         return EXIT_FAILURE;
     }
-    char *directory = Util_outputDirectory(project);
+    utf8 *directory = Util_outputDirectory(project);
     if (directory == nullptr)
         return EXIT_FAILURE;
     *output = Util_combine(directory, "/cmake");
     free(directory);
-    char *configure[] = { "cmake", "-S", (char*) project, "-B", *output, nullptr, nullptr };
+    utf8 *configure[] = { "cmake", "-S", (utf8*) project, "-B", *output, nullptr, nullptr };
     i32 status = Util_executeBuild(configure);
     if (status == 0) {
-        char *build[] = { "cmake", "--build", *output, nullptr, nullptr };
+        utf8 *build[] = { "cmake", "--build", *output, nullptr, nullptr };
         status = Util_executeBuild(build);
     }
     return status;
 }
 
-// Reject source execution because CMake does not identify a unique runnable target.
-static i32 runCmake(const char *file, i32 argc, char **argv, bool buildArtifact) {
+/** Reject source execution because CMake does not identify a unique runnable target. */
+static i32 runCmake(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) file;
     (discard) argc;
     (discard) argv;

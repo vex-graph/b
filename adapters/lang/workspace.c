@@ -1,7 +1,9 @@
 #include "vex.h"
 #include "adapters/lang/workspace.h"
+#include "adapters/lang/workspace_internal.h"
 #include "adapters/lang/adapter.h"
 #include "b.h"
+#include "b/b_str.h"
 
 ;;DEFINITION
 /* The standalone workspace command borrows the assess/build separation from
@@ -18,11 +20,11 @@
 ;;OVERVIEW
 /* MODULE: recursive workspace builder; public entry: Workspace_command.
  * PRIVATE SLOT RECORDS:
- * ScanSlot: char *path — owned directory; bool owned — ancestor manifest owns it.
- * BuildSlot: char *path — borrowed scan path; const Adapter *adapter — registry.
- * PRIVATE: grow — checked directory/task storage; ignored — traversal exclusions;
- * broad — sensitive root admission; addUnit — deduplicate and reject ambiguity;
- * assess — iterative directory inventory; Workspace_command — assess, confirm, build/free.
+ * ScanSlot: utf8 *path, owned directory; bool owned, ancestor manifest owns it.
+ * BuildSlot: utf8 *path, borrowed scan path; const Adapter *adapter, registry.
+ * PRIVATE: grow, checked directory/task storage; ignored, traversal exclusions;
+ * broad, sensitive root admission; addUnit, deduplicate and reject ambiguity;
+ * assess, iterative directory inventory; Workspace_command, assess, confirm, build/free.
  * All arrays grow cold; paths survive builds and are freed after all children.
  * Scan errors prevent any build; build failures continue and return nonzero.
  */
@@ -33,36 +35,65 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-typedef struct ScanSlot { char *path; bool owned; } ScanSlot;
-typedef struct BuildSlot { char *path; const Adapter *adapter; } BuildSlot;
+
 
 ;;SETTER
-static inline fn ScanSlot_setPath(ScanSlot *self, char *path) { (*self).path = path; }
+static inline fn ScanSlot_setPath(ScanSlot *self, utf8 *path)
+{
+    (*self).path = path;
+}
 ;;SETTER
-static inline fn ScanSlot_setOwned(ScanSlot *self, bool owned) { (*self).owned = owned; }
+static inline fn ScanSlot_setOwned(ScanSlot *self, bool owned)
+{
+    (*self).owned = owned;
+}
 ;;GETTER
-static inline char *BuildSlot_path(const BuildSlot *self) { return (*self).path; }
+static inline utf8 *BuildSlot_path(const BuildSlot *self)
+{
+    return (*self).path;
+}
 ;;SETTER
-static inline fn BuildSlot_setPath(BuildSlot *self, char *path) { (*self).path = path; }
+static inline fn BuildSlot_setPath(BuildSlot *self, utf8 *path)
+{
+    (*self).path = path;
+}
 ;;GETTER
-static inline const Adapter *BuildSlot_adapter(const BuildSlot *self) { return (*self).adapter; }
+static inline const Adapter *BuildSlot_adapter(const BuildSlot *self)
+{
+    return (*self).adapter;
+}
 ;;SETTER
-static inline fn BuildSlot_setAdapter(BuildSlot *self, const Adapter *adapter) { (*self).adapter = adapter; }
+static inline fn BuildSlot_setAdapter(BuildSlot *self, const Adapter *adapter)
+{
+    (*self).adapter = adapter;
+}
 ;;GETTER
-static inline const char *Adapter_name(const Adapter *self) { return (*self).name; }
+static inline const utf8 *Adapter_name(const Adapter *self)
+{
+    return (*self).name;
+}
 ;;GETTER
-static inline const char *Adapter_tools(const Adapter *self) { return (*self).tools; }
+static inline const utf8 *Adapter_tools(const Adapter *self)
+{
+    return (*self).tools;
+}
 ;;GETTER
-static inline i32 (*Adapter_build(const Adapter *self))(const char *, char **) { return (*self).build; }
+static inline i32 (*Adapter_build(const Adapter *self))(const utf8 *, utf8 **)
+{
+    return (*self).build;
+}
 ;;GETTER
-static inline const char *dirent_d_name(const struct dirent *self) { return (*self).d_name; }
+static inline const utf8 *dirent_d_name(const struct dirent *self)
+{
+    return (*self).d_name;
+}
 
-// Review thresholds are safety prompts, never hard rejection/collection limits.
+/** Review thresholds are safety prompts, never hard rejection/collection limits. */
 #define WORKSPACE_REVIEW_FILES 1000u
 #define WORKSPACE_REVIEW_UNITS 100u
 #define WORKSPACE_INITIAL_CAPACITY 16u
 
-// Grow the cold slot directory with overflow checks, preserving old storage on error.
+/** Grow the cold slot directory with overflow checks, preserving old storage on error. */
 static bool grow(bytes count, bytes size, bytes *capacity, any *storage) {
     if (count < *capacity)
         return true;
@@ -82,54 +113,50 @@ static bool grow(bytes count, bytes size, bytes *capacity, any *storage) {
     return true;
 }
 
-// Fixed generated/cache/control names are excluded; ordinary dot directories remain.
-static bool ignored(const char *name) {
-    const char *names[] = { ".", "..", ".git", ".hg", ".svn", "node_modules",
+/** Fixed generated/cache/control names are excluded; ordinary dot directories remain. */
+static bool ignored(const utf8 *name) {
+    const utf8 *names[] = { ".", "..", ".git", ".hg", ".svn", "node_modules",
         "target", "build", "dist", "out", ".cache", "__pycache__", ".venv", "venv" };
     for (bytes i = 0; i < sizeof names / sizeof names[0]; ++i)
-        if (strcmp(name, names[i]) == 0)
+        if (bStrEq(name, names[i]))
             return true;
     return false;
 }
 
-// Detect filesystem/home roots and common broad user folders after canonicalization.
-static bool broad(const char *root) {
-    if (strcmp(root, "/") == 0)
+/** Detect filesystem/home roots and common broad user folders after canonicalization. */
+static bool broad(const utf8 *root) {
+    if (bStrEq(root, "/"))
         return true;
-    const char *name = strrchr(root, '/');
-    if (name != nullptr && (strcmp(name, "/Downloads") == 0 || strcmp(name, "/Documents") == 0 ||
-                            strcmp(name, "/Desktop") == 0))
+    const utf8 *name = strrchr(root, '/');
+    if (name != nullptr && (bStrEq(name, "/Downloads") || bStrEq(name, "/Documents") ||
+                            bStrEq(name, "/Desktop")))
         return true;
-    const char *home = getenv("HOME");
-    char *resolved = home == nullptr ? nullptr : realpath(home, nullptr);
+    const utf8 *home = getenv("HOME");
+    utf8 *resolved = home == nullptr ? nullptr : realpath(home, nullptr);
     bytes length = strlen(root);
-    bool result = resolved != nullptr && strncmp(root, resolved, length) == 0 &&
+    bool result = resolved != nullptr && bStrPrefixN(root, resolved, length) &&
         (resolved[length] == '\0' || resolved[length] == '/');
     free(resolved);
     return result;
 }
 
-// Add one build unit per callback and directory, rejecting ambiguous native groups.
-static bool addUnit(char *path, const Adapter *adapter, BuildSlot **units, bytes *count, bytes *capacity) {
+/** Add one build unit per callback and directory, rejecting ambiguous native groups. */
+static bool addUnit(utf8 *path, const Adapter *adapter, BuildSlot **units, bytes *count, bytes *capacity) {
     for (bytes i = 0; i < *count; ++i) {
         BuildSlot *unit = &(*units)[i];
-        if (strcmp(BuildSlot_path(unit), path) != 0)
+        if (!bStrEq(BuildSlot_path(unit), path))
             continue;
         const Adapter *prior = BuildSlot_adapter(unit);
         if (Adapter_build(prior) == Adapter_build(adapter))
             return true;
-        const char *adapterName = Adapter_name(adapter);
-        const char *priorName = Adapter_name(prior);
-        bool native = strcmp(adapterName, "c") == 0 || strcmp(adapterName, "objc") == 0 ||
-            strcmp(adapterName, "cpp") == 0 || strcmp(adapterName, "cxx") == 0 || strcmp(adapterName, "c++") == 0;
-        bool priorNative = strcmp(priorName, "c") == 0 || strcmp(priorName, "objc") == 0 ||
-            strcmp(priorName, "cpp") == 0 || strcmp(priorName, "cxx") == 0 || strcmp(priorName, "c++") == 0;
+        const utf8 *adapterName = Adapter_name(adapter);
+        const utf8 *priorName = Adapter_name(prior);
+        bool native = bStrEq(adapterName, "c") || bStrEq(adapterName, "objc") ||
+            bStrEq(adapterName, "cpp") || bStrEq(adapterName, "cxx") || bStrEq(adapterName, "c++");
+        bool priorNative = bStrEq(priorName, "c") || bStrEq(priorName, "objc") ||
+            bStrEq(priorName, "cpp") || bStrEq(priorName, "cxx") || bStrEq(priorName, "c++");
         if (native && priorNative) {
-            // A directory that carries b's OWN manifest is explicit: the author
-            // has named the unit, so the C/ObjC split is a decision, not an
-            // accident. External manifests (Cargo.toml, CMakeLists.txt, ...)
-            // still own their directories through the scan above.
-            char *manifest = Util_combine(path, "/b.assembly.json");
+            utf8 *manifest = Util_combine(path, "/b.assembly.json");
             struct stat info;
             bool explicitUnit = lstat(manifest, &info) == 0 && S_ISREG(info.st_mode);
             free(manifest);
@@ -149,12 +176,12 @@ static bool addUnit(char *path, const Adapter *adapter, BuildSlot **units, bytes
     return true;
 }
 
-// Inventory every eligible directory before invoking any native tool.
+/** Inventory every eligible directory before invoking any native tool. */
 static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
                    BuildSlot **units, bytes *unitCount, bytes *unitCapacity,
                    bytes *files, bytes *unassigned, bytes *skipped) {
-    const char *state = getenv("B_HOME");
-    char *cache = state == nullptr ? nullptr : realpath(state, nullptr);
+    const utf8 *state = getenv("B_HOME");
+    utf8 *cache = state == nullptr ? nullptr : realpath(state, nullptr);
     bool ok = true;
     for (bytes index = 0; index < *dirCount && ok; ++index) {
         ScanSlot current = (*dirs)[index];
@@ -166,18 +193,17 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
             break;
         }
         const Adapter *owner = nullptr;
-        // Detect competing native manifests before assigning loose sources.
         for (i32 i = 0; i < total && ok && !current.owned; ++i) {
             struct dirent *entry = entries[i];
-            const char *name = dirent_d_name(entry);
-            const char *backend = strcmp(name, "Cargo.toml") == 0 ? "cargo" :
-                strcmp(name, "package.json") == 0 ? "npm" :
-                strcmp(name, "CMakeLists.txt") == 0 ? "cmake" :
-                strcmp(name, "build.zig") == 0 ? "zig" : nullptr;
+            const utf8 *name = dirent_d_name(entry);
+            const utf8 *backend = bStrEq(name, "Cargo.toml") ? "cargo" :
+                bStrEq(name, "package.json") ? "npm" :
+                bStrEq(name, "CMakeLists.txt") ? "cmake" :
+                bStrEq(name, "build.zig") ? "zig" : nullptr;
             if (backend == nullptr)
                 continue;
-            char *prefix = Util_combine(current.path, "/");
-            char *path = Util_combine(prefix, name);
+            utf8 *prefix = Util_combine(current.path, "/");
+            utf8 *path = Util_combine(prefix, name);
             struct stat info;
             bool regular = lstat(path, &info) == 0 && S_ISREG(info.st_mode);
             free(path);
@@ -197,9 +223,9 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
             ok = addUnit(current.path, owner, units, unitCount, unitCapacity);
         for (i32 i = 0; i < total && ok; ++i) {
             struct dirent *entry = entries[i];
-            const char *name = dirent_d_name(entry);
+            const utf8 *name = dirent_d_name(entry);
             if (ignored(name)) {
-                if (strcmp(name, ".") != 0 && strcmp(name, "..") != 0)
+                if (!bStrEq(name, ".") && !bStrEq(name, ".."))
                     ++*skipped;
                 continue;
             }
@@ -211,8 +237,8 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
                 }
             if (!ok)
                 break;
-            char *prefix = Util_combine(current.path, "/");
-            char *path = Util_combine(prefix, name);
+            utf8 *prefix = Util_combine(current.path, "/");
+            utf8 *path = Util_combine(prefix, name);
             free(prefix);
             struct stat info;
             if (lstat(path, &info) != 0) {
@@ -221,7 +247,7 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
                 ok = false;
                 break;
             }
-            if (S_ISDIR(info.st_mode) && (cache == nullptr || strcmp(path, cache) != 0)) {
+            if (S_ISDIR(info.st_mode) && (cache == nullptr || !bStrEq(path, cache))) {
                 any storage = *dirs;
                 ok = grow(*dirCount, sizeof(ScanSlot), dirCapacity, &storage);
                 *dirs = storage;
@@ -235,18 +261,16 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
                 ++*files;
                 const Adapter *adapter = Adapter_forFile(path);
                 if (!current.owned && owner == nullptr) {
-                    const char *adapterName = adapter ? Adapter_name(adapter) : nullptr;
-                    if (adapter == nullptr || strcmp(adapterName, "html") == 0 ||
-                        strcmp(adapterName, "web") == 0 || strcmp(adapterName, "sql") == 0)
+                    const utf8 *adapterName = adapter ? Adapter_name(adapter) : nullptr;
+                    if (adapter == nullptr || bStrEq(adapterName, "html") ||
+                        bStrEq(adapterName, "web") || bStrEq(adapterName, "sql"))
                         ++*unassigned;
                     else
                         ok = addUnit(current.path, adapter, units, unitCount, unitCapacity);
                 }
             } else {
                 ++*skipped;
-                // Existing directory adapters glob their inputs. Never admit a
-                // known source symlink that such a glob could follow later.
-                if (S_ISLNK(info.st_mode) && (Adapter_forFile(path) != nullptr || strcmp(name, "CMakeLists.txt") == 0)) {
+                if (S_ISLNK(info.st_mode) && (Adapter_forFile(path) != nullptr || bStrEq(name, "CMakeLists.txt"))) {
                     THROW("source/manifest symlink requires explicit build outside workspace discovery: %s", path);
                     ok = false;
                 }
@@ -261,14 +285,14 @@ static bool assess(ScanSlot **dirs, bytes *dirCount, bytes *dirCapacity,
     return ok;
 }
 
-// Assess, optionally stop at the plan, then build with completed-unit progress.
-i32 Workspace_command(i32 argc, char **argv) {
+/** Assess, optionally stop at the plan, then build with completed-unit progress. */
+i32 Workspace_command(i32 argc, utf8 **argv) {
     if (argc < 1 || argc > 2 || argv == nullptr || argv[0] == nullptr ||
-        (argc == 2 && (argv[1] == nullptr || (strcmp(argv[1], "--plan") != 0 && strcmp(argv[1], "--confirm") != 0)))) {
+        (argc == 2 && (argv[1] == nullptr || (!bStrEq(argv[1], "--plan") && !bStrEq(argv[1], "--confirm"))))) {
         THROW("usage: b.sh build workspace <directory> [--plan|--confirm]");
         return EXIT_FAILURE;
     }
-    char *root = realpath(argv[0], nullptr);
+    utf8 *root = realpath(argv[0], nullptr);
     struct stat info;
     if (root == nullptr || stat(root, &info) != 0 || !S_ISDIR(info.st_mode)) {
         THROW("workspace root is not a directory");
@@ -288,8 +312,8 @@ i32 Workspace_command(i32 argc, char **argv) {
     bytes unitCount = 0, unitCapacity = 0, files = 0, unassigned = 0, skipped = 0;
     bool ok = assess(&dirs, &dirCount, &dirCapacity, &units, &unitCount, &unitCapacity,
                      &files, &unassigned, &skipped);
-    bool plan = argc == 2 && strcmp(argv[1], "--plan") == 0;
-    bool confirmed = argc == 2 && strcmp(argv[1], "--confirm") == 0;
+    bool plan = argc == 2 && bStrEq(argv[1], "--plan");
+    bool confirmed = argc == 2 && bStrEq(argv[1], "--confirm");
     if (ok) {
         printf("Assessment: %zu files, %zu directories, %zu build units; %zu unassigned, %zu excluded entries\n",
                files, dirCount, unitCount, unassigned, skipped);
@@ -308,13 +332,13 @@ i32 Workspace_command(i32 argc, char **argv) {
         for (bytes i = 0; i < unitCount; ++i) {
             BuildSlot *unit = &units[i];
             const Adapter *adapter = BuildSlot_adapter(unit);
-            const char *unitPath = BuildSlot_path(unit);
+            const utf8 *unitPath = BuildSlot_path(unit);
             printf("[%zu/%zu] Building %s: %s\n", i + 1, unitCount, Adapter_name(adapter), unitPath);
             fflush(stdout);
-            char *output = nullptr;
+            utf8 *output = nullptr;
             i32 status = Adapter_build(adapter)(unitPath, &output);
             failed += status != 0;
-            printf("Building %.0f%% — %s%s%s\n", 100.0 * (d64) (i + 1) / (d64) unitCount,
+            printf("Building %.0f%%, %s%s%s\n", 100.0 * (d64) (i + 1) / (d64) unitCount,
                    status == 0 ? "OK" : "FAIL", output == nullptr ? "" : ": ", output == nullptr ? "" : output);
             free(output);
         }

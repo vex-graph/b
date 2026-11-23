@@ -1,4 +1,4 @@
-// Recursive cold assessment/build entry. No source execution or privilege escalation.
+/** Recursive cold assessment/build entry. No source execution or privilege escalation. */
 
 #pragma once
 #include "vex.h"
@@ -10,7 +10,7 @@
  * the filesystem stable; native build scripts/includes are not sandboxed.
  */
 ;;OVERVIEW
-/* MODULE: Workspace_command — assess recursively and perform build-only units.
+/* MODULE: Workspace_command, assess recursively and perform build-only units.
  * Broad roots require confirmation; no privilege escalation, upload or run mode.
  */
-i32 Workspace_command(i32 argc, char **argv);
+i32 Workspace_command(i32 argc, utf8 **argv);

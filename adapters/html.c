@@ -15,35 +15,35 @@
  * both build=buildHtml, run=runHtml.
  * METADATA (both): tools=B_BROWSER override (open on macOS, xdg-open otherwise);
  * capabilities="local browser launch; no standalone build/rendering proof".
- * PRIVATE STATIC: buildHtml — reject guessed builds; runHtml — canonical-path
+ * PRIVATE STATIC: buildHtml, reject guessed builds; runHtml, canonical-path
  * browser launch, rejecting unused program arguments.
  * Allocated canonical path is freed after opener status; browser remains OS-owned.
  */
 
 #include <stdlib.h>
 
-// Reject a guessed HTML build because no bundling pipeline is declared.
-static i32 buildHtml(const char *project, char **output) {
+/** Reject a guessed HTML build because no bundling pipeline is declared. */
+static i32 buildHtml(const utf8 *project, utf8 **output) {
     (discard) project;
     (discard) output;
     THROW("HTML has no guessed build pipeline; use b.sh build npm for a declared web build script");
     return EXIT_FAILURE;
 }
 
-// Open a resolved local HTML document with the configured host browser.
-static i32 runHtml(const char *file, i32 argc, char **argv, bool buildArtifact) {
+/** Open a resolved local HTML document with the configured host browser. */
+static i32 runHtml(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) argv;
     (discard) buildArtifact;
     if (argc != 0) {
         THROW("local HTML browser launch does not accept program arguments");
         return EXIT_FAILURE;
     }
-    char *path = realpath(file, nullptr);
+    utf8 *path = realpath(file, nullptr);
     if (path == nullptr) {
         THROW("HTML file cannot be resolved");
         return EXIT_FAILURE;
     }
-    const char *browser = getenv("B_BROWSER");
+    const utf8 *browser = getenv("B_BROWSER");
     if (browser == nullptr || *browser == '\0') {
 #ifdef __APPLE__
         browser = "open";
@@ -51,7 +51,7 @@ static i32 runHtml(const char *file, i32 argc, char **argv, bool buildArtifact) 
         browser = "xdg-open";
 #endif
     }
-    char *prefix[] = { (char*) browser, path };
+    utf8 *prefix[] = { (utf8*) browser, path };
     i32 status = Util_runCommand(prefix, 2, 0, nullptr);
     free(path);
     return status;

@@ -1,4 +1,4 @@
-// Metal build-only adapter: Apple tools emit a metallib, never host execution.
+/** Metal build-only adapter: Apple tools emit a metallib, never host execution. */
 #pragma once
 
 #include "vex.h"

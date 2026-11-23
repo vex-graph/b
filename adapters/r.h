@@ -1,4 +1,4 @@
-// R adapter records; borrowed by the suite registry.
+/** R adapter records; borrowed by the suite registry. */
 #pragma once
 
 #include "vex.h"

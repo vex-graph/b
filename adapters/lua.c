@@ -13,34 +13,34 @@
 /* MODULE: Lua adapter. PUBLIC RECORD (lua.h): LUA_ADAPTER.
  * RECORD FIELDS: name="lua", extension=".lua", build=buildLua, run=runLua,
  * tools="LUA=lua,LUAC=luac", capabilities="parse-check; instance/exec runtime".
- * PRIVATE STATIC: tool — read validated executable override/default;
- * buildLua — non-evaluating directory checks; runLua — canonical script launch.
+ * PRIVATE STATIC: tool, read validated executable override/default;
+ * buildLua, non-evaluating directory checks; runLua, canonical script launch.
  * Paths allocated on the cold CLI seam are freed after child completion.
  */
 
 #include <stdlib.h>
 
-// Return a nonempty environment override or the supplied executable default.
-static const char *tool(const char *variable, const char *fallback) {
-    const char *value = getenv(variable);
+/** Return a nonempty environment override or the supplied executable default. */
+static const utf8 *tool(const utf8 *variable, const utf8 *fallback) {
+    const utf8 *value = getenv(variable);
     return value != nullptr && *value != '\0' ? value : fallback;
 }
 
-// Parse-check each top-level Lua file without evaluating it.
-static i32 buildLua(const char *project, char **output) {
-    char *prefix[] = { (char*) tool("LUAC", "luac"), "-p" };
+/** Parse-check each top-level Lua file without evaluating it. */
+static i32 buildLua(const utf8 *project, utf8 **output) {
+    utf8 *prefix[] = { (utf8*) tool("LUAC", "luac"), "-p" };
     return Util_checkSources(project, "/*.lua", prefix, 2, output);
 }
 
-// Run a canonicalized Lua script and forward its arguments to the interpreter.
-static i32 runLua(const char *file, i32 argc, char **argv, bool buildArtifact) {
+/** Run a canonicalized Lua script and forward its arguments to the interpreter. */
+static i32 runLua(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) buildArtifact;
-    char *path = realpath(file, nullptr);
+    utf8 *path = realpath(file, nullptr);
     if (path == nullptr) {
         THROW("Lua script cannot be resolved");
         return EXIT_FAILURE;
     }
-    char *prefix[] = { (char*) tool("LUA", "lua"), "--", path };
+    utf8 *prefix[] = { (utf8*) tool("LUA", "lua"), "--", path };
     i32 status = Util_runCommand(prefix, 3, argc, argv);
     free(path);
     return status;

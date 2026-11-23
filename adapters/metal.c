@@ -11,8 +11,8 @@
  */
 ;;OVERVIEW
 /* MODULE: Metal adapter; public record: METAL_ADAPTER (metal.h), name/extension/
- * build/run/tools/capabilities. PRIVATE: buildMetal — per-source AIR/library;
- * rejectRun — reject host execution. Caller owns successful output path.
+ * build/run/tools/capabilities. PRIVATE: buildMetal, per-source AIR/library;
+ * rejectRun, reject host execution. Caller owns successful output path.
  * Failed generation artifacts are removed; no persistent state or threads.
  */
 #include <stdlib.h>
@@ -20,8 +20,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-// Compile top-level Metal sources to independent libraries using the macOS SDK.
-static i32 buildMetal(const char *project, char **output) {
+/** Compile top-level Metal sources to independent libraries using the macOS SDK. */
+static i32 buildMetal(const utf8 *project, utf8 **output) {
 #ifndef __APPLE__
     (discard) project; (discard) output;
     THROW("Metal compilation requires Apple tools on macOS");
@@ -33,11 +33,11 @@ static i32 buildMetal(const char *project, char **output) {
     }
     bytes count = 0;
     bool ok = false;
-    char **sources = Util_collectSources(project, "/*.metal", &count, &ok);
+    utf8 **sources = Util_collectSources(project, "/*.metal", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
-    char *base = Util_outputDirectory(project);
-    char *directory = base == nullptr ? nullptr : Util_combine(base, "/metal-XXXXXX");
+    utf8 *base = Util_outputDirectory(project);
+    utf8 *directory = base == nullptr ? nullptr : Util_combine(base, "/metal-XXXXXX");
     free(base);
     if (directory == nullptr || mkdtemp(directory) == nullptr) {
         THROW("cannot create Metal output generation");
@@ -45,7 +45,7 @@ static i32 buildMetal(const char *project, char **output) {
         Util_freeSources(sources, count);
         return EXIT_FAILURE;
     }
-    const char *tool = getenv("XCRUN");
+    const utf8 *tool = getenv("XCRUN");
     if (tool == nullptr || *tool == '\0')
         tool = "xcrun";
     i32 status = 0;
@@ -56,12 +56,12 @@ static i32 buildMetal(const char *project, char **output) {
             status = EXIT_FAILURE;
             break;
         }
-        char *stem = Util_combine(directory, strrchr(sources[i], '/'));
-        char *air = Util_combine(stem, ".air");
-        char *library = Util_combine(stem, ".metallib");
-        char *compile[] = { (char*) tool, "-sdk", "macosx", "metal", "-Werror",
+        utf8 *stem = Util_combine(directory, strrchr(sources[i], '/'));
+        utf8 *air = Util_combine(stem, ".air");
+        utf8 *library = Util_combine(stem, ".metallib");
+        utf8 *compile[] = { (utf8*) tool, "-sdk", "macosx", "metal", "-Werror",
             "-mmacosx-version-min=14.0", "-c", sources[i], "-o", air, nullptr, nullptr };
-        char *link[] = { (char*) tool, "-sdk", "macosx", "metallib", air, "-o", library, nullptr, nullptr };
+        utf8 *link[] = { (utf8*) tool, "-sdk", "macosx", "metallib", air, "-o", library, nullptr, nullptr };
         status = Util_executeBuild(compile);
         if (status == 0)
             status = Util_executeBuild(link);
@@ -76,8 +76,8 @@ static i32 buildMetal(const char *project, char **output) {
         *output = directory;
     else {
         for (bytes i = 0; i < count; ++i) {
-            char *stem = Util_combine(directory, strrchr(sources[i], '/'));
-            char *library = Util_combine(stem, ".metallib");
+            utf8 *stem = Util_combine(directory, strrchr(sources[i], '/'));
+            utf8 *library = Util_combine(stem, ".metallib");
             unlink(library);
             free(library); free(stem);
         }
@@ -89,8 +89,8 @@ static i32 buildMetal(const char *project, char **output) {
 #endif
 }
 
-// A metallib requires a graphics consumer and cannot run as a CLI program.
-static i32 rejectRun(const char *file, i32 argc, char **argv, bool buildArtifact) {
+/** A metallib requires a graphics consumer and cannot run as a CLI program. */
+static i32 rejectRun(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) file; (discard) argc; (discard) argv; (discard) buildArtifact;
     THROW("Metal is build-only; use b.sh build metal <directory>");
     return EXIT_FAILURE;

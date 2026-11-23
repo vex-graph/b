@@ -14,20 +14,20 @@
  * NODE_ADAPTER {name="node", extension=".mjs"}; JS_ADAPTER {name="js", extension=".cjs"};
  * all build=buildJavascript, run=runJavascript.
  * METADATA (all): tools="node"; capabilities="syntax-check; instance/exec runtime".
- * PRIVATE STATIC: buildJavascript — node --check each top-level JS module;
- * runJavascript — node file, forwarding literal arguments and status.
+ * PRIVATE STATIC: buildJavascript, node --check each top-level JS module;
+ * runJavascript, node file, forwarding literal arguments and status.
  */
 
-// Syntax-check supported top-level JavaScript module files with Node.
-static i32 buildJavascript(const char *project, char **output) {
-    char *prefix[] = { "node", "--check" };
+/** Syntax-check supported top-level JavaScript module files with Node. */
+static i32 buildJavascript(const utf8 *project, utf8 **output) {
+    utf8 *prefix[] = { "node", "--check" };
     return Util_checkSources(project, "/*.{js,mjs,cjs}", prefix, 2, output);
 }
 
-// Run the selected JavaScript source with Node and forward program arguments.
-static i32 runJavascript(const char *file, i32 argc, char **argv, bool buildArtifact) {
+/** Run the selected JavaScript source with Node and forward program arguments. */
+static i32 runJavascript(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) buildArtifact;
-    char *prefix[] = { "node", (char*) file };
+    utf8 *prefix[] = { "node", (utf8*) file };
     return Util_runCommand(prefix, 2, argc, argv);
 }
 

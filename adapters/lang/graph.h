@@ -1,4 +1,4 @@
-// Serialized target graph reader. No build logic and no project knowledge.
+/** Serialized target graph reader. No build logic and no project knowledge. */
 
 #pragma once
 #include "vex.h"
@@ -9,7 +9,7 @@
  * The reader never learns a project layout, tier name or repository path.
  */
 ;;OVERVIEW
-/* MODULE: Graph_command — read a serialized target graph and list its targets.
+/* MODULE: Graph_command, read a serialized target graph and list its targets.
  * argv is borrowed; the file buffer is released before return; no state retained.
  */
-i32 Graph_command(i32 argc, char **argv);
+i32 Graph_command(i32 argc, utf8 **argv);

@@ -14,7 +14,7 @@
 ;;OVERVIEW
 /* MODULE: PostgreSQL SQL adapter; PUBLIC RECORD: SQL_ADAPTER (sql.h).
  * METADATA: tools="psql"; capabilities="explicit PostgreSQL run; no standalone build".
- * PRIVATE STATIC: buildSql — reject fake compilation; runSql — validate explicit
+ * PRIVATE STATIC: buildSql, reject fake compilation; runSql, validate explicit
  * database name and invoke psql -X/ON_ERROR_STOP/--single-transaction.
  * RECORD FIELDS: name="sql", extension=".sql", build=buildSql, run=runSql.
  * Database/file names are borrowed; child status propagates. No DB is created,
@@ -24,19 +24,19 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Reject standalone SQL compilation because parsing requires database context.
-static i32 buildSql(const char *project, char **output) {
+/** Reject standalone SQL compilation because parsing requires database context. */
+static i32 buildSql(const utf8 *project, utf8 **output) {
     (discard) project;
     (discard) output;
     THROW("SQL has no standalone compile here; run against an explicitly selected disposable database");
     return EXIT_FAILURE;
 }
 
-// Execute a SQL file only against the explicitly named PostgreSQL database.
-static i32 runSql(const char *file, i32 argc, char **argv, bool buildArtifact) {
+/** Execute a SQL file only against the explicitly named PostgreSQL database. */
+static i32 runSql(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) argv;
     (discard) buildArtifact;
-    const char *database = getenv("B_SQL_DATABASE");
+    const utf8 *database = getenv("B_SQL_DATABASE");
     if (database == nullptr || *database == '\0') {
         THROW("SQL execution requires B_SQL_DATABASE; no existing database is auto-selected");
         return EXIT_FAILURE;
@@ -45,7 +45,7 @@ static i32 runSql(const char *file, i32 argc, char **argv, bool buildArtifact) {
         THROW("SQL program arguments are not supported; use libpq environment settings for connection configuration");
         return EXIT_FAILURE;
     }
-    for (const char *p = database; *p != '\0'; ++p) {
+    for (const utf8 *p = database; *p != '\0'; ++p) {
         bool valid = (*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
             (*p >= '0' && *p <= '9') || *p == '_' || (*p == '-' && p != database);
         if (!valid) {
@@ -53,8 +53,8 @@ static i32 runSql(const char *file, i32 argc, char **argv, bool buildArtifact) {
             return EXIT_FAILURE;
         }
     }
-    char *arguments[] = { "psql", "-X", "--no-password", "--set=ON_ERROR_STOP=1",
-        "--single-transaction", "--dbname", (char*) database, "--file", (char*) file, nullptr, nullptr };
+    utf8 *arguments[] = { "psql", "-X", "--no-password", "--set=ON_ERROR_STOP=1",
+        "--single-transaction", "--dbname", (utf8*) database, "--file", (utf8*) file, nullptr, nullptr };
     return Util_execute(arguments);
 }
 

@@ -16,28 +16,28 @@
 /* MODULE: Go adapter. PUBLIC RECORD (go.h): GO_ADAPTER.
  * RECORD FIELDS: name="go", extension=".go", build=buildGo, run=runGo,
  * tools="GO=go", capabilities="package build; source instance; native exec".
- * PRIVATE STATIC: tool — select GO executable; compileGo — build explicit file
- * or selected package; buildGo — package directory; runGo — runtime/native entry.
+ * PRIVATE STATIC: tool, select GO executable; compileGo, build explicit file
+ * or selected package; buildGo, package directory; runGo, runtime/native entry.
  * b.sh-owned artifacts stay outside sources. Child failures block old-artifact runs.
  */
 
 #include <stdlib.h>
 
-// Select the configured Go executable or the standard command name.
-static const char *tool() {
-    const char *value = getenv("GO");
+/** Select the configured Go executable or the standard command name. */
+static const utf8 *tool() {
+    const utf8 *value = getenv("GO");
     return value != nullptr && *value != '\0' ? value : "go";
 }
 
-// Build one Go file or the selected project package into b.sh's external state.
-static i32 compileGo(const char *project, const char *file, char **output) {
-    char *directory = Util_outputDirectory(project);
+/** Build one Go file or the selected project package into b.sh's external state. */
+static i32 compileGo(const utf8 *project, const utf8 *file, utf8 **output) {
+    utf8 *directory = Util_outputDirectory(project);
     if (directory == nullptr)
         return EXIT_FAILURE;
-    char *artifact = Util_combine(directory, "/go-program");
+    utf8 *artifact = Util_combine(directory, "/go-program");
     free(directory);
-    char *arguments[] = { (char*) tool(), "-C", (char*) project, "build", "-o", artifact,
-        (char*) (file != nullptr ? file : "."), nullptr, nullptr };
+    utf8 *arguments[] = { (utf8*) tool(), "-C", (utf8*) project, "build", "-o", artifact,
+        (utf8*) (file != nullptr ? file : "."), nullptr, nullptr };
     i32 status = Util_executeBuild(arguments);
     if (status == 0)
         *output = artifact;
@@ -46,31 +46,31 @@ static i32 compileGo(const char *project, const char *file, char **output) {
     return status;
 }
 
-// Build the selected Go package without creating or modifying module metadata.
-static i32 buildGo(const char *project, char **output) {
+/** Build the selected Go package without creating or modifying module metadata. */
+static i32 buildGo(const utf8 *project, utf8 **output) {
     return compileGo(project, nullptr, output);
 }
 
-// Run a Go source file through go run or compile it before native execution.
-static i32 runGo(const char *file, i32 argc, char **argv, bool buildArtifact) {
-    char *path = realpath(file, nullptr);
+/** Run a Go source file through go run or compile it before native execution. */
+static i32 runGo(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
+    utf8 *path = realpath(file, nullptr);
     if (path == nullptr) {
         THROW("Go source cannot be resolved");
         return EXIT_FAILURE;
     }
     i32 status;
     if (buildArtifact) {
-        char *project = Util_projectDirectory(path);
-        char *output = nullptr;
+        utf8 *project = Util_projectDirectory(path);
+        utf8 *output = nullptr;
         status = compileGo(project, path, &output);
         if (status == 0) {
-            char *prefix[] = { output };
+            utf8 *prefix[] = { output };
             status = Util_runCommand(prefix, 1, argc, argv);
         }
         free(output);
         free(project);
     } else {
-        char *prefix[] = { (char*) tool(), "run", path };
+        utf8 *prefix[] = { (utf8*) tool(), "run", path };
         status = Util_runCommand(prefix, 3, argc, argv);
     }
     free(path);

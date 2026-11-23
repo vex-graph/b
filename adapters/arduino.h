@@ -1,4 +1,4 @@
-// Arduino sketch builds and explicit compile-before-upload command.
+/** Arduino sketch builds and explicit compile-before-upload command. */
 #pragma once
 
 #include "vex.h"
@@ -10,10 +10,10 @@
 ;;OVERVIEW
 /* PUBLIC RECORD: ARDUINO_ADAPTER; fields name="arduino", extension=".ino",
  * build=buildArduino, run=runArduino (host execution rejects).
- * PUBLIC FUNCTION: Arduino_upload — validate argv and compile before flashing.
+ * PUBLIC FUNCTION: Arduino_upload, validate argv and compile before flashing.
  * No owned state in this header; behavior lives in arduino.c.
  */
 
 #include "adapters/lang/adapter.h"
 extern const Adapter ARDUINO_ADAPTER;
-i32 Arduino_upload(i32 argc, char **argv);
+i32 Arduino_upload(i32 argc, utf8 **argv);

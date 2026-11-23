@@ -1,16 +1,19 @@
-// MODULE: Arduino adapter; no owned class.
-// DEFINITION: Builds a complete sketch using Arduino CLI and installed cores.
-// Upload always recompiles successfully before flashing the explicitly supplied
-// board from the mandatory first-line // b_build("vendor:arch:board") header
-// and an explicit port. Never auto-selects hardware or downloads cores/libraries.
-// CLI lookup: ARDUINO_CLI override, installed PATH tool, macOS IDE bundle fallback.
-// Standalone .ino files are copied to a correctly named out-of-tree sketch;
-// standard sketch directories retain all their tabs and libraries. No renaming
-// or edits are made to the user's source.
-// OVERVIEW: cli; stageFile; sketchDirectory; boardFromHeader; compileSketch; buildArduino; runArduino rejects
-// host execution; Arduino_upload validates flags; ARDUINO_ADAPTER.
+/**
+ * MODULE: Arduino adapter; no owned class.
+ * DEFINITION: Builds a complete sketch using Arduino CLI and installed cores.
+ * Upload always recompiles successfully before flashing the explicitly supplied
+ * board from the mandatory first-line // b_build("vendor:arch:board") header
+ * and an explicit port. Never auto-selects hardware or downloads cores/libraries.
+ * CLI lookup: ARDUINO_CLI override, installed PATH tool, macOS IDE bundle fallback.
+ * Standalone .ino files are copied to a correctly named out-of-tree sketch;
+ * standard sketch directories retain all their tabs and libraries. No renaming
+ * or edits are made to the user's source.
+ * OVERVIEW: cli; stageFile; sketchDirectory; boardFromHeader; compileSketch; buildArduino; runArduino rejects
+ * host execution; Arduino_upload validates flags; ARDUINO_ADAPTER.
+ */
 
 #include "vex.h"
+#include "b/b_str.h"
 
 ;;DEFINITION
 /* Arduino firmware runs on a board, not the host. This adapter reads the
@@ -23,18 +26,18 @@
  */
 ;;OVERVIEW
 /* MODULE: Arduino adapter; public declarations: adapters/arduino.h.
- * PUBLIC: Arduino_upload — validate flags, resolve/stage sketch, compile, flash.
+ * PUBLIC: Arduino_upload, validate flags, resolve/stage sketch, compile, flash.
  * EXPORTED RECORD: ARDUINO_ADAPTER {name="arduino", extension=".ino",
  * build=buildArduino, run=runArduino}.
  * METADATA: tools="ARDUINO_CLI=arduino-cli";
  * capabilities="firmware build/upload; no host run".
- * PRIVATE STATIC: cli — override/PATH/macOS-bundle tool resolution;
- * stageFile — copy one standalone source without changing the original;
- * sketchDirectory — validate file/folder and choose standard or staged sketch;
- * boardFromHeader — bounded first-line metadata validation and board allocation;
- * compileSketch — compile and optionally transfer the pinned board to uploader;
- * buildArduino — compile directory using primary header;
- * runArduino — reject host execution and direct caller to explicit upload.
+ * PRIVATE STATIC: cli, override/PATH/macOS-bundle tool resolution;
+ * stageFile, copy one standalone source without changing the original;
+ * sketchDirectory, validate file/folder and choose standard or staged sketch;
+ * boardFromHeader, bounded first-line metadata validation and board allocation;
+ * compileSketch, compile and optionally transfer the pinned board to uploader;
+ * buildArduino, compile directory using primary header;
+ * runArduino, reject host execution and direct caller to explicit upload.
  * OWNERSHIP: temporary paths/board strings are released after operation; staged
  * source and output files persist as external build state. No persistent class.
  */
@@ -47,20 +50,19 @@
 #include "b.h"
 #include "adapters/lang/adapter.h"
 
-// Resolve the Arduino CLI override, PATH executable, or macOS IDE-bundled tool.
-static const char *cli() {
-    const char *override = getenv("ARDUINO_CLI");
+/** Resolve the Arduino CLI override, PATH executable, or macOS IDE-bundled tool. */
+static const utf8 *cli() {
+    const utf8 *override = getenv("ARDUINO_CLI");
     if (override != nullptr && *override != '\0')
         return override;
 #ifdef __APPLE__
-    // Bundle location is an OS application convention, not a required install.
-    const char *bundle = "/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/arduino-cli";
-    const char *path = getenv("PATH");
+    const utf8 *bundle = "/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/arduino-cli";
+    const utf8 *path = getenv("PATH");
     if (path != nullptr) {
-        char *copy = Util_combine(path, "");
-        char *save = nullptr;
-        for (char *part = strtok_r(copy, ":", &save); part != nullptr; part = strtok_r(nullptr, ":", &save)) {
-            char *candidate = Util_combine(part, "/arduino-cli");
+        utf8 *copy = Util_combine(path, "");
+        utf8 *save = nullptr;
+        for (utf8 *part = strtok_r(copy, ":", &save); part != nullptr; part = strtok_r(nullptr, ":", &save)) {
+            utf8 *candidate = Util_combine(part, "/arduino-cli");
             bool exists = access(candidate, X_OK) == 0;
             free(candidate);
             if (exists) {
@@ -76,19 +78,19 @@ static const char *cli() {
     return "arduino-cli";
 }
 
-// Copy a standalone .ino into an out-of-tree, correctly named sketch directory.
-static char *stageFile(const char *file, const char *parent) {
-    const char *name = strrchr(file, '/');
+/** Copy a standalone .ino into an out-of-tree, correctly named sketch directory. */
+static utf8 *stageFile(const utf8 *file, const utf8 *parent) {
+    const utf8 *name = strrchr(file, '/');
     name = name == nullptr ? file : name + 1;
-    char *stem = Util_combine(name, "");
+    utf8 *stem = Util_combine(name, "");
     stem[strlen(stem) - strlen(".ino")] = '\0';
-    char *directory = Util_outputDirectory(parent);
+    utf8 *directory = Util_outputDirectory(parent);
     if (directory == nullptr) {
         free(stem);
         return nullptr;
     }
-    char *base = Util_combine(directory, "/arduino-sketch/");
-    char *sketch = Util_combine(base, stem);
+    utf8 *base = Util_combine(directory, "/arduino-sketch/");
+    utf8 *sketch = Util_combine(base, stem);
     free(base);
     free(directory);
     free(stem);
@@ -96,14 +98,13 @@ static char *stageFile(const char *file, const char *parent) {
         free(sketch);
         return nullptr;
     }
-    char *prefix = Util_combine(sketch, "/");
-    char *dest = Util_combine(prefix, name);
+    utf8 *prefix = Util_combine(sketch, "/");
+    utf8 *dest = Util_combine(prefix, name);
     free(prefix);
     FILE *input = fopen(file, "rb");
     FILE *output = input == nullptr ? nullptr : fopen(dest, "wb");
     bool ok = input != nullptr && output != nullptr;
-    // Fixed chunk size bounds temporary copy memory; it is not a file-size limit.
-    char Bytes[8192];
+    utf8 Bytes[8192];
     while (ok) {
         bytes count = fread(Bytes, 1, sizeof Bytes, input);
         if (count == 0) {
@@ -125,9 +126,9 @@ static char *stageFile(const char *file, const char *parent) {
     return sketch;
 }
 
-// Resolve a sketch directory, staging standalone or non-primary .ino inputs.
-static char *sketchDirectory(const char *input) {
-    char *path = realpath(input, nullptr);
+/** Resolve a sketch directory, staging standalone or non-primary .ino inputs. */
+static utf8 *sketchDirectory(const utf8 *input) {
+    utf8 *path = realpath(input, nullptr);
     struct stat info;
     if (path == nullptr || stat(path, &info) != 0) {
         THROW("Arduino sketch does not exist: %s", input);
@@ -141,16 +142,16 @@ static char *sketchDirectory(const char *input) {
         free(path);
         return nullptr;
     }
-    char *directory = Util_parentDirectory(path);
+    utf8 *directory = Util_parentDirectory(path);
     bytes length = strlen(directory);
     if (length > 1 && directory[length - 1] == '/')
         directory[length - 1] = '\0';
-    const char *folder = strrchr(directory, '/');
+    const utf8 *folder = strrchr(directory, '/');
     folder = folder == nullptr ? directory : folder + 1;
-    char *mainName = Util_combine(folder, ".ino");
-    const char *name = strrchr(path, '/');
-    if (strcmp(name == nullptr ? path : name + 1, mainName) != 0) {
-        char *staged = stageFile(path, directory);
+    utf8 *mainName = Util_combine(folder, ".ino");
+    const utf8 *name = strrchr(path, '/');
+    if (!bStrEq(name == nullptr ? path : name + 1, mainName)) {
+        utf8 *staged = stageFile(path, directory);
         free(directory);
         directory = staged;
     }
@@ -159,13 +160,13 @@ static char *sketchDirectory(const char *input) {
     return directory;
 }
 
-// Read and validate the primary sketch's bounded first-line FQBN declaration.
-static char *boardFromHeader(const char *sketch) {
-    const char *name = strrchr(sketch, '/');
+/** Read and validate the primary sketch's bounded first-line FQBN declaration. */
+static utf8 *boardFromHeader(const utf8 *sketch) {
+    const utf8 *name = strrchr(sketch, '/');
     name = name == nullptr ? sketch : name + 1;
-    char *prefix = Util_combine(sketch, "/");
-    char *stem = Util_combine(prefix, name);
-    char *file = Util_combine(stem, ".ino");
+    utf8 *prefix = Util_combine(sketch, "/");
+    utf8 *stem = Util_combine(prefix, name);
+    utf8 *file = Util_combine(stem, ".ino");
     free(prefix);
     free(stem);
     FILE *input = fopen(file, "rb");
@@ -174,29 +175,28 @@ static char *boardFromHeader(const char *sketch) {
         THROW("cannot read primary Arduino sketch header");
         return nullptr;
     }
-    // External metadata safety bound; oversized headers reject, never truncate.
     enum { HEADER_CAP = 1024 };
-    char header[HEADER_CAP];
+    utf8 header[HEADER_CAP];
     bool ok = fgets(header, sizeof header, input) != nullptr && !ferror(input);
-    if (ok && strchr(header, '\n') == nullptr && !feof(input))
+    if (ok && bStrFindChar(header, '\n') == nullptr && !feof(input))
         ok = false;
     fclose(input);
-    const char *marker = "// b_build(\"";
-    if (!ok || strncmp(header, marker, strlen(marker)) != 0) {
+    const utf8 *marker = "// b_build(\"";
+    if (!ok || !bStrPrefix(header, marker)) {
         THROW("Arduino sketch must start with // b_build(\"vendor:arch:board\")");
         return nullptr;
     }
-    char *board = header + strlen(marker);
-    char *end = strchr(board, '"');
+    utf8 *board = header + strlen(marker);
+    utf8 *end = bStrFindCharMut(board, '"');
     if (end == nullptr || end[1] != ')' || strspn(end + 2, " \t\r\n") != strlen(end + 2)) {
         THROW("malformed b_build header; expected a quoted FQBN and closing parenthesis");
         return nullptr;
     }
     *end = '\0';
     bytes colons = 0;
-    for (const char *p = board; *p != '\0'; ++p) {
+    for (const utf8 *p = board; *p != '\0'; ++p) {
         bool valid = (*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
-            (*p >= '0' && *p <= '9') || strchr("_-:,.=", *p) != nullptr;
+            (*p >= '0' && *p <= '9') || bStrFindChar("_-:,.=", *p) != nullptr;
         if (!valid) {
             THROW("b_build requires an Arduino FQBN, not a shell command or display name");
             return nullptr;
@@ -211,29 +211,28 @@ static char *boardFromHeader(const char *sketch) {
     return Util_combine(board, "");
 }
 
-// Compile for the declared board and optionally return its pinned identifier.
-static i32 compileSketch(const char *sketch, const char *fqbn, char **output, char **outBoard) {
-    char *board = boardFromHeader(sketch);
+/** Compile for the declared board and optionally return its pinned identifier. */
+static i32 compileSketch(const utf8 *sketch, const utf8 *fqbn, utf8 **output, utf8 **outBoard) {
+    utf8 *board = boardFromHeader(sketch);
     if (board == nullptr)
         return EXIT_FAILURE;
-    if (fqbn != nullptr && strcmp(fqbn, board) != 0) {
+    if (fqbn != nullptr && !bStrEq(fqbn, board)) {
         THROW("--fqbn disagrees with the sketch's b_build header; refusing upload");
         free(board);
         return EXIT_FAILURE;
     }
-    char *directory = Util_outputDirectory(sketch);
+    utf8 *directory = Util_outputDirectory(sketch);
     if (directory == nullptr) {
         free(board);
         return EXIT_FAILURE;
     }
     *output = Util_combine(directory, "/arduino");
-    char *build = Util_combine(directory, "/arduino-build");
-    char *arguments[] = { (char*) cli(), "compile", "--fqbn", board,
-        "--build-path", build, "--output-dir", *output, (char*) sketch, nullptr, nullptr };
+    utf8 *build = Util_combine(directory, "/arduino-build");
+    utf8 *arguments[] = { (utf8*) cli(), "compile", "--fqbn", board,
+        "--build-path", build, "--output-dir", *output, (utf8*) sketch, nullptr, nullptr };
     i32 status = Util_executeBuild(arguments);
     free(build);
     free(directory);
-    // Pin the admitted board through upload; do not re-read changing metadata.
     if (status == 0 && outBoard != nullptr)
         *outBoard = board;
     else
@@ -241,13 +240,13 @@ static i32 compileSketch(const char *sketch, const char *fqbn, char **output, ch
     return status;
 }
 
-// Build the selected sketch using its required b_build board declaration.
-static i32 buildArduino(const char *project, char **output) {
+/** Build the selected sketch using its required b_build board declaration. */
+static i32 buildArduino(const utf8 *project, utf8 **output) {
     return compileSketch(project, nullptr, output, nullptr);
 }
 
-// Reject host execution because Arduino sketches require an explicit hardware upload.
-static i32 runArduino(const char *file, i32 argc, char **argv, bool buildArtifact) {
+/** Reject host execution because Arduino sketches require an explicit hardware upload. */
+static i32 runArduino(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) file;
     (discard) argc;
     (discard) argv;
@@ -256,10 +255,10 @@ static i32 runArduino(const char *file, i32 argc, char **argv, bool buildArtifac
     return EXIT_FAILURE;
 }
 
-// Validate upload options, compile the sketch, then flash its explicitly chosen port.
-i32 Arduino_upload(i32 argc, char **argv) {
-    const char *fqbn = nullptr;
-    const char *port = nullptr;
+/** Validate upload options, compile the sketch, then flash its explicitly chosen port. */
+i32 Arduino_upload(i32 argc, utf8 **argv) {
+    const utf8 *fqbn = nullptr;
+    const utf8 *port = nullptr;
     if (argc < 1) {
         THROW("upload needs a sketch and --port");
         return EXIT_FAILURE;
@@ -269,9 +268,9 @@ i32 Arduino_upload(i32 argc, char **argv) {
             THROW("upload flag requires a nonempty value");
             return EXIT_FAILURE;
         }
-        if (strcmp(argv[i], "--fqbn") == 0 && fqbn == nullptr)
+        if (bStrEq(argv[i], "--fqbn") && fqbn == nullptr)
             fqbn = argv[i + 1];
-        else if (strcmp(argv[i], "--port") == 0 && port == nullptr)
+        else if (bStrEq(argv[i], "--port") && port == nullptr)
             port = argv[i + 1];
         else {
             THROW("unknown or duplicate upload flag: %s", argv[i]);
@@ -282,15 +281,15 @@ i32 Arduino_upload(i32 argc, char **argv) {
         THROW("upload requires explicit --port; the board comes from the b_build header");
         return EXIT_FAILURE;
     }
-    char *sketch = sketchDirectory(argv[0]);
+    utf8 *sketch = sketchDirectory(argv[0]);
     if (sketch == nullptr)
         return EXIT_FAILURE;
-    char *output = nullptr;
-    char *board = nullptr;
+    utf8 *output = nullptr;
+    utf8 *board = nullptr;
     i32 status = compileSketch(sketch, fqbn, &output, &board);
     if (status == 0) {
-        char *arguments[] = { (char*) cli(), "upload", "--fqbn", board,
-            "--port", (char*) port, "--input-dir", output, sketch, nullptr, nullptr };
+        utf8 *arguments[] = { (utf8*) cli(), "upload", "--fqbn", board,
+            "--port", (utf8*) port, "--input-dir", output, sketch, nullptr, nullptr };
         status = Util_execute(arguments);
     }
     free(board);

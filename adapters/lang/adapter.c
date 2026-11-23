@@ -1,11 +1,14 @@
-// MODULE: adapter registry. No owned class; adapter records are borrowed.
-// DEFINITION: The single list of source, project, runtime and deployment adapters.
-// Adding an adapter means
-// adding one file pair and one entry here; no other file changes. Lookup is by
-// CLI name or by file extension, both left-to-right.
+/**
+ * MODULE: adapter registry. No owned class; adapter records are borrowed.
+ * DEFINITION: The single list of source, project, runtime and deployment adapters.
+ * Adding an adapter means
+ * adding one file pair and one entry here; no other file changes. Lookup is by
+ * CLI name or by file extension, both left-to-right.
+ */
 
 #include "vex.h"
 #include "adapters/lang/adapter.h"
+#include "b/b_str.h"
 #include "adapters/c.h"
 #include "adapters/csharp.h"
 #include "adapters/java.h"
@@ -40,10 +43,10 @@
  */
 ;;OVERVIEW
 /* MODULE: adapter registry; public declarations: adapters/adapter.h.
- * PUBLIC: Adapter_forName — lookup by CLI name;
- * Adapter_forFile — lookup by suffix or exact manifest basename.
- * Adapter_count — registry extent; Adapter_at — bounded cold enumeration.
- * PRIVATE DATA: ADAPTERS — borrowed const Adapter pointers, in dispatch order.
+ * PUBLIC: Adapter_forName, lookup by CLI name;
+ * Adapter_forFile, lookup by suffix or exact manifest basename.
+ * Adapter_count, registry extent; Adapter_at, bounded cold enumeration.
+ * PRIVATE DATA: ADAPTERS, borrowed const Adapter pointers, in dispatch order.
  * RECORDS: C_ADAPTER; JAVA_ADAPTER; PYTHON_ADAPTER; RUST_ADAPTER;
  * CSHARP_ADAPTER; R_ADAPTER; R_LOWER_ADAPTER; ARDUINO_ADAPTER; CMAKE_ADAPTER.
  * SWIFT_ADAPTER; OBJC_ADAPTER; JAVASCRIPT_ADAPTER; NODE_ADAPTER; JS_ADAPTER;
@@ -100,40 +103,46 @@ static const Adapter *const ADAPTERS[] = {
 };
 
 ;;GETTER
-static inline const char *Adapter_name(const Adapter *self) { return (*self).name; }
+static inline const utf8 *Adapter_name(const Adapter *self)
+{
+    return (*self).name;
+}
 ;;GETTER
-static inline const char *Adapter_extension(const Adapter *self) { return (*self).extension; }
+static inline const utf8 *Adapter_extension(const Adapter *self)
+{
+    return (*self).extension;
+}
 
-const Adapter *Adapter_forName(const char *name) {
+const Adapter *Adapter_forName(const utf8 *name) {
     if (name == nullptr) {
         THROW("adapter name is null");
         return nullptr;
     }
     for (bytes i = 0; i < Adapter_count(); ++i)
-        if (strcmp(Adapter_name(ADAPTERS[i]), name) == 0)
+        if (bStrEq(Adapter_name(ADAPTERS[i]), name))
             return ADAPTERS[i];
     return nullptr;
 }
 
-const Adapter *Adapter_forFile(const char *path) {
+const Adapter *Adapter_forFile(const utf8 *path) {
     if (path == nullptr) {
         THROW("adapter file path is null");
         return nullptr;
     }
-    const char *basename = strrchr(path, '/');
+    const utf8 *basename = strrchr(path, '/');
     basename = basename != nullptr ? basename + 1 : path;
     for (bytes i = 0; i < Adapter_count(); ++i) {
         const Adapter *adapter = ADAPTERS[i];
-        const char *selector = Adapter_extension(adapter);
+        const utf8 *selector = Adapter_extension(adapter);
         if (selector == nullptr)
             continue;
-        if (*selector == '.' ? Util_endsWith(basename, selector) : strcmp(basename, selector) == 0)
+        if (*selector == '.' ? Util_endsWith(basename, selector) : bStrEq(basename, selector))
             return adapter;
     }
     return nullptr;
 }
 
-// Return the number of immutable adapter records in the registry.
+/** Return the number of immutable adapter records in the registry. */
 bytes Adapter_count() {
     return sizeof ADAPTERS / sizeof ADAPTERS[0];
 }

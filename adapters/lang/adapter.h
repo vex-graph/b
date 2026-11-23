@@ -1,17 +1,19 @@
-// CLASS: Adapter — one native-tool integration contract.
-// DEFINITION: Source languages, project backends, runtimes and deployment tools
-// expose an Adapter record describing how to build/check and how to run a file.
-// The suite never grows a per-language branch; it asks this registry which
-// adapter handles a name or a file extension. build writes into a fresh
-// out-of-tree output path; run either interprets/executes the file as-is or
-// (buildArtifact) compiles it first, then launches it.
-// STRUCT FIELDS:
-//   const char *name       CLI adapter name ("c", "cmake", "npm", ...)
-//   const char *extension  file selector: suffix, exact manifest basename or null
-//   i32 (*build)(project, output)          compile a directory's sources
-//   i32 (*run)(file, argc, argv, buildArtifact)  run one file
-//   const char *tools          comma-separated executable requirements
-//   const char *capabilities   human-readable supported operations
+/**
+ * CLASS: Adapter, one native-tool integration contract.
+ * DEFINITION: Source languages, project backends, runtimes and deployment tools
+ * expose an Adapter record describing how to build/check and how to run a file.
+ * The suite never grows a per-language branch; it asks this registry which
+ * adapter handles a name or a file extension. build writes into a fresh
+ * out-of-tree output path; run either interprets/executes the file as-is or
+ * (buildArtifact) compiles it first, then launches it.
+ * STRUCT FIELDS:
+ * const utf8 *name       CLI adapter name ("c", "cmake", "npm", ...)
+ * const utf8 *extension  file selector: suffix, exact manifest basename or null
+ * i32 (*build)(project, output)          compile a directory's sources
+ * i32 (*run)(file, argc, argv, buildArtifact)  run one file
+ * const utf8 *tools          comma-separated executable requirements
+ * const utf8 *capabilities   human-readable supported operations
+ */
 
 #pragma once
 
@@ -26,18 +28,18 @@
  */
 ;;OVERVIEW
 /* CLASS: Adapter. STRUCT FIELDS (declaration order):
- * const char *name — CLI adapter name.
- * const char *extension — file selector: leading dot means suffix; otherwise
+ * const utf8 *name, CLI adapter name.
+ * const utf8 *extension, file selector: leading dot means suffix; otherwise
  *     exact basename (Cargo.toml/package.json); nullptr disables file discovery.
- * i32 (*build)(const char *project, char **output) — build/check a directory;
+ * i32 (*build)(const utf8 *project, utf8 **output), build/check a directory;
  *     output is allocated on success and released by the caller.
- * i32 (*run)(const char *file, i32 argc, char **argv, bool buildArtifact) —
+ * i32 (*run)(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact),
  *     direct runtime or compile-then-run operation, with borrowed arguments.
- * const char *tools — comma-separated tools; ENV=default permits an override.
- * const char *capabilities — adapter-owned operation/scope description.
- * char *(*entry)(const char *project) — owned path of the source file holding the
+ * const utf8 *tools, comma-separated tools; ENV=default permits an override.
+ * const utf8 *capabilities, adapter-owned operation/scope description.
+ * utf8 *(*entry)(const utf8 *project), owned path of the source file holding the
  *     program entry point; nullptr means none (library or interpreted units).
- * i32 (*archive)(const char *project, char **output) — build a library unit into
+ * i32 (*archive)(const utf8 *project, utf8 **output), build a library unit into
  *     its archive; output is allocated on success, nullptr means the adapter has
  *     no library form and the unit is reported as skipped.
  * PUBLIC: Adapter_forName; Adapter_forFile; Adapter_count; Adapter_at
@@ -49,17 +51,17 @@
 
 
 typedef struct Adapter {
-    const char *name;
-    const char *extension;
-    i32 (*build)(const char *project, char **output);
-    i32 (*run)(const char *file, i32 argc, char **argv, bool buildArtifact);
-    const char *tools;
-    const char *capabilities;
-    char *(*entry)(const char *project);
-    i32 (*archive)(const char *project, char **output);
+    const utf8 *name;
+    const utf8 *extension;
+    i32 (*build)(const utf8 *project, utf8 **output);
+    i32 (*run)(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact);
+    const utf8 *tools;
+    const utf8 *capabilities;
+    utf8 *(*entry)(const utf8 *project);
+    i32 (*archive)(const utf8 *project, utf8 **output);
 } Adapter;
 
-const Adapter *Adapter_forName(const char *name);
-const Adapter *Adapter_forFile(const char *path);
+const Adapter *Adapter_forName(const utf8 *name);
+const Adapter *Adapter_forFile(const utf8 *path);
 bytes Adapter_count();
 const Adapter *Adapter_at(bytes index);

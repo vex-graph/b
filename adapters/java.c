@@ -1,8 +1,10 @@
-// CLASS: Java language adapter.
-// DEFINITION: `run instance` uses the JDK source launcher (`java File.java`);
-// `run exec` and `build` compile classes with javac into out-of-tree /classes,
-// then launch the default-package main class named by the file. Project/dependency
-// tooling is out of scope; this is the plain JDK path.
+/**
+ * CLASS: Java language adapter.
+ * DEFINITION: `run instance` uses the JDK source launcher (`java File.java`);
+ * `run exec` and `build` compile classes with javac into out-of-tree /classes,
+ * then launch the default-package main class named by the file. Project/dependency
+ * tooling is out of scope; this is the plain JDK path.
+ */
 
 #include "vex.h"
 #include "adapters/java.h"
@@ -18,10 +20,10 @@
 ;;OVERVIEW
 /* MODULE: Java adapter; exported record: JAVA_ADAPTER (adapters/java.h).
  * METADATA: tools="java,javac"; capabilities="class build/exec; source instance".
- * PRIVATE STATIC: compileJava — javac sources into classes directory;
- * mainClass — allocate default-package filename stem;
- * buildJava — discover directory sources and compile;
- * runJava — source-launch instance or compile and launch classes.
+ * PRIVATE STATIC: compileJava, javac sources into classes directory;
+ * mainClass, allocate default-package filename stem;
+ * buildJava, discover directory sources and compile;
+ * runJava, source-launch instance or compile and launch classes.
  * RECORD FIELDS: name="java"; extension=".java"; build=buildJava; run=runJava.
  * Capability boundary: installed JDK required; no Maven/Gradle project discovery.
  */
@@ -29,9 +31,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Compile Java sources into the project's external classes directory.
-static i32 compileJava(const char *project, char **sources, bytes count, char **output) {
-    char *directory = Util_outputDirectory(project);
+/** Compile Java sources into the project's external classes directory. */
+static i32 compileJava(const utf8 *project, utf8 **sources, bytes count, utf8 **output) {
+    utf8 *directory = Util_outputDirectory(project);
     if (directory == nullptr)
         return EXIT_FAILURE;
     *output = Util_combine(directory, "/classes");
@@ -39,7 +41,7 @@ static i32 compileJava(const char *project, char **sources, bytes count, char **
         free(directory);
         return EXIT_FAILURE;
     }
-    char **arguments = Util_allocate((count + 4) * sizeof(char*));
+    utf8 **arguments = Util_allocate((count + 4) * sizeof(utf8*));
     bytes n = 0;
     arguments[n++] = "javac";
     arguments[n++] = "-d";
@@ -52,21 +54,21 @@ static i32 compileJava(const char *project, char **sources, bytes count, char **
     return status;
 }
 
-// Return the filename stem used as the default-package Java main class name.
-static char *mainClass(const char *file) {
-    const char *base = strrchr(file, '/');
-    char *name = Util_combine(base != nullptr ? base + 1 : file, "");
-    char *dot = strrchr(name, '.');
+/** Return the filename stem used as the default-package Java main class name. */
+static utf8 *mainClass(const utf8 *file) {
+    const utf8 *base = strrchr(file, '/');
+    utf8 *name = Util_combine(base != nullptr ? base + 1 : file, "");
+    utf8 *dot = strrchr(name, '.');
     if (dot != nullptr)
         *dot = '\0';
     return name;
 }
 
-// Discover top-level Java sources and compile them into the shared classes output.
-static i32 buildJava(const char *project, char **output) {
+/** Discover top-level Java sources and compile them into the shared classes output. */
+static i32 buildJava(const utf8 *project, utf8 **output) {
     bytes count = 0;
     bool ok = false;
-    char **sources = Util_collectSources(project, "/*.java", &count, &ok);
+    utf8 **sources = Util_collectSources(project, "/*.java", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
     i32 status = compileJava(project, sources, count, output);
@@ -74,26 +76,26 @@ static i32 buildJava(const char *project, char **output) {
     return status;
 }
 
-// Launch via the JDK source runner or compile then execute the filename class.
-static i32 runJava(const char *file, i32 argc, char **argv, bool buildArtifact) {
+/** Launch via the JDK source runner or compile then execute the filename class. */
+static i32 runJava(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
     if (!buildArtifact) {
-        char **arguments = Util_allocate(((bytes) argc + 3) * sizeof(char*));
+        utf8 **arguments = Util_allocate(((bytes) argc + 3) * sizeof(utf8*));
         bytes n = 0;
         arguments[n++] = "java";
-        arguments[n++] = (char*) file;
+        arguments[n++] = (utf8*) file;
         for (i32 i = 0; i < argc; ++i)
             arguments[n++] = argv[i];
         i32 status = Util_execute(arguments);
         free(arguments);
         return status;
     }
-    char *project = Util_projectDirectory(file);
-    char *output = nullptr;
-    char *sources[1] = { (char*) file };
+    utf8 *project = Util_projectDirectory(file);
+    utf8 *output = nullptr;
+    utf8 *sources[1] = { (utf8*) file };
     i32 status = compileJava(project, sources, 1, &output);
     if (status == 0) {
-        char *main = mainClass(file);
-        char **arguments = Util_allocate(((bytes) argc + 5) * sizeof(char*));
+        utf8 *main = mainClass(file);
+        utf8 **arguments = Util_allocate(((bytes) argc + 5) * sizeof(utf8*));
         bytes n = 0;
         arguments[n++] = "java";
         arguments[n++] = "-cp";

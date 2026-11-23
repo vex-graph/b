@@ -14,29 +14,29 @@
 /* MODULE: Zig adapter. PUBLIC RECORD (zig.h): ZIG_ADAPTER.
  * RECORD FIELDS: name="zig", extension=".zig", build=buildZig, run=runZig,
  * tools="ZIG=zig", capabilities="source/project build; compile-then-run".
- * PRIVATE STATIC: tool — executable override; compileZig — native source root;
- * buildZig — build.zig delegation or unambiguous root; runZig — compile then run.
+ * PRIVATE STATIC: tool, executable override; compileZig, native source root;
+ * buildZig, build.zig delegation or unambiguous root; runZig, compile then run.
  * All temporary paths/source rows freed; no stale artifact launch after failure.
  */
 
 #include <stdlib.h>
 #include <sys/stat.h>
 
-// Select the configured Zig executable or the standard command name.
-static const char *tool() {
-    const char *value = getenv("ZIG");
+/** Select the configured Zig executable or the standard command name. */
+static const utf8 *tool() {
+    const utf8 *value = getenv("ZIG");
     return value != nullptr && *value != '\0' ? value : "zig";
 }
 
-// Compile one Zig source root into an external ReleaseSafe executable.
-static i32 compileZig(const char *project, const char *file, char **output) {
-    char *directory = Util_outputDirectory(project);
+/** Compile one Zig source root into an external ReleaseSafe executable. */
+static i32 compileZig(const utf8 *project, const utf8 *file, utf8 **output) {
+    utf8 *directory = Util_outputDirectory(project);
     if (directory == nullptr)
         return EXIT_FAILURE;
-    char *artifact = Util_combine(directory, "/zig-program");
+    utf8 *artifact = Util_combine(directory, "/zig-program");
     free(directory);
-    char *emit = Util_combine("-femit-bin=", artifact);
-    char *arguments[] = { (char*) tool(), "build-exe", "-O", "ReleaseSafe", emit, (char*) file, nullptr, nullptr };
+    utf8 *emit = Util_combine("-femit-bin=", artifact);
+    utf8 *arguments[] = { (utf8*) tool(), "build-exe", "-O", "ReleaseSafe", emit, (utf8*) file, nullptr, nullptr };
     i32 status = Util_executeBuild(arguments);
     free(emit);
     if (status == 0)
@@ -46,19 +46,19 @@ static i32 compileZig(const char *project, const char *file, char **output) {
     return status;
 }
 
-// Delegate to build.zig or select an unambiguous standalone source root.
-static i32 buildZig(const char *project, char **output) {
-    char *script = Util_combine(project, "/build.zig");
+/** Delegate to build.zig or select an unambiguous standalone source root. */
+static i32 buildZig(const utf8 *project, utf8 **output) {
+    utf8 *script = Util_combine(project, "/build.zig");
     struct stat info;
     if (stat(script, &info) == 0 && S_ISREG(info.st_mode)) {
-        char *directory = Util_outputDirectory(project);
+        utf8 *directory = Util_outputDirectory(project);
         if (directory == nullptr) {
             free(script);
             return EXIT_FAILURE;
         }
-        char *prefix = Util_combine(directory, "/zig-out");
+        utf8 *prefix = Util_combine(directory, "/zig-out");
         free(directory);
-        char *arguments[] = { (char*) tool(), "build", "--build-file", script, "--prefix", prefix, nullptr, nullptr };
+        utf8 *arguments[] = { (utf8*) tool(), "build", "--build-file", script, "--prefix", prefix, nullptr, nullptr };
         i32 status = Util_executeBuild(arguments);
         if (status == 0)
             *output = prefix;
@@ -68,7 +68,7 @@ static i32 buildZig(const char *project, char **output) {
         return status;
     }
     free(script);
-    char *main = Util_combine(project, "/main.zig");
+    utf8 *main = Util_combine(project, "/main.zig");
     if (stat(main, &info) == 0 && S_ISREG(info.st_mode)) {
         i32 status = compileZig(project, main, output);
         free(main);
@@ -77,7 +77,7 @@ static i32 buildZig(const char *project, char **output) {
     free(main);
     bytes count = 0;
     bool ok = false;
-    char **sources = Util_collectSources(project, "/*.zig", &count, &ok);
+    utf8 **sources = Util_collectSources(project, "/*.zig", &count, &ok);
     if (!ok)
         return EXIT_FAILURE;
     i32 status = EXIT_FAILURE;
@@ -89,19 +89,19 @@ static i32 buildZig(const char *project, char **output) {
     return status;
 }
 
-// Compile the resolved Zig source and run the resulting program with its arguments.
-static i32 runZig(const char *file, i32 argc, char **argv, bool buildArtifact) {
+/** Compile the resolved Zig source and run the resulting program with its arguments. */
+static i32 runZig(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) buildArtifact;
-    char *path = realpath(file, nullptr);
+    utf8 *path = realpath(file, nullptr);
     if (path == nullptr) {
         THROW("Zig source cannot be resolved");
         return EXIT_FAILURE;
     }
-    char *project = Util_projectDirectory(path);
-    char *output = nullptr;
+    utf8 *project = Util_projectDirectory(path);
+    utf8 *output = nullptr;
     i32 status = compileZig(project, path, &output);
     if (status == 0) {
-        char *prefix[] = { output };
+        utf8 *prefix[] = { output };
         status = Util_runCommand(prefix, 1, argc, argv);
     }
     free(output);

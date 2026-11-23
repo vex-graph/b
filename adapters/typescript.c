@@ -17,21 +17,21 @@
  * all build=buildTypescript, run=runTypescript.
  * METADATA (all): tools="node";
  * capabilities="native type-strip check/runtime; NOT type-checking".
- * PRIVATE STATIC: buildTypescript — Node native type-stripping parse, not type checks;
- * runTypescript — native Node type-stripping run with literal arguments.
+ * PRIVATE STATIC: buildTypescript, Node native type-stripping parse, not type checks;
+ * runTypescript, native Node type-stripping run with literal arguments.
  */
 
-// Validate TypeScript erasability with Node's native stripping parser, not tsc.
-static i32 buildTypescript(const char *project, char **output) {
-    char *prefix[] = { "node", "-e",
+/** Validate TypeScript erasability with Node's native stripping parser, not tsc. */
+static i32 buildTypescript(const utf8 *project, utf8 **output) {
+    utf8 *prefix[] = { "node", "-e",
         "require('node:module').stripTypeScriptTypes(require('node:fs').readFileSync(process.argv[1], 'utf8'), {mode:'strip', sourceUrl:process.argv[1]})", "--" };
     return Util_checkSources(project, "/*.{ts,mts,cts}", prefix, 4, output);
 }
 
-// Run a TypeScript source through Node's native type-stripping support.
-static i32 runTypescript(const char *file, i32 argc, char **argv, bool buildArtifact) {
+/** Run a TypeScript source through Node's native type-stripping support. */
+static i32 runTypescript(const utf8 *file, i32 argc, utf8 **argv, bool buildArtifact) {
     (discard) buildArtifact;
-    char *prefix[] = { "node", (char*) file };
+    utf8 *prefix[] = { "node", (utf8*) file };
     return Util_runCommand(prefix, 2, argc, argv);
 }
 
