@@ -57,7 +57,7 @@ if [ "$stale" = 1 ]; then
         extra_flags="-Dnullptr=0"
     fi
 
-    "${CC:-cc}" -std="$std_flag" -O2 -Wall -Wextra -Werror -I"$here" -I"$here/.." -I"$here/b" -I"$floor" $extra_flags -o "$temp" "$here"/b/*.c "$here"/adapters/*.c "$here"/adapters/lang/*.c
+    "${CC:-cc}" -std="$std_flag" -O2 -Wall -Wextra -Werror -I"$here" -I"$here/.." -I"$here/b" -I"$floor" -I"$here/../re" $extra_flags -o "$temp" "$here"/b/*.c "$here"/adapters/*.c "$here"/adapters/lang/*.c "$here"/../re/primitive/vex-string.c "$here"/../re/nio/*.c "$here"/../re/atomic/spin_lock.c "$floor"/debug/print.c "$floor"/lang/*.c "$floor"/vector/*.c "$floor"/matrix/*.c "$floor"/quaternion/*.c
     mv "$temp" "$bin"
     trap - EXIT HUP INT TERM
 fi
