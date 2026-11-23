@@ -4,6 +4,7 @@
  */
 
 #include "vex.h"
+#include "re/primitive/vex-string.h"
 #include "box.h"
 #include "b.h"
 #include "test/b_test.h"
@@ -29,13 +30,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-static const utf8 *const DIAGNOSTIC_LOG = "box-diagnostics.log";
+static string const DIAGNOSTIC_LOG = "box-diagnostics.log";
 
 /** Exactly one [vex] line per rejected cold case, plus the staged-export summary. */
 static const bytes EXPECTED_DIAGNOSTICS = 33;
 
 /** Write one fixture file with exact content. */
-static fn writeText(const utf8 *path, const utf8 *text) {
+static fn writeText(string path, string text) {
     FILE *file = fopen(path, "wb");
     assert(file != nullptr);
     bytes length = strlen(text);
@@ -44,7 +45,7 @@ static fn writeText(const utf8 *path, const utf8 *text) {
 }
 
 /** Write a fixture of repeated bytes (used for the size-limit case). */
-static fn writeRepetition(const utf8 *path, utf8 character, bytes count) {
+static fn writeRepetition(string path, utf8 character, bytes count) {
     FILE *file = fopen(path, "wb");
     assert(file != nullptr);
     for (bytes index = 0; index < count; ++index)
@@ -53,7 +54,7 @@ static fn writeRepetition(const utf8 *path, utf8 character, bytes count) {
 }
 
 /** Read a whole file into owned text. */
-static utf8 *readAll(const utf8 *path) {
+static utf8 *readAll(string path) {
     FILE *file = fopen(path, "rb");
     assert(file != nullptr);
     assert(fseek(file, 0, SEEK_END) == 0);
@@ -69,20 +70,20 @@ static utf8 *readAll(const utf8 *path) {
 }
 
 /** Count non-overlapping occurrences of a needle. */
-static bytes countOf(const utf8 *text, const utf8 *needle) {
+static bytes countOf(string text, string needle) {
     bytes found = 0;
-    for (const utf8 *position = text; (position = strstr(position, needle)) != nullptr; ++found)
+    for (string position = text; (position = string_find(position, needle)) != nullptr; ++found)
         position += strlen(needle);
     return found;
 }
 
 /** Assert one expected diagnostic fragment is present in the captured log. */
-static fn checkText(const utf8 *log, const utf8 *needle, bytes expected) {
+static fn checkText(string log, string needle, bytes expected) {
     assert(countOf(log, needle) == expected);
 }
 
 ;;GETTER
-static inline const utf8 *dirent_d_name(const struct dirent *self)
+static inline string dirent_d_name(const struct dirent *self)
 {
     return (*self).d_name;
 }
@@ -97,12 +98,12 @@ static inline utf8 *const *BoxManifest_formats(const BoxManifest *self)
     return (*self).formats;
 }
 ;;GETTER
-static inline const utf8 *BoxManifest_entry(const BoxManifest *self)
+static inline string BoxManifest_entry(const BoxManifest *self)
 {
     return (*self).entry;
 }
 ;;GETTER
-static inline const utf8 *BoxManifest_statePolicy(const BoxManifest *self)
+static inline string BoxManifest_statePolicy(const BoxManifest *self)
 {
     return (*self).statePolicy;
 }
@@ -112,42 +113,42 @@ static inline u32 BoxManifest_schemaVersion(const BoxManifest *self)
     return (*self).schemaVersion;
 }
 ;;GETTER
-static inline const utf8 *BoxManifest_baseDirectory(const BoxManifest *self)
+static inline string BoxManifest_baseDirectory(const BoxManifest *self)
 {
     return (*self).baseDirectory;
 }
 ;;GETTER
-static inline const utf8 *BoxManifest_identifier(const BoxManifest *self)
+static inline string BoxManifest_identifier(const BoxManifest *self)
 {
     return (*self).identifier;
 }
 ;;GETTER
-static inline const utf8 *BoxManifest_name(const BoxManifest *self)
+static inline string BoxManifest_name(const BoxManifest *self)
 {
     return (*self).name;
 }
 ;;GETTER
-static inline const utf8 *BoxManifest_version(const BoxManifest *self)
+static inline string BoxManifest_version(const BoxManifest *self)
 {
     return (*self).version;
 }
 ;;GETTER
-static inline const utf8 *BoxManifest_publisher(const BoxManifest *self)
+static inline string BoxManifest_publisher(const BoxManifest *self)
 {
     return (*self).publisher;
 }
 ;;GETTER
-static inline const utf8 *BoxManifest_license(const BoxManifest *self)
+static inline string BoxManifest_license(const BoxManifest *self)
 {
     return (*self).license;
 }
 ;;GETTER
-static inline const utf8 *BoxManifest_homepage(const BoxManifest *self)
+static inline string BoxManifest_homepage(const BoxManifest *self)
 {
     return (*self).homepage;
 }
 ;;GETTER
-static inline const utf8 *BoxManifest_icon(const BoxManifest *self)
+static inline string BoxManifest_icon(const BoxManifest *self)
 {
     return (*self).icon;
 }
@@ -178,12 +179,12 @@ static inline utf8 *const *BoxManifest_destinations(const BoxManifest *self)
 }
 
 /** Assert that no private staging directory survived next to the destinations. */
-static fn checkNoStaging(const utf8 *directory) {
+static fn checkNoStaging(string directory) {
     DIR *tree = opendir(directory);
     assert(tree != nullptr);
     struct dirent *entry;
     while ((entry = readdir(tree)) != nullptr)
-        assert(strncmp(dirent_d_name(entry), ".b.sh-box-staging-", 15) != 0);
+        assert(!string_startsWith(dirent_d_name(entry), ".b.sh-box-staging-", 15));
     assert(closedir(tree) == 0);
 }
 
@@ -213,14 +214,14 @@ static fn suite_box() {
 
     assert(BoxManifest_writeTemplate("created.json") == 0);
     utf8 *created = readAll("created.json");
-    assert(strstr(created, "\"schemaVersion\": 1") != nullptr);
-    assert(strstr(created, "\"entry\": \"dist/myapp\"") != nullptr);
+    assert(string_contains(created, "\"schemaVersion\": 1"));
+    assert(string_contains(created, "\"entry\": \"dist/myapp\""));
     BoxManifest *template = BoxManifest_load("created.json");
     assert(template != nullptr);
     assert(BoxManifest_formatCount(template) == 1);
-    assert(strcmp(BoxManifest_formats(template)[0], "portable") == 0);
-    assert(strcmp(BoxManifest_entry(template), "dist/myapp") == 0);
-    assert(strcmp(BoxManifest_statePolicy(template), "clean") == 0);
+    assert(string_equals(BoxManifest_formats(template)[0], "portable"));
+    assert(string_equals(BoxManifest_entry(template), "dist/myapp"));
+    assert(string_equals(BoxManifest_statePolicy(template), "clean"));
     free(created);
     BoxManifest_free(template);
     assert(BoxManifest_writeTemplate("created.json") == 1);
@@ -236,31 +237,31 @@ static fn suite_box() {
     BoxManifest *manifest = BoxManifest_load("valid.json");
     assert(manifest != nullptr);
     assert(BoxManifest_schemaVersion(manifest) == 1);
-    assert(strcmp(BoxManifest_baseDirectory(manifest), ".") == 0);
-    assert(strcmp(BoxManifest_identifier(manifest), "com.example.portable") == 0);
-    assert(strcmp(BoxManifest_name(manifest), "Portable App") == 0);
-    assert(strcmp(BoxManifest_version(manifest), "2.3.4") == 0);
-    assert(strcmp(BoxManifest_publisher(manifest), "Example Studio") == 0);
-    assert(strcmp(BoxManifest_license(manifest), "MIT") == 0);
-    assert(strcmp(BoxManifest_homepage(manifest), "https://example.com") == 0);
-    assert(strcmp(BoxManifest_icon(manifest), "assets/icon.png") == 0);
+    assert(string_equals(BoxManifest_baseDirectory(manifest), "."));
+    assert(string_equals(BoxManifest_identifier(manifest), "com.example.portable"));
+    assert(string_equals(BoxManifest_name(manifest), "Portable App"));
+    assert(string_equals(BoxManifest_version(manifest), "2.3.4"));
+    assert(string_equals(BoxManifest_publisher(manifest), "Example Studio"));
+    assert(string_equals(BoxManifest_license(manifest), "MIT"));
+    assert(string_equals(BoxManifest_homepage(manifest), "https://example.com"));
+    assert(string_equals(BoxManifest_icon(manifest), "assets/icon.png"));
     assert(BoxManifest_authorCount(manifest) == 2);
-    assert(strcmp(BoxManifest_authors(manifest)[0], "Ada") == 0);
-    assert(strcmp(BoxManifest_authors(manifest)[1], "Grace") == 0);
-    assert(strcmp(BoxManifest_entry(manifest), "dist/portable") == 0);
+    assert(string_equals(BoxManifest_authors(manifest)[0], "Ada"));
+    assert(string_equals(BoxManifest_authors(manifest)[1], "Grace"));
+    assert(string_equals(BoxManifest_entry(manifest), "dist/portable"));
     assert(BoxManifest_fileCount(manifest) == 2);
-    assert(strcmp(BoxManifest_sources(manifest)[0], "assets/logo.txt") == 0);
-    assert(strcmp(BoxManifest_destinations(manifest)[0], "resources/logo.txt") == 0);
-    assert(strcmp(BoxManifest_sources(manifest)[1], "assets/nested") == 0);
+    assert(string_equals(BoxManifest_sources(manifest)[0], "assets/logo.txt"));
+    assert(string_equals(BoxManifest_destinations(manifest)[0], "resources/logo.txt"));
+    assert(string_equals(BoxManifest_sources(manifest)[1], "assets/nested"));
     assert(BoxManifest_destinations(manifest)[1] == nullptr);
 
     utf8 value[512];
     bool truncated = true;
     BoxManifest_toString(nullptr, value, sizeof value, &truncated);
-    assert(strcmp(value, "nullptr") == 0);
+    assert(string_equals(value, "nullptr"));
     assert(!truncated);
     BoxManifest_toStringStruct(nullptr, value, sizeof value, &truncated);
-    assert(strcmp(value, "nullptr") == 0);
+    assert(string_equals(value, "nullptr"));
     utf8 small[16];
     BoxManifest_toString(manifest, small, sizeof small, &truncated);
     assert(truncated);
@@ -268,16 +269,16 @@ static fn suite_box() {
     utf8 full[2048];
     BoxManifest_toString(manifest, full, sizeof full, &truncated);
     assert(!truncated);
-    assert(strstr(full, "com.example.portable") != nullptr);
-    assert(strstr(full, "Portable App 2.3.4") != nullptr);
-    assert(strstr(full, "authors=2") != nullptr);
-    assert(strstr(full, "files=2") != nullptr);
+    assert(string_contains(full, "com.example.portable"));
+    assert(string_contains(full, "Portable App 2.3.4"));
+    assert(string_contains(full, "authors=2"));
+    assert(string_contains(full, "files=2"));
     BoxManifest_toStringStruct(manifest, full, sizeof full, &truncated);
     assert(!truncated);
-    assert(strstr(full, "baseDirectory: \".\"") != nullptr);
-    assert(strstr(full, "identifier: \"com.example.portable\"") != nullptr);
-    assert(strstr(full, "authorCount: 2") != nullptr);
-    assert(strstr(full, "formatCount: 1") != nullptr);
+    assert(string_contains(full, "baseDirectory: \".\""));
+    assert(string_contains(full, "identifier: \"com.example.portable\""));
+    assert(string_contains(full, "authorCount: 2"));
+    assert(string_contains(full, "formatCount: 1"));
     BoxManifest_toString(manifest, full, 0, &truncated);
     assert(truncated);
 
@@ -290,15 +291,15 @@ static fn suite_box() {
     assert(stat("release/nested/deep.txt", &info) == 0);
     assert(stat("release/assets", &info) != 0);
     utf8 *published = readAll("release/resources/logo.txt");
-    assert(strcmp(published, "logo bytes\n") == 0);
+    assert(string_equals(published, "logo bytes\n"));
     free(published);
     published = readAll("release/nested/deep.txt");
-    assert(strcmp(published, "deep bytes\n") == 0);
+    assert(string_equals(published, "deep bytes\n"));
     free(published);
 
     assert(BoxManifest_export(manifest, "release") == 1);
     published = readAll("release/resources/logo.txt");
-    assert(strcmp(published, "logo bytes\n") == 0);
+    assert(string_equals(published, "logo bytes\n"));
     free(published);
     BoxManifest_free(manifest);
     assert(BoxManifest_export(nullptr, "release") == 1);
@@ -516,18 +517,18 @@ i32 main(i32 argc, utf8 **argv) {
         { "box", suite_box },
         { "util", suite_util },
     };
-    const utf8 *filter = argc > 1 ? argv[1] : nullptr;
+    string filter = argc > 1 ? argv[1] : nullptr;
     bytes ran = 0;
 
     for (bytes i = 0; i < sizeof(suites) / sizeof(suites[0]); i++) {
-        if (filter && strcmp(filter, suites[i].name) != 0)
+        if (filter && !string_equals(filter, suites[i].name))
             continue;
         suites[i].run();
         ran++;
     }
 
     if (filter && ran == 0) {
-        fprintf(stderr, "b_test: unknown suite '%s'\n", filter);
+        fprint(stderr, "b_test: unknown suite '", filter, "'");
         return 2;
     }
     return 0;
