@@ -13,7 +13,7 @@ class ObjcTest(AdapterCase):
 
     def test_exec_arguments_status_and_instance_rejection(self):
         source = self.source("hello with spaces.m", '#import <Foundation/Foundation.h>\n'
-                             '#include <stdio.h>\nint main(int argc, char **argv) {\n'
+                             '#include <stdio.h>\nint main(int argc, utf8 **argv) {\n'
                              '@autoreleasepool { for (int i=1; i<argc; ++i) puts(argv[i]); } return 7; }\n')
         result = self.invoke("run", "exec", source, "--", "Hello World", "$(touch NEVER)", expected=7)
         self.assertEqual(result.stdout.splitlines(), ["Hello World", "$(touch NEVER)"])

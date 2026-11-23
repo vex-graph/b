@@ -37,7 +37,7 @@ class WorkspaceTest(unittest.TestCase):
         self.assertIsInstance(metadata, dict)
         self.assertIn("vexspoke", json.dumps(metadata))
         engine = (ROOT / "tools/workspace.c").read_text()
-        entries = re.search(r"const char \*compositorShaders\[\] = \{(.*?)\};", engine, re.S)
+        entries = re.search(r"const utf8 \*compositorShaders\[\] = \{(.*?)\};", engine, re.S)
         self.assertIsNotNone(entries)
         self.assertEqual(re.findall(r'"([^"]+)"', entries.group(1)),
                          ["scatter.vert", "scatter.frag", "resolve.vert", "resolve.frag", "color.frag", "scope.frag"])
@@ -96,7 +96,7 @@ class WorkspaceTest(unittest.TestCase):
 #include "workspace.c"
 #undef main
 #include <assert.h>
-int main(int argc, char **argv) {
+int main(int argc, utf8 **argv) {
     assert(argc == 2);
     g_root = argv[1];
     TargetList targets = {0};
@@ -160,7 +160,7 @@ int main(int argc, char **argv) {
 #include "workspace.c"
 #undef main
 #include <assert.h>
-int main(int argc, char **argv) {
+int main(int argc, utf8 **argv) {
     assert(argc == 2);
     g_root = argv[1];
     TargetList targets = {0};
@@ -233,7 +233,7 @@ int main(int argc, char **argv) {
 #include "workspace.c"
 #undef main
 #include <assert.h>
-int main(int argc, char **argv) {
+int main(int argc, utf8 **argv) {
     assert(argc == 3);
     g_root = argv[1];
     g_out = argv[2];
@@ -247,7 +247,7 @@ int main(int argc, char **argv) {
             continue;
         if (strstr(g_gens[i].src, "/filter/filter_type.h") != nullptr)
             ++headers;
-        char *includeRoot = strf("-I%s/drivers/graphvex/src", g_root);
+        utf8 *includeRoot = strf("-I%s/drivers/graphvex/src", g_root);
         const Cmd *command = &g_gens[i].cmd;
         bool hasCanonicalRoot = false;
         for (int k = 0; k < (*command).count; ++k)

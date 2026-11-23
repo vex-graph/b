@@ -202,7 +202,7 @@ class CliTest(unittest.TestCase):
 
     def test_c_source_run_arguments_and_exit_status(self):
         self.source("hello with spaces.c", '#include <stdio.h>\n'
-                    'int main(int argc, char **argv) {\n'
+                    'int main(int argc, utf8 **argv) {\n'
                     '    for (int i = 1; i < argc; ++i) puts(argv[i]);\n'
                     '    return 7;\n}\n')
         arguments = ["a space", "$(touch NEVER)", ";", *map(str, range(10))]

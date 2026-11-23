@@ -14,9 +14,9 @@
 /* MODULE: box manifest owner proof. PUBLIC ENTRY: main.
  * SUBJECTS: BoxManifest_writeTemplate; BoxManifest_load; BoxManifest_free;
  * BoxManifest_export; BoxManifest_toString; BoxManifest_toStringStruct.
- * PRIVATE STATIC: writeText — fixture writer; writeRepetition — oversized
- * fixture; readAll — owned log text; countOf — substring count;
- * captureDiagnostics — redirect one section's stderr into the log; checkText —
+ * PRIVATE STATIC: writeText, fixture writer; writeRepetition, oversized
+ * fixture; readAll, owned log text; countOf, substring count;
+ * captureDiagnostics, redirect one section's stderr into the log; checkText,
  * substring assertion helper.
  * The test captures its own stderr and asserts the exact diagnostic count, so a
  * silent rejection, a duplicate report or stray output fails the run.
@@ -31,13 +31,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-static const char *const DIAGNOSTIC_LOG = "box-diagnostics.log";
+static const utf8 *const DIAGNOSTIC_LOG = "box-diagnostics.log";
 
-// Exactly one [vex] line per rejected cold case, plus the staged-export summary.
+/** Exactly one [vex] line per rejected cold case, plus the staged-export summary. */
 static const bytes EXPECTED_DIAGNOSTICS = 33;
 
-// Write one fixture file with exact content.
-static fn writeText(const char *path, const char *text) {
+/** Write one fixture file with exact content. */
+static fn writeText(const utf8 *path, const utf8 *text) {
     FILE *file = fopen(path, "wb");
     assert(file != nullptr);
     bytes length = strlen(text);
@@ -45,8 +45,8 @@ static fn writeText(const char *path, const char *text) {
     assert(fclose(file) == 0);
 }
 
-// Write a fixture of repeated bytes (used for the size-limit case).
-static fn writeRepetition(const char *path, char character, bytes count) {
+/** Write a fixture of repeated bytes (used for the size-limit case). */
+static fn writeRepetition(const utf8 *path, utf8 character, bytes count) {
     FILE *file = fopen(path, "wb");
     assert(file != nullptr);
     for (bytes index = 0; index < count; ++index)
@@ -54,15 +54,15 @@ static fn writeRepetition(const char *path, char character, bytes count) {
     assert(fclose(file) == 0);
 }
 
-// Read a whole file into owned text.
-static char *readAll(const char *path) {
+/** Read a whole file into owned text. */
+static utf8 *readAll(const utf8 *path) {
     FILE *file = fopen(path, "rb");
     assert(file != nullptr);
     assert(fseek(file, 0, SEEK_END) == 0);
     i64 size = ftell(file);
     assert(size >= 0);
     assert(fseek(file, 0, SEEK_SET) == 0);
-    char *text = malloc((bytes) size + 1);
+    utf8 *text = malloc((bytes) size + 1);
     assert(text != nullptr);
     assert(fread(text, 1, (bytes) size, file) == (bytes) size);
     text[size] = '\0';
@@ -70,60 +70,105 @@ static char *readAll(const char *path) {
     return text;
 }
 
-// Count non-overlapping occurrences of a needle.
-static bytes countOf(const char *text, const char *needle) {
+/** Count non-overlapping occurrences of a needle. */
+static bytes countOf(const utf8 *text, const utf8 *needle) {
     bytes found = 0;
-    for (const char *position = text; (position = strstr(position, needle)) != nullptr; ++found)
+    for (const utf8 *position = text; (position = strstr(position, needle)) != nullptr; ++found)
         position += strlen(needle);
     return found;
 }
 
-// Assert one expected diagnostic fragment is present in the captured log.
-static fn checkText(const char *log, const char *needle, bytes expected) {
+/** Assert one expected diagnostic fragment is present in the captured log. */
+static fn checkText(const utf8 *log, const utf8 *needle, bytes expected) {
     assert(countOf(log, needle) == expected);
 }
 
 ;;GETTER
-static inline const char *dirent_d_name(const struct dirent *self) { return (*self).d_name; }
+static inline const utf8 *dirent_d_name(const struct dirent *self)
+{
+    return (*self).d_name;
+}
 ;;GETTER
-static inline bytes BoxManifest_formatCount(const BoxManifest *self) { return (*self).formatCount; }
+static inline bytes BoxManifest_formatCount(const BoxManifest *self)
+{
+    return (*self).formatCount;
+}
 ;;GETTER
-static inline char *const *BoxManifest_formats(const BoxManifest *self) { return (*self).formats; }
+static inline utf8 *const *BoxManifest_formats(const BoxManifest *self) { return (*self).formats; }
 ;;GETTER
-static inline const char *BoxManifest_entry(const BoxManifest *self) { return (*self).entry; }
+static inline const utf8 *BoxManifest_entry(const BoxManifest *self)
+{
+    return (*self).entry;
+}
 ;;GETTER
-static inline const char *BoxManifest_statePolicy(const BoxManifest *self) { return (*self).statePolicy; }
+static inline const utf8 *BoxManifest_statePolicy(const BoxManifest *self)
+{
+    return (*self).statePolicy;
+}
 ;;GETTER
-static inline u32 BoxManifest_schemaVersion(const BoxManifest *self) { return (*self).schemaVersion; }
+static inline u32 BoxManifest_schemaVersion(const BoxManifest *self)
+{
+    return (*self).schemaVersion;
+}
 ;;GETTER
-static inline const char *BoxManifest_baseDirectory(const BoxManifest *self) { return (*self).baseDirectory; }
+static inline const utf8 *BoxManifest_baseDirectory(const BoxManifest *self)
+{
+    return (*self).baseDirectory;
+}
 ;;GETTER
-static inline const char *BoxManifest_identifier(const BoxManifest *self) { return (*self).identifier; }
+static inline const utf8 *BoxManifest_identifier(const BoxManifest *self)
+{
+    return (*self).identifier;
+}
 ;;GETTER
-static inline const char *BoxManifest_name(const BoxManifest *self) { return (*self).name; }
+static inline const utf8 *BoxManifest_name(const BoxManifest *self)
+{
+    return (*self).name;
+}
 ;;GETTER
-static inline const char *BoxManifest_version(const BoxManifest *self) { return (*self).version; }
+static inline const utf8 *BoxManifest_version(const BoxManifest *self)
+{
+    return (*self).version;
+}
 ;;GETTER
-static inline const char *BoxManifest_publisher(const BoxManifest *self) { return (*self).publisher; }
+static inline const utf8 *BoxManifest_publisher(const BoxManifest *self)
+{
+    return (*self).publisher;
+}
 ;;GETTER
-static inline const char *BoxManifest_license(const BoxManifest *self) { return (*self).license; }
+static inline const utf8 *BoxManifest_license(const BoxManifest *self)
+{
+    return (*self).license;
+}
 ;;GETTER
-static inline const char *BoxManifest_homepage(const BoxManifest *self) { return (*self).homepage; }
+static inline const utf8 *BoxManifest_homepage(const BoxManifest *self)
+{
+    return (*self).homepage;
+}
 ;;GETTER
-static inline const char *BoxManifest_icon(const BoxManifest *self) { return (*self).icon; }
+static inline const utf8 *BoxManifest_icon(const BoxManifest *self)
+{
+    return (*self).icon;
+}
 ;;GETTER
-static inline bytes BoxManifest_authorCount(const BoxManifest *self) { return (*self).authorCount; }
+static inline bytes BoxManifest_authorCount(const BoxManifest *self)
+{
+    return (*self).authorCount;
+}
 ;;GETTER
-static inline char *const *BoxManifest_authors(const BoxManifest *self) { return (*self).authors; }
+static inline utf8 *const *BoxManifest_authors(const BoxManifest *self) { return (*self).authors; }
 ;;GETTER
-static inline bytes BoxManifest_fileCount(const BoxManifest *self) { return (*self).fileCount; }
+static inline bytes BoxManifest_fileCount(const BoxManifest *self)
+{
+    return (*self).fileCount;
+}
 ;;GETTER
-static inline char *const *BoxManifest_sources(const BoxManifest *self) { return (*self).sources; }
+static inline utf8 *const *BoxManifest_sources(const BoxManifest *self) { return (*self).sources; }
 ;;GETTER
-static inline char *const *BoxManifest_destinations(const BoxManifest *self) { return (*self).destinations; }
+static inline utf8 *const *BoxManifest_destinations(const BoxManifest *self) { return (*self).destinations; }
 
-// Assert that no private staging directory survived next to the destinations.
-static fn checkNoStaging(const char *directory) {
+/** Assert that no private staging directory survived next to the destinations. */
+static fn checkNoStaging(const utf8 *directory) {
     DIR *tree = opendir(directory);
     assert(tree != nullptr);
     struct dirent *entry;
@@ -133,7 +178,6 @@ static fn checkNoStaging(const char *directory) {
 }
 
 i32 main() {
-    // Capture this run's diagnostics; on success the process writes nothing.
     i32 saved = dup(STDERR_FILENO);
     assert(saved >= 0);
     i32 log = open(DIAGNOSTIC_LOG, O_WRONLY | O_CREAT | O_TRUNC, 0600);
@@ -141,7 +185,6 @@ i32 main() {
     assert(dup2(log, STDERR_FILENO) == STDERR_FILENO);
     assert(close(log) == 0);
 
-    // Payload fixtures: an executable entry, a nested tree, and extra assets.
     assert(mkdir("dist", 0755) == 0);
     assert(mkdir("dist/portable", 0755) == 0);
     assert(mkdir("dist/piped", 0755) == 0);
@@ -157,9 +200,8 @@ i32 main() {
     writeText("plain.txt", "not a payload\n");
     assert(symlink("plain.txt", "linked.txt") == 0);
 
-    // The template is exclusive: it never replaces an existing path.
     assert(BoxManifest_writeTemplate("created.json") == 0);
-    char *created = readAll("created.json");
+    utf8 *created = readAll("created.json");
     assert(strstr(created, "\"schemaVersion\": 1") != nullptr);
     assert(strstr(created, "\"entry\": \"dist/myapp\"") != nullptr);
     BoxManifest *template = BoxManifest_load("created.json");
@@ -172,7 +214,6 @@ i32 main() {
     BoxManifest_free(template);
     assert(BoxManifest_writeTemplate("created.json") == 1);
 
-    // A complete manifest parses, validates and projects.
     writeText("valid.json",
         "{\"schemaVersion\":1,"
         "\"application\":{\"id\":\"com.example.portable\",\"name\":\"Portable App\",\"version\":\"2.3.4\","
@@ -202,18 +243,18 @@ i32 main() {
     assert(strcmp(BoxManifest_sources(manifest)[1], "assets/nested") == 0);
     assert(BoxManifest_destinations(manifest)[1] == nullptr);
 
-    char value[512];
+    utf8 value[512];
     bool truncated = true;
     BoxManifest_toString(nullptr, value, sizeof value, &truncated);
     assert(strcmp(value, "nullptr") == 0);
     assert(!truncated);
     BoxManifest_toStringStruct(nullptr, value, sizeof value, &truncated);
     assert(strcmp(value, "nullptr") == 0);
-    char small[16];
+    utf8 small[16];
     BoxManifest_toString(manifest, small, sizeof small, &truncated);
     assert(truncated);
     assert(strlen(small) < sizeof small);
-    char full[2048];
+    utf8 full[2048];
     BoxManifest_toString(manifest, full, sizeof full, &truncated);
     assert(!truncated);
     assert(strstr(full, "com.example.portable") != nullptr);
@@ -229,7 +270,6 @@ i32 main() {
     BoxManifest_toString(manifest, full, 0, &truncated);
     assert(truncated);
 
-    // Portable export publishes the declared payload only.
     assert(BoxManifest_export(manifest, "release") == 0);
     struct stat info;
     assert(stat("release/portable/portable", &info) == 0);
@@ -238,14 +278,13 @@ i32 main() {
     assert(stat("release/resources/logo.txt", &info) == 0);
     assert(stat("release/nested/deep.txt", &info) == 0);
     assert(stat("release/assets", &info) != 0);
-    char *published = readAll("release/resources/logo.txt");
+    utf8 *published = readAll("release/resources/logo.txt");
     assert(strcmp(published, "logo bytes\n") == 0);
     free(published);
     published = readAll("release/nested/deep.txt");
     assert(strcmp(published, "deep bytes\n") == 0);
     free(published);
 
-    // A second export to the same destination refuses and preserves the export.
     assert(BoxManifest_export(manifest, "release") == 1);
     published = readAll("release/resources/logo.txt");
     assert(strcmp(published, "logo bytes\n") == 0);
@@ -253,7 +292,6 @@ i32 main() {
     BoxManifest_free(manifest);
     assert(BoxManifest_export(nullptr, "release") == 1);
 
-    // Rejected cold inputs: each emits exactly one diagnostic.
     assert(BoxManifest_load("missing.json") == nullptr);
     assert(BoxManifest_load("") == nullptr);
     writeRepetition("huge.json", 'x', 300000);
@@ -332,7 +370,6 @@ i32 main() {
         "\"payload\":{\"entry\":\"plain.txt\",\"files\":[42]},\"formats\":[\"portable\"]}");
     assert(BoxManifest_load("filetype.json") == nullptr);
 
-    // Export refusals that must not create anything.
     writeText("missingentry.json",
         "{\"schemaVersion\":1,\"application\":{\"id\":\"com.x\",\"name\":\"X\",\"version\":\"1.0\"},"
         "\"payload\":{\"entry\":\"dist/absent\"},\"formats\":[\"portable\"]}");
@@ -383,7 +420,6 @@ i32 main() {
     assert(BoxManifest_export(parentFile, "plain.txt/inside") == 1);
     BoxManifest_free(parentFile);
 
-    // A payload tree containing a FIFO fails mid-copy and cleans its staging.
     writeText("piped.json",
         "{\"schemaVersion\":1,\"application\":{\"id\":\"com.x\",\"name\":\"X\",\"version\":\"1.0\"},"
         "\"payload\":{\"entry\":\"dist/piped\"},\"formats\":[\"portable\"]}");
@@ -395,10 +431,9 @@ i32 main() {
 
     checkNoStaging(".");
 
-    // Capture back and verify the diagnostics this run produced.
     assert(dup2(saved, STDERR_FILENO) == STDERR_FILENO);
     assert(close(saved) == 0);
-    char *logText = readAll(DIAGNOSTIC_LOG);
+    utf8 *logText = readAll(DIAGNOSTIC_LOG);
     assert(countOf(logText, "[vex] ") == EXPECTED_DIAGNOSTICS);
     assert(countOf(logText, "\n") == EXPECTED_DIAGNOSTICS);
     checkText(logText, "manifest does not exist or is not a regular file", 1);

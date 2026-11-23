@@ -166,18 +166,18 @@ class WorkspaceBuildTest(AdapterCase):
 #include <assert.h>
 #include <stdint.h>
 int main() {
-    char *bad[] = { ".", nullptr };
+    utf8 *bad[] = { ".", nullptr };
     assert(Workspace_command(0, nullptr) != 0);
     assert(Workspace_command(1, nullptr) != 0);
     assert(Workspace_command(2, bad) != 0);
     const Adapter *a = &GLSL_ADAPTER;
     const Adapter *b = &METAL_ADAPTER;
-    char *output = (char*) (pointer) 1;
+    utf8 *output = (utf8*) (pointer) 1;
     assert((*a).build(nullptr, &output) != 0);
     assert((*a).build(".", nullptr) != 0);
     assert((*b).build(nullptr, &output) != 0);
     assert((*b).build(".", nullptr) != 0);
-    assert(output == (char*) (pointer) 1);
+    assert(output == (utf8*) (pointer) 1);
     return 0;
 }
 ''')

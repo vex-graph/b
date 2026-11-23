@@ -11,7 +11,7 @@ class CppTest(AdapterCase):
     def test_suffixes_literal_arguments_status_and_instance_reject(self):
         for suffix in ("cpp", "cc", "cxx"):
             source = self.source(f"hello with spaces.{suffix}", '#include <iostream>\n'
-                                 'int main(int argc, char **argv) { for(int i=1;i<argc;++i) std::cout << argv[i] << "\\n"; return 8; }\n')
+                                 'int main(int argc, utf8 **argv) { for(int i=1;i<argc;++i) std::cout << argv[i] << "\\n"; return 8; }\n')
             result = self.invoke("run", "exec", source, "--", "Hello World", "$(touch NEVER)", expected=8)
             self.assertEqual(result.stdout.splitlines(), ["Hello World", "$(touch NEVER)"])
         self.invoke("cpp", source, expected=1)

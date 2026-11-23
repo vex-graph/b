@@ -82,14 +82,14 @@ class CiSmokeTest(unittest.TestCase):
             project.mkdir()
             (project / "main.c").write_text(
                 '#include <stdio.h>\n'
-                'int main(int argc, char **argv) {\n'
+                'int main(int argc, utf8 **argv) {\n'
                 '    printf("project:");\n'
                 '    for (int index = 1; index < argc; ++index) printf("%s%s", index == 1 ? "" : " ", argv[index]);\n'
                 '    putchar(\'\\n\');\n'
                 '    return 0;\n'
                 '}\n'
             )
-            # Claim a territory first — run/breeze now require it.
+            # Claim a territory first, run/breeze now require it.
             self.invoke("generate", project, cwd=project)
             self.assertEqual(self.invoke("breeze", "main.c", "--", "one", "two", cwd=project),
                              "project:one two")
@@ -103,7 +103,7 @@ class CiSmokeTest(unittest.TestCase):
             project.mkdir()
             (project / "main.c").write_text(
                 '#include <stdio.h>\n'
-                'int main(int argc, char **argv) {\n'
+                'int main(int argc, utf8 **argv) {\n'
                 '    printf("project:");\n'
                 '    for (int index = 1; index < argc; ++index) printf("%s%s", index == 1 ? "" : " ", argv[index]);\n'
                 '    putchar(\'\\n\');\n'
