@@ -1,4 +1,4 @@
-# b — the workspace territory
+# b, the workspace territory
 
 [Back to README](../README.md) · [Command tree](TREE.md) · [Adapters](ADAPTERS.md)
 
@@ -279,14 +279,14 @@ what `b box` finds when no `--assembly` is given:
 The target token is the canonical name, spelled once and never abbreviated. A
 *discovered* file called `assembly-win-x86-64.json` would be a second vocabulary
 for the same six targets, and the whole point of the floor is that there is one.
-Passing such a file explicitly is fine — see below — because then you named it,
+Passing such a file explicitly is fine, see below, because then you named it,
 and b is not the one guessing.
 
 Resolution when `b box` is called with no `--assembly` flag, for target `T`
 (default: this host):
 
-1. `b.assembly.T.json` — exact, wins.
-2. `b.assembly.json` — used when its `targets` list contains `T`, or when it
+1. `b.assembly.T.json`, exact, wins.
+2. `b.assembly.json`, used when its `targets` list contains `T`, or when it
    lists none, which means every target.
 3. otherwise refuse, naming `T` and which file would have covered it.
 
@@ -312,14 +312,14 @@ b box main.c --assembly default                 b synthesizes one
 - **No flag, no file**: refuse. Nothing is written, nothing is guessed, no
   `0.0.0` placeholder ever reaches an artifact.
 - **`--assembly <path>`**: that file, read as written. The name carries no
-  meaning — `assembly-win-x86-64.json`, `packaging.json`, anything. Only the
+  meaning, `assembly-win-x86-64.json`, `packaging.json`, anything. Only the
   `--target` flag decides which target the box is for, and the file's own
   `targets` list must allow it.
 - **`--assembly` with fields**: the command line *is* the assembly. No file is
   consulted, so there is never a merge of two sources.
 - **`--assembly default`**: every field discovery can see is derived, and the
   derivation is printed. Guessing is allowed only because it was asked for by
-  name — and `--version` is still required, because the counter is not a guess.
+  name, and `--version` is still required, because the counter is not a guess.
 
 A path is needed only when a unit carries a name b would not guess. The
 conventional filenames from the previous section exist so the common case needs
@@ -373,7 +373,7 @@ platform for the same reason `dylib` would.
 ### Type is the product
 
 `application.type` answers one question: what does boxing this assembly produce?
-It is not a mode and not a preference — it is a product, declared per assembly,
+It is not a mode and not a preference, it is a product, declared per assembly,
 so a Windows assembly and a macOS assembly of the same unit may differ.
 
 | type | darwin | linux | windows | needs `build.link` |
@@ -392,7 +392,7 @@ error naming both fields. There is no coercion and no guessed default.
 `b` does not cross-compile. A `gui` box for darwin means writing a `.app`: an
 `Info.plist`, a `.icns`, and a Mach-O executable. A Windows host has none of
 those. What it could produce is a directory that *looks* like a bundle and is
-not one — worse than no artifact, because it would pass a file listing and fail
+not one, worse than no artifact, because it would pass a file listing and fail
 on the machine that opened it.
 
 So `b box` refuses, names the files it would have written, and offers the real
@@ -437,12 +437,12 @@ shipped archive can say its own name and version.
 
 `version` is the author's counter, declared once by them, in one vocabulary, and
 projected outward per target. The same rule as `icon` and `dylib`: semantic in,
-platform spelling out — but unlike those two, b never gets to pick it.
+platform spelling out, but unlike those two, b never gets to pick it.
 
 ### A version is declared, never derived
 
 `b` does not compute versions. There is no git tag read, no `VERSION` file, no
-`0.1.0` default — the counter belongs to whoever owns the application, and a
+`0.1.0` default, the counter belongs to whoever owns the application, and a
 build tool that guesses it is asserting authorship of something it does not own.
 
 So the rule is one sentence: **`box` requires a version, and refuses without
@@ -457,7 +457,7 @@ b: hello declares no version
 ```
 
 The two accepted sources are the assembly and `--version`, and the flag wins.
-That is the whole resolution order — two entries, no fallbacks, nothing that
+That is the whole resolution order, two entries, no fallbacks, nothing that
 changes meaning depending on whether a tag exists.
 
 This also fixes the failure mode that started the question: the published `b`
@@ -470,7 +470,7 @@ a one-line edit by a human or an agent, not a side effect of a build.
 default` requires it too: `default` derives what discovery can see, and says so
 when asked for something only the author knows.
 
-`b`'s remaining interest in the string is projection — it must be parseable to
+`b`'s remaining interest in the string is projection, it must be parseable to
 become three platform values. That is validation for a purpose, not ownership.
 
 ### Lenient, then canonical
@@ -506,7 +506,7 @@ projection is:
 | :--- | :--- | :--- | :--- |
 | darwin | `1.2.3` | `1.2.3` | archive name, manifest |
 | windows | `1.2.3` | `1,2,3,0` | archive name, manifest |
-| linux | `1.2.3` | — | archive name, manifest |
+| linux | `1.2.3` |, | archive name, manifest |
 
 The manifest always carries the declared string, so identity is never lost to a
 platform that cannot spell it.
@@ -581,7 +581,7 @@ exit codes. That is exactly the aggregator `b` refuses to grow.
 
 What `b` will not grow is an aggregator. "Run every matching test, collect exit
 codes, report" is orchestration, and orchestration belongs to whoever is
-orchestrating — a shell script, a CI job, `tools/shell/ci.sh`. Putting it in `b`
+orchestrating, a shell script, a CI job, `tools/shell/ci.sh`. Putting it in `b`
 would make `b` the owner of a test policy it has no business knowing: which
 directories count, whether a zero-match is a pass, how failures aggregate.
 
@@ -605,8 +605,8 @@ things a future change is not allowed to touch:
 - the six target names, spelled exactly as the Platform Support Floor spells them
 
 Adding a language is a new file in `adapters/`. Adding a platform is a row in
-the spelling and bundle tables. Neither touches the list above. That asymmetry —
-a small total core, a wide additive edge — is the design; everything else here
+the spelling and bundle tables. Neither touches the list above. That asymmetry,
+a small total core, a wide additive edge, is the design; everything else here
 is detail.
 
 What is expected to change, and is therefore **not** part of the contract:

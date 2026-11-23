@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/vex-graph/vex-graph/main/resources/b.png" alt="build, breeze, box!" width="800">
 </p>
 
-# b — adapters
+# b, adapters
 
 [Back to README](../README.md) · [Command tree](TREE.md) · [JetBrains setup](JETBRAINS.md)
 

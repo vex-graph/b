@@ -5,7 +5,7 @@ need an IDE plugin or a generated CMake project for this workflow. The same
 setup works in CLion, IntelliJ IDEA, Rider, PyCharm, and similar JetBrains IDEs
 that provide External Tools. Menu wording may vary slightly by version.
 
-## Build, breeze, box — not a language plugin
+## Build, breeze, box, not a language plugin
 
 Coding a different language in a JetBrains IDE can be awkward: syntax awareness,
 completion, refactoring, project indexing and debugger support may be missing or
