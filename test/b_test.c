@@ -1,25 +1,23 @@
+/**
+ * Consolidated automated owner test suite for vex/b.
+ * Usage: b_test [box|util]
+ */
+
 #include "vex.h"
 #include "box.h"
 #include "b.h"
+#include "test/b_test.h"
 
 ;;DEFINITION
-/* BoxManifest is the untrusted-input seam: a manifest is user-authored JSON, so
- * every rejection path is exercised here with a real fixture, and every
- * diagnostic the class emits during the run is captured and checked. Export is
- * proved against a real payload tree: declared destinations, nested
- * directories, executable permission bits, published layout, and the refusal
- * cases that must leave no destination behind.
+/* Consolidated owner proof for vex/b: BoxManifest untrusted-input validation
+ * and portable export staging, plus Util_runCommand and Util_checkSources
+ * boundary rejection and literal argument forwarding.
  */
 ;;OVERVIEW
-/* MODULE: box manifest owner proof. PUBLIC ENTRY: main.
- * SUBJECTS: BoxManifest_writeTemplate; BoxManifest_load; BoxManifest_free;
- * BoxManifest_export; BoxManifest_toString; BoxManifest_toStringStruct.
- * PRIVATE STATIC: writeText, fixture writer; writeRepetition, oversized
- * fixture; readAll, owned log text; countOf, substring count;
- * captureDiagnostics, redirect one section's stderr into the log; checkText,
- * substring assertion helper.
- * The test captures its own stderr and asserts the exact diagnostic count, so a
- * silent rejection, a duplicate report or stray output fails the run.
+/* MODULE: consolidated vex/b owner proof. PUBLIC ENTRY: main.
+ * SUITES: box (BoxManifest_writeTemplate, BoxManifest_load, BoxManifest_free,
+ * BoxManifest_export, BoxManifest_toString, BoxManifest_toStringStruct);
+ * util (Util_runCommand, Util_checkSources).
  */
 
 #include <assert.h>
@@ -94,7 +92,10 @@ static inline bytes BoxManifest_formatCount(const BoxManifest *self)
     return (*self).formatCount;
 }
 ;;GETTER
-static inline utf8 *const *BoxManifest_formats(const BoxManifest *self) { return (*self).formats; }
+static inline utf8 *const *BoxManifest_formats(const BoxManifest *self)
+{
+    return (*self).formats;
+}
 ;;GETTER
 static inline const utf8 *BoxManifest_entry(const BoxManifest *self)
 {
@@ -156,16 +157,25 @@ static inline bytes BoxManifest_authorCount(const BoxManifest *self)
     return (*self).authorCount;
 }
 ;;GETTER
-static inline utf8 *const *BoxManifest_authors(const BoxManifest *self) { return (*self).authors; }
+static inline utf8 *const *BoxManifest_authors(const BoxManifest *self)
+{
+    return (*self).authors;
+}
 ;;GETTER
 static inline bytes BoxManifest_fileCount(const BoxManifest *self)
 {
     return (*self).fileCount;
 }
 ;;GETTER
-static inline utf8 *const *BoxManifest_sources(const BoxManifest *self) { return (*self).sources; }
+static inline utf8 *const *BoxManifest_sources(const BoxManifest *self)
+{
+    return (*self).sources;
+}
 ;;GETTER
-static inline utf8 *const *BoxManifest_destinations(const BoxManifest *self) { return (*self).destinations; }
+static inline utf8 *const *BoxManifest_destinations(const BoxManifest *self)
+{
+    return (*self).destinations;
+}
 
 /** Assert that no private staging directory survived next to the destinations. */
 static fn checkNoStaging(const utf8 *directory) {
@@ -177,7 +187,8 @@ static fn checkNoStaging(const utf8 *directory) {
     assert(closedir(tree) == 0);
 }
 
-i32 main() {
+/** Proves BoxManifest template generation, schema validation, export staging, and diagnostics. */
+static fn suite_box() {
     i32 saved = dup(STDERR_FILENO);
     assert(saved >= 0);
     i32 log = open(DIAGNOSTIC_LOG, O_WRONLY | O_CREAT | O_TRUNC, 0600);
@@ -466,5 +477,58 @@ i32 main() {
     checkText(logText, "not a regular file or directory", 1);
     checkText(logText, "export failed; no destination was created or replaced", 1);
     free(logText);
+}
+
+/** Checks command/source helper rejection, exit-status propagation, and literal ten-argument forwarding. */
+static fn suite_util() {
+#if defined(VEX_PLATFORM_WINDOWS)
+    utf8 *prefix[] = { "sh", "-c", "exit 7" };
+#else
+    utf8 *prefix[] = { "/bin/sh", "-c", "exit 7" };
+#endif
+    utf8 *empty[] = { nullptr };
+    assert(Util_runCommand(nullptr, 0, 0, nullptr) == 1);
+    assert(Util_runCommand(prefix, 0, 0, nullptr) == 1);
+    assert(Util_runCommand(prefix, 3, -1, nullptr) == 1);
+    assert(Util_runCommand(prefix, SIZE_MAX, 0, nullptr) == 1);
+    assert(Util_runCommand(empty, 1, 0, nullptr) == 1);
+    assert(Util_runCommand(prefix, 3, 1, nullptr) == 1);
+    assert(Util_runCommand(prefix, 3, 0, nullptr) == 7);
+    utf8 *arguments[] = { "a space", "$(touch NEVER)", ";", "3", "4", "5", "6", "7", "8", "9" };
+#if defined(VEX_PLATFORM_WINDOWS)
+    utf8 *ten[] = { "sh", "-c", "test \"$#\" -eq 10 && test \"$1\" = 'a space'", "fixture" };
+#else
+    utf8 *ten[] = { "/bin/sh", "-c", "test \"$#\" -eq 10 && test \"$1\" = 'a space'", "fixture" };
+#endif
+    assert(Util_runCommand(ten, 4, 10, arguments) == 0);
+    utf8 *output = nullptr;
+    assert(Util_checkSources(nullptr, "/*.sh", prefix, 1, &output) == 1);
+    assert(Util_checkSources(".", nullptr, prefix, 1, &output) == 1);
+    assert(Util_checkSources(".", "/*.sh", prefix, 0, &output) == 1);
+    assert(Util_checkSources(".", "/*.sh", prefix, 1, nullptr) == 1);
+    assert(Util_checkSources(".", "/*.sh", prefix, SIZE_MAX, &output) == 1);
+    assert(output == nullptr);
+}
+
+/** Runs all automated vex/b suites or a single named suite passed as argv[1]. */
+i32 main(i32 argc, utf8 **argv) {
+    const SuiteEntry suites[] = {
+        { "box", suite_box },
+        { "util", suite_util },
+    };
+    const utf8 *filter = argc > 1 ? argv[1] : nullptr;
+    bytes ran = 0;
+
+    for (bytes i = 0; i < sizeof(suites) / sizeof(suites[0]); i++) {
+        if (filter && strcmp(filter, suites[i].name) != 0)
+            continue;
+        suites[i].run();
+        ran++;
+    }
+
+    if (filter && ran == 0) {
+        fprintf(stderr, "b_test: unknown suite '%s'\n", filter);
+        return 2;
+    }
     return 0;
 }

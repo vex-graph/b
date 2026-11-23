@@ -14,13 +14,13 @@ class BoxTest(AdapterCase):
     def test_manifest_validation_and_portable_export(self):
         self.require_tool("cc", "--version")
         output = self.project / "box-test"
-        source = Path(__file__).with_suffix(".c")
+        source = Path(__file__).parent / "b_test.c"
         command = ["cc", "-std=gnu23", "-Wall", "-Wextra", "-Werror", "-UNDEBUG",
                    "-fsanitize=address,undefined", "-fno-omit-frame-pointer", "-I", str(ROOT),
                    str(source), str(ROOT / "box.c"), str(ROOT / "util.c"), "-o", str(output)]
         compiled = subprocess.run(command, capture_output=True, text=True, timeout=120)
         self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
-        result = subprocess.run([str(output)], cwd=self.project, capture_output=True,
+        result = subprocess.run([str(output), "box"], cwd=self.project, capture_output=True,
                                 text=True, timeout=120,
                                 env=dict(os.environ, ASAN_OPTIONS="detect_leaks=0"))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
