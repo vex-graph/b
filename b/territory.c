@@ -60,27 +60,27 @@
 
 
 ;;GETTER
-static inline const utf8 *dirent_d_name(const struct dirent *self)
+static inline string dirent_d_name(const struct dirent *self)
 {
     return (*self).d_name;
 }
 ;;GETTER
-static inline const utf8 *Adapter_name(const Adapter *self)
+static inline string Adapter_name(const Adapter *self)
 {
     return (*self).name;
 }
 ;;GETTER
-static inline i32 (*Adapter_build(const Adapter *self))(const utf8 *, utf8 **)
+static inline i32 (*Adapter_build(const Adapter *self))(string , utf8 **)
 {
     return (*self).build;
 }
 ;;GETTER
-static inline i32 (*Adapter_archive(const Adapter *self))(const utf8 *, utf8 **)
+static inline i32 (*Adapter_archive(const Adapter *self))(string , utf8 **)
 {
     return (*self).archive;
 }
 ;;GETTER
-static inline utf8 *(*Adapter_entry(const Adapter *self))(const utf8*) { return (*self).entry; }
+static inline utf8 *(*Adapter_entry(const Adapter *self))(string) { return (*self).entry; }
 
 ;;GETTER
 static inline utf8 *TerritoryUnit_directory(const TerritoryUnit *self)
@@ -281,8 +281,8 @@ static bool grow(bytes count, bytes size, bytes *capacity, any *storage) {
 }
 
 /** Fixed generated, cache and control names; ordinary dot directories remain. */
-static bool excluded(const utf8 *name) {
-    const utf8 *names[] = { ".", "..", ".git", ".hg", ".svn", ".b", "node_modules",
+static bool excluded(string name) {
+    string names[] = { ".", "..", ".git", ".hg", ".svn", ".b", "node_modules",
         "target", "build", "dist", "out", ".cache", "__pycache__", ".venv", "venv" };
     for (bytes index = 0; index < sizeof names / sizeof names[0]; ++index)
         if (bStrEq(name, names[index]))
@@ -301,7 +301,7 @@ static fn normalize(utf8 *path) {
 }
 
 /** Return the unit owning one directory, appending a new unit when absent. */
-static TerritoryUnit *unitFor(TerritoryWalk *walk, const utf8 *directory) {
+static TerritoryUnit *unitFor(TerritoryWalk *walk, string directory) {
     bytes count = TerritoryWalk_unitCount(walk);
     TerritoryUnit *units = TerritoryWalk_units(walk);
     for (bytes index = 0; index < count; ++index)
@@ -322,7 +322,7 @@ static TerritoryUnit *unitFor(TerritoryWalk *walk, const utf8 *directory) {
 }
 
 /** Record one compiled source under the directory that owns it. */
-static bool addSource(TerritoryWalk *walk, const utf8 *directory, const utf8 *name) {
+static bool addSource(TerritoryWalk *walk, string directory, string name) {
     TerritoryUnit *unit = unitFor(walk, directory);
     if (unit == nullptr)
         return false;
@@ -338,7 +338,7 @@ static bool addSource(TerritoryWalk *walk, const utf8 *directory, const utf8 *na
 }
 
 /** Name a directory relative to the territory root; the root itself is ".". */
-static utf8 *relative(const utf8 *root, const utf8 *directory) {
+static utf8 *relative(string root, string directory) {
     bytes length = strlen(root);
     if (bStrEq(root, directory))
         return Util_combine(".", "");
@@ -351,7 +351,7 @@ static utf8 *relative(const utf8 *root, const utf8 *directory) {
  * Record one regular file under its directory: the directory is the first
  * layer, the names inside it are the second.
  */
-static bool addFile(TerritoryWalk *walk, const utf8 *root, const utf8 *directory, const utf8 *name) {
+static bool addFile(TerritoryWalk *walk, string root, string directory, string name) {
     utf8 *path = relative(root, directory);
     bytes count = TerritoryWalk_treeCount(walk);
     TerritoryFiles *tree = TerritoryWalk_tree(walk);
@@ -388,14 +388,16 @@ static bool addFile(TerritoryWalk *walk, const utf8 *root, const utf8 *directory
 }
 
 /** Emit one JSON string, escaping what cannot appear literally in a path. */
-static fn escape(FILE *file, const utf8 *text) {
+static fn escape(FILE *file, string text) {
     fputc('"', file);
     for (const u8 *cursor = (const u8*) text; *cursor != '\0'; ++cursor) {
         if (*cursor == '"' || *cursor == '\\') {
             fputc('\\', file);
             fputc(*cursor, file);
         } else if (*cursor < ' ') {
-            fprintf(file, "\\u%04x", *cursor);
+            utf8 esc[8];
+            snprintf(esc, sizeof(esc), "\\u%04x", (u32) *cursor);
+            fputs(esc, file);
         } else {
             fputc(*cursor, file);
         }
@@ -404,7 +406,7 @@ static fn escape(FILE *file, const utf8 *text) {
 }
 
 /** Read every directory under the root once and record each unit it finds. */
-static bool inventory(const utf8 *root, TerritoryWalk *walk) {
+static bool inventory(string root, TerritoryWalk *walk) {
     any storage = TerritoryWalk_directories(walk);
     if (!grow(TerritoryWalk_directoryCount(walk), sizeof(utf8*), TerritoryWalk_directoryCapacityPtr(walk), &storage))
         return false;
@@ -413,7 +415,7 @@ static bool inventory(const utf8 *root, TerritoryWalk *walk) {
     TerritoryWalk_setDirectoryCount(walk, 1);
     for (bytes index = 0; index < TerritoryWalk_directoryCount(walk); ++index) {
         utf8 **directories = TerritoryWalk_directories(walk);
-        const utf8 *current = directories[index];
+        string current = directories[index];
         struct dirent **entries = nullptr;
         i32 total = scandir(current, &entries, nullptr, alphasort);
         if (total < 0) {
@@ -423,7 +425,7 @@ static bool inventory(const utf8 *root, TerritoryWalk *walk) {
         bool ok = true;
         for (i32 entryIndex = 0; entryIndex < total && ok; ++entryIndex) {
             struct dirent *entry = entries[entryIndex];
-            const utf8 *name = dirent_d_name(entry);
+            string name = dirent_d_name(entry);
             if (excluded(name)) {
                 if (!bStrEq(name, ".") && !bStrEq(name, ".."))
                     TerritoryWalk_setExcluded(walk, TerritoryWalk_excluded(walk) + 1);
@@ -480,7 +482,7 @@ static bool inventory(const utf8 *root, TerritoryWalk *walk) {
 typedef enum { UNIT_OK, UNIT_MIXED } UnitVerdict;
 
 /** Join a unit's relative directory onto the root; "." names the root itself. */
-static utf8 *absoluteOf(const utf8 *root, const utf8 *directory) {
+static utf8 *absoluteOf(string root, string directory) {
     if (bStrEq(directory, "."))
         return Util_combine(root, "");
     utf8 *prefix = Util_combine(root, "/");
@@ -490,7 +492,7 @@ static utf8 *absoluteOf(const utf8 *root, const utf8 *directory) {
 }
 
 /** Whether a unit lies at or below the scope directory; scope "." means everything. */
-static bool inScope(const utf8 *directory, const utf8 *scope) {
+static bool inScope(string directory, string scope) {
     if (bStrEq(scope, "."))
         return true;
     bytes length = strlen(scope);
@@ -520,13 +522,13 @@ static UnitVerdict classify(const TerritoryUnit *unit, const Adapter **adapter) 
 }
 
 /** Ask the unit's adapter for the owned path of its entry source; nullptr means none. */
-static utf8 *entryOf(const Adapter *adapter, const utf8 *absolute) {
-    utf8 *(*entryFn)(const utf8*) = Adapter_entry(adapter);
+static utf8 *entryOf(const Adapter *adapter, string absolute) {
+    utf8 *(*entryFn)(string) = Adapter_entry(adapter);
     return entryFn != nullptr ? entryFn(absolute) : nullptr;
 }
 
 /** Write the generated fact file; the only writer of .b/workspace.json. */
-static bool emit(const utf8 *path, const utf8 *root, TerritoryWalk *walk) {
+static bool emit(string path, string root, TerritoryWalk *walk) {
     FILE *file = fopen(path, "wb");
     if (file == nullptr) {
         THROW("cannot write %s: %s", path, strerror(errno));
@@ -534,11 +536,13 @@ static bool emit(const utf8 *path, const utf8 *root, TerritoryWalk *walk) {
     }
     bytes treeCount = TerritoryWalk_treeCount(walk);
     TerritoryFiles *tree = TerritoryWalk_tree(walk);
-    fprintf(file, "{\n  \"root\": ");
+    fputs("{\n  \"root\": ", file);
     escape(file, root);
-    fprintf(file, ",\n  \"directories\": {");
+    fputs(",\n  \"directories\": {", file);
     for (bytes index = 0; index < treeCount; ++index) {
-        fprintf(file, "%s\n    ", index == 0 ? "" : ",");
+        if (index != 0)
+            fputc(',', file);
+        fputs("\n    ", file);
         escape(file, tree[index].directory);
         fputs(": [", file);
         for (bytes name = 0; name < tree[index].count; ++name) {
@@ -548,7 +552,7 @@ static bool emit(const utf8 *path, const utf8 *root, TerritoryWalk *walk) {
         }
         fputc(']', file);
     }
-    fprintf(file, "%s}\n}\n", treeCount == 0 ? "" : "\n  ");
+    fprint(file, treeCount == 0 ? "" : "\n  ", "}\n}");
     bool ok = fflush(file) == 0 && ferror(file) == 0;
     if (fclose(file) != 0)
         ok = false;
@@ -558,7 +562,7 @@ static bool emit(const utf8 *path, const utf8 *root, TerritoryWalk *walk) {
 }
 
 /** Resolve upward to the nearest claimed ancestor, or nullptr when none exists. */
-utf8 *Territory_find(const utf8 *startDirectory) {
+utf8 *Territory_find(string startDirectory) {
     if (startDirectory == nullptr || *startDirectory == '\0') {
         THROW("territory lookup requires a directory");
         return nullptr;
@@ -589,7 +593,7 @@ utf8 *Territory_find(const utf8 *startDirectory) {
 }
 
 /** Name the generated file inside a claimed root. */
-utf8 *Territory_workspacePath(const utf8 *root) {
+utf8 *Territory_workspacePath(string root) {
     return Util_combine(root, "/.b/workspace.json");
 }
 
@@ -627,7 +631,7 @@ static fn releaseWalk(TerritoryWalk *walk) {
 }
 
 /** Claim a directory: create the marker, walk it once, write the inventory. */
-bool Territory_claim(const utf8 *directory) {
+bool Territory_claim(string directory) {
     if (directory == nullptr || *directory == '\0') {
         THROW("generate requires a directory");
         return false;
@@ -677,8 +681,7 @@ bool Territory_claim(const utf8 *directory) {
     if (ok)
         ok = emit(workspace, root, &walk);
     if (ok)
-        printf("b.sh: claimed %s\n   %zu files in %zu directories, %zu sources, %zu excluded\n   %s\n",
-               root, walk.files, walk.treeCount, walk.sources, walk.excluded, workspace);
+        print("b.sh: claimed ", root, "\n   ", walk.files, " files in ", walk.treeCount, " directories, ", walk.sources, " sources, ", walk.excluded, " excluded\n   ", workspace);
     releaseWalk(&walk);
     free(workspace);
     free(marker);
@@ -690,8 +693,8 @@ bool Territory_claim(const utf8 *directory) {
  * Build every unit at or below the directory (default: the current directory).
  * Units are built in walk order; a mixed unit fails without stopping the others.
  */
-bool Territory_buildAll(const utf8 *startDirectory) {
-    const utf8 *start = startDirectory != nullptr ? startDirectory : ".";
+bool Territory_buildAll(string startDirectory) {
+    string start = startDirectory != nullptr ? startDirectory : ".";
     utf8 *here = realpath(start, nullptr);
     if (here == nullptr) {
         THROW("cannot resolve directory: %s", start);
@@ -710,7 +713,7 @@ bool Territory_buildAll(const utf8 *startDirectory) {
     bytes scoped = 0, succeeded = 0, failed = 0, skipped = 0;
     for (bytes index = 0; ok && index < walk.unitCount; ++index) {
         TerritoryUnit *unit = &walk.units[index];
-        const utf8 *unitDir = TerritoryUnit_directory(unit);
+        string unitDir = TerritoryUnit_directory(unit);
         if (!inScope(unitDir, scope))
             continue;
         ++scoped;
@@ -725,7 +728,7 @@ bool Territory_buildAll(const utf8 *startDirectory) {
         bool app = entry != nullptr;
         free(entry);
         if (!app && Adapter_archive(adapter) == nullptr) {
-            printf("  skip %s (library: adapter %s has no archive step)\n", absolute, Adapter_name(adapter));
+            print("  skip ", absolute, " (library: adapter ", Adapter_name(adapter), " has no archive step)");
             ++skipped;
             free(absolute);
             continue;
@@ -737,20 +740,18 @@ bool Territory_buildAll(const utf8 *startDirectory) {
             ++succeeded;
         else
             ++failed;
-        printf("  %s %s (%s, %s)", status == 0 ? "ok  " : "FAIL", absolute,
-               app ? "app" : "library", Adapter_name(adapter));
-
         if (status == 0 && output != nullptr)
-            printf(" -> %s", output);
+            print("  ", status == 0 ? "ok  " : "FAIL", " ", absolute, " (", app ? "app" : "library", ", ", Adapter_name(adapter), ") -> ", output);
+        else
+            print("  ", status == 0 ? "ok  " : "FAIL", " ", absolute, " (", app ? "app" : "library", ", ", Adapter_name(adapter), ")");
 
-        putchar('\n');
         free(output);
         free(absolute);
     }
     if (ok && scoped == 0)
-        printf("b.sh build: no units under %s\n", scope);
+        print("b.sh build: no units under ", scope);
     else if (ok)
-        printf("b.sh build: %zu succeeded, %zu failed, %zu libraries skipped\n", succeeded, failed, skipped);
+        print("b.sh build: ", succeeded, " succeeded, ", failed, " failed, ", skipped, " libraries skipped");
     releaseWalk(&walk);
     free(scope);
     free(root);
@@ -759,7 +760,7 @@ bool Territory_buildAll(const utf8 *startDirectory) {
 }
 
 /** Title-case a kebab or snake name for display: "my-app" becomes "My App". */
-static utf8 *displayNameOf(const utf8 *name) {
+static utf8 *displayNameOf(string name) {
     utf8 *text = Util_combine(name, "");
     bool start = true;
     for (utf8 *cursor = text; *cursor != '\0'; ++cursor) {
@@ -783,7 +784,7 @@ static fn freeEntries(struct dirent **entries, i32 total) {
 }
 
 /** Emit a quoted key followed by its colon separator; the value follows the caller. */
-static fn keyText(FILE *file, const utf8 *key) {
+static fn keyText(FILE *file, string key) {
     escape(file, key);
     fputs(": ", file);
 }
@@ -792,7 +793,7 @@ static fn keyText(FILE *file, const utf8 *key) {
  * Write one unit's assembly declaration. Authored once: an existing file is refused
  * unless force is set. The version may be empty; only box refuses an empty one.
  */
-bool Territory_writeAssembly(const utf8 *directory, const utf8 *version, const utf8 *const *includes, bytes includeCount, const utf8 *const *dependencies, bytes dependencyCount, bool force) {
+bool Territory_writeAssembly(string directory, string version, string const *includes, bytes includeCount, string const *dependencies, bytes dependencyCount, bool force) {
     utf8 *here = realpath(directory, nullptr);
     if (here == nullptr) {
         THROW("cannot resolve directory: %s", directory);
@@ -849,16 +850,16 @@ bool Territory_writeAssembly(const utf8 *directory, const utf8 *version, const u
     }
     utf8 *entry = entryOf(adapter, here);
     bool app = entry != nullptr;
-    const utf8 *entryName = "";
+    string entryName = "";
     if (entry != nullptr) {
-        const utf8 *entrySlash = strrchr(entry, '/');
+        string entrySlash = strrchr(entry, '/');
         entryName = entrySlash != nullptr ? entrySlash + 1 : entry;
     }
-    const utf8 *slash = strrchr(here, '/');
-    const utf8 *name = slash != nullptr ? slash + 1 : here;
-    const utf8 *user = getenv("USER");
-    const utf8 *publisher = user != nullptr && *user != '\0' ? user : "Unknown";
-    const utf8 *declared = version != nullptr ? version : "";
+    string slash = strrchr(here, '/');
+    string name = slash != nullptr ? slash + 1 : here;
+    string user = getenv("USER");
+    string publisher = user != nullptr && *user != '\0' ? user : "Unknown";
+    string declared = version != nullptr ? version : "";
     utf8 *prefix = Util_combine("local.", publisher);
     utf8 *dotted = Util_combine(prefix, ".");
     utf8 *identifier = Util_combine(dotted, name);
@@ -889,7 +890,7 @@ bool Territory_writeAssembly(const utf8 *directory, const utf8 *version, const u
     keyText(file, "sources"); fputs("[", file);
     bool firstSource = true;
     for (i32 index = 0; index < total; ++index) {
-        const utf8 *entryName = dirent_d_name(entries[index]);
+        string entryName = dirent_d_name(entries[index]);
         const Adapter *claimed = Adapter_forFile(entryName);
         if (claimed == nullptr || Adapter_build(claimed) != Adapter_build(adapter))
             continue;
@@ -924,8 +925,7 @@ bool Territory_writeAssembly(const utf8 *directory, const utf8 *version, const u
     if (fclose(file) != 0)
         ok = false;
     if (ok)
-        printf("b.sh: assembly %s\n   %s, version %s\n", path, app ? "cli" : "library",
-               declared[0] != '\0' ? declared : "(undeclared: box refuses until set)");
+        print("b.sh: assembly ", path, "\n   ", app ? "cli" : "library", ", version ", declared[0] != '\0' ? declared : "(undeclared: box refuses until set)");
     else
         THROW("cannot complete %s", path);
     free(display); free(identifier); free(dotted); free(prefix); free(path); free(here);

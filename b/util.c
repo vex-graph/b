@@ -89,7 +89,7 @@ fn Util_release(any block) {
 }
 
 /** Allocate and return the concatenation of two strings, rejecting size overflow. */
-utf8 *Util_combine(const utf8 *left, const utf8 *right) {
+utf8 *Util_combine(string left, string right) {
     bytes a = strlen(left), b = strlen(right);
     if (a > SIZE_MAX - b - 1) {
         THROW("path size overflow");
@@ -103,7 +103,7 @@ utf8 *Util_combine(const utf8 *left, const utf8 *right) {
 
 #ifdef _WIN32
 /** Resolve an existing path through the filesystem, including Windows reparse points. */
-utf8 *Util_realPath(const utf8 *path, utf8 *resolved) {
+utf8 *Util_realPath(string path, utf8 *resolved) {
     if (path == nullptr || *path == '\0') {
         errno = ENOENT;
         return nullptr;
@@ -140,7 +140,7 @@ utf8 *Util_realPath(const utf8 *path, utf8 *resolved) {
     } else if (bStrPrefix(canonical, "\\\\?\\"))
         memmove(canonical, canonical + 4, strlen(canonical + 4) + 1);
     if (resolved != nullptr) {
-        strcpy(resolved, canonical);
+        memcpy(resolved, canonical, strlen(canonical) + 1);
         free(canonical);
         return resolved;
     }
@@ -154,7 +154,7 @@ static inline fn Stat_setSt_mode(struct stat *self, mode_t mode)
 }
 
 /** Inspect a path without following a Windows reparse point. */
-i32 Util_lstat(const utf8 *path, struct stat *information) {
+i32 Util_lstat(string path, struct stat *information) {
     if (path == nullptr || information == nullptr) {
         errno = EINVAL;
         return -1;
@@ -174,7 +174,7 @@ i32 Util_lstat(const utf8 *path, struct stat *information) {
 }
 
 ;;GETTER
-static inline const utf8 *dirent_d_name(const struct dirent *self)
+static inline string dirent_d_name(const struct dirent *self)
 {
     return (*self).d_name;
 }
@@ -187,7 +187,7 @@ static i32 compareEntryPointers(const_any left, const_any right) {
 }
 
 /** Enumerate directory entries into separately owned records in name order. */
-i32 Util_scandir(const utf8 *directory, struct dirent ***entries,
+i32 Util_scandir(string directory, struct dirent ***entries,
                  i32 (*filter)(const struct dirent *),
                  i32 (*compare)(const struct dirent **, const struct dirent **)) {
     if (directory == nullptr || entries == nullptr) {
@@ -270,7 +270,7 @@ i32 Util_alphasort(const struct dirent **left, const struct dirent **right) {
 #endif
 
 /** Create exactly one directory; unlike Util_makeDirectory, an existing path fails. */
-i32 Util_createDirectory(const utf8 *path, i32 mode) {
+i32 Util_createDirectory(string path, i32 mode) {
 #ifdef _WIN32
     (discard) mode;
     return _mkdir(path);
@@ -294,7 +294,7 @@ i32 Util_setFileMode(i32 descriptor, i32 mode) {
  * Report whether a readable regular file's bytes contain the needle.
  * Whole-file read: adequate for source files, not for arbitrary large data.
  */
-bool Util_fileContains(const utf8 *path, const utf8 *needle) {
+bool Util_fileContains(string path, string needle) {
     FILE *input = fopen(path, "rb");
     if (input == nullptr)
         return false;
@@ -313,7 +313,7 @@ bool Util_fileContains(const utf8 *path, const utf8 *needle) {
 }
 
 /** Read a whole regular file as NUL-terminated text; nullptr when it cannot be read. */
-utf8 *Util_readText(const utf8 *path) {
+utf8 *Util_readText(string path) {
     FILE *input = fopen(path, "rb");
     if (input == nullptr)
         return nullptr;
@@ -333,7 +333,7 @@ utf8 *Util_readText(const utf8 *path) {
 }
 
 /** Test whether text ends with the complete suffix string. */
-bool Util_endsWith(const utf8 *text, const utf8 *suffix) {
+bool Util_endsWith(string text, string suffix) {
     bytes a = strlen(text), b = strlen(suffix);
     return a >= b && bStrEq(text + a - b, suffix);
 }
@@ -382,11 +382,11 @@ static utf8 *buildCommandLine(utf8 **arguments) {
     for (bytes i = 0; arguments[i] != nullptr; ++i) {
         if (i > 0)
             *p++ = ' ';
-        const utf8 *arg = arguments[i];
+        string arg = arguments[i];
         bool need_quotes = (strpbrk(arg, " \t\"") != nullptr) || (*arg == '\0');
         if (need_quotes)
             *p++ = '"';
-        for (const utf8 *c = arg; *c; ++c) {
+        for (string c = arg; *c; ++c) {
             if (*c == '"')
                 *p++ = '\\';
             *p++ = *c;
@@ -506,7 +506,7 @@ i32 Util_runCommand(utf8 **prefix, bytes prefixCount, i32 argc, utf8 **argv) {
 }
 
 /** Run a checker once per matched source and return the project path on success. */
-i32 Util_checkSources(const utf8 *project, const utf8 *pattern, utf8 **prefix, bytes prefixCount, utf8 **output) {
+i32 Util_checkSources(string project, string pattern, utf8 **prefix, bytes prefixCount, utf8 **output) {
     if (project == nullptr || pattern == nullptr || output == nullptr || prefix == nullptr ||
         prefixCount == 0 || prefixCount > SIZE_MAX / sizeof(utf8*) - 2 || prefix[0] == nullptr) {
         THROW("invalid source checker input or argument count");
@@ -565,14 +565,14 @@ bool Util_makeDirectory(utf8 *path) {
 }
 
 /** Create and return the project's hashed output directory under B_HOME or the user cache. */
-utf8 *Util_outputDirectory(const utf8 *project) {
+utf8 *Util_outputDirectory(string project) {
     utf8 *root = Territory_find(project);
     if (root != nullptr) {
         bytes length = strlen(root);
         bool inside = bStrPrefixN(project, root, length) &&
             (project[length] == '\0' || project[length] == '/' || project[length] == '\\');
         if (inside) {
-            const utf8 *relative = project + length;
+            string relative = project + length;
             while (*relative == '/' || *relative == '\\')
                 ++relative;
             utf8 *base = Util_combine(root, "/.b/obj");
@@ -594,16 +594,16 @@ utf8 *Util_outputDirectory(const utf8 *project) {
         }
         free(root);
     }
-    const utf8 *state = getenv("B_HOME");
+    string state = getenv("B_HOME");
     utf8 *defaultState = nullptr;
     if (state == nullptr || *state == '\0') {
-        const utf8 *home = getenv("HOME");
+        string home = getenv("HOME");
         if (home == nullptr || *home == '\0') {
             THROW("HOME or B_HOME must be set");
             return nullptr;
         }
 #ifdef _WIN32
-        const utf8 *cache = getenv("LOCALAPPDATA");
+        string cache = getenv("LOCALAPPDATA");
         if (cache == nullptr || *cache == '\0')
             cache = getenv("APPDATA");
         if (cache == nullptr || *cache == '\0')
@@ -614,7 +614,7 @@ utf8 *Util_outputDirectory(const utf8 *project) {
         }
         defaultState = Util_combine(cache, "\\b.sh");
 #else
-        const utf8 *cache = getenv("XDG_CACHE_HOME");
+        string cache = getenv("XDG_CACHE_HOME");
         defaultState = Util_combine(cache != nullptr && *cache != '\0' ? cache : home,
                                     cache != nullptr && *cache != '\0' ? "/b.sh" : "/.cache/b.sh");
 #endif
@@ -635,7 +635,7 @@ utf8 *Util_outputDirectory(const utf8 *project) {
 }
 
 /** Return an allocated path through the final slash, or the original filename if none exists. */
-utf8 *Util_parentDirectory(const utf8 *file) {
+utf8 *Util_parentDirectory(string file) {
     utf8 *directory = Util_combine(file, "");
     utf8 *slash = strrchr(directory, '/');
 #ifdef _WIN32
@@ -649,19 +649,19 @@ utf8 *Util_parentDirectory(const utf8 *file) {
 }
 
 /** Return the registered project root during contextual runs, or the file's parent. */
-utf8 *Util_projectDirectory(const utf8 *file) {
-    const utf8 *root = getenv("B_PROJECT_ROOT");
+utf8 *Util_projectDirectory(string file) {
+    string root = getenv("B_PROJECT_ROOT");
     if (root != nullptr && *root != '\0')
         return Util_combine(root, "");
     return Util_parentDirectory(file);
 }
 
 /** Glob an extension under a literal project path and return owned copies of matching paths. */
-utf8 **Util_collectSources(const utf8 *project, const utf8 *extension, bytes *count, bool *ok) {
+utf8 **Util_collectSources(string project, string extension, bytes *count, bool *ok) {
     *ok = false;
     *count = 0;
 #ifdef _WIN32
-    const utf8 *pattern = strrchr(extension, '/');
+    string pattern = strrchr(extension, '/');
     pattern = pattern != nullptr ? pattern + 1 : extension;
     if (!bStrPrefix(pattern, "*.")) {
         THROW("unsupported source selector: %s", extension);
@@ -677,16 +677,16 @@ utf8 **Util_collectSources(const utf8 *project, const utf8 *extension, bytes *co
     bytes total = 0, capacity = 0;
     bool valid = true;
     for (i32 index = 0; index < entryCount; ++index) {
-        const utf8 *name = dirent_d_name(entries[index]);
+        string name = dirent_d_name(entries[index]);
         bool matches = false;
-        const utf8 *selector = pattern + 2;
+        string selector = pattern + 2;
         if (*selector == '{') {
-            const utf8 *end = bStrFindChar(selector + 1, '}');
+            string end = bStrFindChar(selector + 1, '}');
             if (end != nullptr && end[1] == '\0') {
-                const utf8 *part = selector + 1;
+                string part = selector + 1;
                 while (part < end && !matches) {
-                    const utf8 *separator = memchr(part, ',', (bytes) (end - part));
-                    const utf8 *stop = separator != nullptr ? separator : end;
+                    string separator = memchr(part, ',', (bytes) (end - part));
+                    string stop = separator != nullptr ? separator : end;
                     bytes length = (bytes) (stop - part);
                     if (length > 0 && length <= SIZE_MAX - 2) {
                         utf8 *suffix = Util_allocate(length + 2);
@@ -702,13 +702,13 @@ utf8 **Util_collectSources(const utf8 *project, const utf8 *extension, bytes *co
                 }
             }
         } else if (*selector == '[') {
-            const utf8 *end = bStrFindChar(selector + 1, ']');
-            const utf8 *dot = strrchr(name, '.');
+            string end = bStrFindChar(selector + 1, ']');
+            string dot = strrchr(name, '.');
             matches = end != nullptr && end[1] == '\0' && dot != nullptr &&
                 dot[1] != '\0' && dot[2] == '\0' &&
                 memchr(selector + 1, dot[1], (bytes) (end - selector - 1)) != nullptr;
         } else {
-            const utf8 *suffix = pattern + 1;
+            string suffix = pattern + 1;
             bytes nameLength = strlen(name), suffixLength = strlen(suffix);
             matches = nameLength >= suffixLength &&
                 bStrEq(name + nameLength - suffixLength, suffix);
@@ -803,7 +803,7 @@ fn Util_freeSources(utf8 **sources, bytes count) {
 }
 
 /** Build an environment vector replacing any inherited binding with the supplied name/value. */
-utf8 **Util_environmentWith(const utf8 *name, const utf8 *value) {
+utf8 **Util_environmentWith(string name, string value) {
     bytes prefix = strlen(name);
     bytes count = 0;
     utf8 **inheritedEnvironment = processEnvironment();
@@ -823,7 +823,7 @@ utf8 **Util_environmentWith(const utf8 *name, const utf8 *value) {
     utf8 *entry = Util_allocate(prefix + strlen(value) + 2);
     memcpy(entry, name, prefix);
     entry[prefix] = '=';
-    strcpy(entry + prefix + 1, value);
+    memcpy(entry + prefix + 1, value, strlen(value) + 1);
     result[out++] = entry;
     result[out] = nullptr;
     return result;

@@ -28,18 +28,18 @@
 #include <unistd.h>
 
 /** Check that a path names a regular file executable by the current user. */
-static bool executable(const utf8 *path) {
+static bool executable(string path) {
     struct stat info;
     return stat(path, &info) == 0 && S_ISREG(info.st_mode) && access(path, X_OK) == 0;
 }
 
 /** Resolve an executable by literal path or by searching PATH entries in order. */
-static utf8 *findTool(const utf8 *tool) {
+static utf8 *findTool(string tool) {
     if (*tool == '\0')
         return nullptr;
     if (bStrFindChar(tool, '/') != nullptr)
         return executable(tool) ? Util_combine(tool, "") : nullptr;
-    const utf8 *path = getenv("PATH");
+    string path = getenv("PATH");
     if (path == nullptr)
         return nullptr;
     utf8 *entries = Util_combine(path, "");
@@ -66,29 +66,29 @@ static utf8 *findTool(const utf8 *tool) {
 }
 
 ;;GETTER
-static inline const utf8 *Adapter_name(const Adapter *self)
+static inline string Adapter_name(const Adapter *self)
 {
     return (*self).name;
 }
 ;;GETTER
-static inline const utf8 *Adapter_capabilities(const Adapter *self)
+static inline string Adapter_capabilities(const Adapter *self)
 {
     return (*self).capabilities;
 }
 ;;GETTER
-static inline const utf8 *Adapter_tools(const Adapter *self)
+static inline string Adapter_tools(const Adapter *self)
 {
     return (*self).tools;
 }
 ;;GETTER
-static inline const utf8 *Adapter_extension(const Adapter *self)
+static inline string Adapter_extension(const Adapter *self)
 {
     return (*self).extension;
 }
 
 /** Print one adapter's requirements and report whether all tools are present. */
 static bool inspectAdapter(const Adapter *adapter) {
-    printf("%s: %s\n", Adapter_name(adapter), Adapter_capabilities(adapter));
+    print(Adapter_name(adapter), ": ", Adapter_capabilities(adapter));
     utf8 *requirements = Util_combine(Adapter_tools(adapter), "");
     utf8 *requirement = requirements;
     bool ready = true;
@@ -97,14 +97,14 @@ static bool inspectAdapter(const Adapter *adapter) {
         if (separator != nullptr)
             *separator = '\0';
         utf8 *fallback = bStrFindCharMut(requirement, '=');
-        const utf8 *tool = requirement;
+        string tool = requirement;
         if (fallback != nullptr) {
             *fallback++ = '\0';
-            const utf8 *override = getenv(requirement);
+            string override = getenv(requirement);
             tool = override != nullptr && *override != '\0' ? override : fallback;
         }
         utf8 *path = findTool(tool);
-        printf("  %s: %s\n", tool, path != nullptr ? path : "MISSING");
+        print("  ", tool, ": ", path != nullptr ? path : "MISSING");
         if (path == nullptr)
             ready = false;
         free(path);
@@ -120,16 +120,14 @@ static bool inspectAdapter(const Adapter *adapter) {
 i32 Inspect_adapters() {
     for (bytes i = 0; i < Adapter_count(); ++i) {
         const Adapter *adapter = Adapter_at(i);
-        const utf8 *ext = Adapter_extension(adapter);
-        printf("%-12s %-14s %s [tools: %s]\n", Adapter_name(adapter),
-            ext != nullptr ? ext : "(project)",
-            Adapter_capabilities(adapter), Adapter_tools(adapter));
+        string ext = Adapter_extension(adapter);
+        print(Adapter_name(adapter), " ", ext != nullptr ? ext : "(project)", " ", Adapter_capabilities(adapter), " [tools: ", Adapter_tools(adapter), "]");
     }
     return EXIT_SUCCESS;
 }
 
 /** Inspect one named adapter or enumerate all tools without executing them. */
-i32 Inspect_doctor(const utf8 *adapter) {
+i32 Inspect_doctor(string adapter) {
     puts("b.sh doctor: executable discovery only; no version/SDK checks or tool execution");
     if (adapter != nullptr) {
         const Adapter *record = Adapter_forName(adapter);

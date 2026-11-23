@@ -12,7 +12,7 @@
 /** MODULE: assembly (vex/b/b/assembly.c). Reads and checks assembly JSON descriptors. */
 
 
-static utf8 *read_file(const utf8 *path)
+static utf8 *read_file(string path)
 {
     FILE *f = fopen(path, "rb");
     if (f == nullptr)
@@ -37,33 +37,33 @@ static utf8 *read_file(const utf8 *path)
     return buf;
 }
 
-bool Assembly_validate(const utf8 *assembly_path, const utf8 *workspace_path, FILE *out)
+bool Assembly_validate(string assembly_path, string workspace_path, FILE *out)
 {
     utf8 *asm_buf = read_file(assembly_path);
     if (asm_buf == nullptr)
     {
-        fprintf(out, "assembly: cannot read %s\n", assembly_path);
+        fprint(out, "assembly: cannot read ", assembly_path);
         return false;
     }
     utf8 *ws_buf = read_file(workspace_path);
     if (ws_buf == nullptr)
     {
-        fprintf(out, "assembly: cannot read %s\n", workspace_path);
+        fprint(out, "assembly: cannot read ", workspace_path);
         free(asm_buf);
         return false;
     }
 
     if (bStrFind(asm_buf, "\"assembly\"") == nullptr)
     {
-        fprintf(out, "assembly: missing \"assembly\" object\n");
+        fprint(out, "assembly: missing \"assembly\" object");
         free(asm_buf);
         free(ws_buf);
         return false;
     }
 
-    fprintf(out, "assembly: loaded %s\n", assembly_path);
-    fprintf(out, "workspace: loaded %s\n", workspace_path);
-    fprintf(out, "assembly validation: basic structure OK (full source/dep resolution pending)\n");
+    fprint(out, "assembly: loaded ", assembly_path);
+    fprint(out, "workspace: loaded ", workspace_path);
+    fprint(out, "assembly validation: basic structure OK (full source/dep resolution pending)");
 
     free(asm_buf);
     free(ws_buf);
@@ -72,8 +72,8 @@ bool Assembly_validate(const utf8 *assembly_path, const utf8 *workspace_path, FI
 
 i32 Build_assembly(i32 argc, utf8 **argv)
 {
-    const utf8 *asm_path = argc > 1 ? argv[1] : "b.assembly.json";
-    const utf8 *ws_path = argc > 2 ? argv[2] : ".b/workspace.json";
+    string asm_path = argc > 1 ? argv[1] : "b.assembly.json";
+    string ws_path = argc > 2 ? argv[2] : ".b/workspace.json";
     FILE *out = stdout;
     return Assembly_validate(asm_path, ws_path, out) ? 0 : 1;
 }

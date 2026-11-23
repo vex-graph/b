@@ -5,7 +5,7 @@
 
 /** Workspace-wide build context tracking root, header directories, and compile totals. */
 typedef struct WorkspaceBuild {
-    const utf8 *root;
+    string root;
     utf8 **headerDirectories;
     bytes headerCount;
     bytes compiled;

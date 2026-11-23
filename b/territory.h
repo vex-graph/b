@@ -36,13 +36,13 @@
  */
 
 
-utf8 *Territory_find(const utf8 *startDirectory);
-utf8 *Territory_workspacePath(const utf8 *root);
-bool Territory_claim(const utf8 *directory);
+utf8 *Territory_find(string startDirectory);
+utf8 *Territory_workspacePath(string root);
+bool Territory_claim(string directory);
 /** Build every unit at or below the directory (nullptr means the current directory). */
-bool Territory_buildAll(const utf8 *directory);
+bool Territory_buildAll(string directory);
 /**
  * Write <unit>/b.sh.assembly.json once; force replaces it. An empty version is allowed.
  * includes are include roots; dependencies are libraries the unit links.
  */
-bool Territory_writeAssembly(const utf8 *directory, const utf8 *version, const utf8 *const *includes, bytes includeCount, const utf8 *const *dependencies, bytes dependencyCount, bool force);
+bool Territory_writeAssembly(string directory, string version, string const *includes, bytes includeCount, string const *dependencies, bytes dependencyCount, bool force);

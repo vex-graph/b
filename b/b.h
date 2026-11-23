@@ -46,14 +46,14 @@
 /** The suite owns one allocation pair; adapters never call malloc/calloc/free. */
 any Util_allocate(bytes size);
 fn Util_release(any block);
-utf8 *Util_combine(const utf8 *left, const utf8 *right);
-bool Util_endsWith(const utf8 *text, const utf8 *suffix);
+utf8 *Util_combine(string left, string right);
+bool Util_endsWith(string text, string suffix);
 bool Util_makeDirectory(utf8 *path);
-i32 Util_createDirectory(const utf8 *path, i32 mode);
+i32 Util_createDirectory(string path, i32 mode);
 i32 Util_setFileMode(i32 descriptor, i32 mode);
-utf8 *Util_outputDirectory(const utf8 *project);
-utf8 *Util_parentDirectory(const utf8 *file);
-utf8 *Util_projectDirectory(const utf8 *file);
+utf8 *Util_outputDirectory(string project);
+utf8 *Util_parentDirectory(string file);
+utf8 *Util_projectDirectory(string file);
 
 i32 Util_execute(utf8 **arguments);
 /** Build diagnostics go to stderr; stdout remains the build result path. */
@@ -62,22 +62,22 @@ i32 Util_executeWithEnvironment(utf8 **arguments, utf8 **environment);
 /** Append literal program arguments to a borrowed command prefix. */
 i32 Util_runCommand(utf8 **prefix, bytes prefixCount, i32 argc, utf8 **argv);
 /** Check each matching source independently; return the checked directory. */
-i32 Util_checkSources(const utf8 *project, const utf8 *pattern, utf8 **prefix, bytes prefixCount, utf8 **output);
+i32 Util_checkSources(string project, string pattern, utf8 **prefix, bytes prefixCount, utf8 **output);
 
-utf8 **Util_collectSources(const utf8 *project, const utf8 *extension, bytes *count, bool *ok);
+utf8 **Util_collectSources(string project, string extension, bytes *count, bool *ok);
 fn Util_freeSources(utf8 **sources, bytes count);
 /** Report whether a readable regular file's bytes contain the needle (whole-file read; source-sized inputs). */
-bool Util_fileContains(const utf8 *path, const utf8 *needle);
+bool Util_fileContains(string path, string needle);
 /** Read a whole regular file as NUL-terminated text; nullptr when it cannot be read. Caller frees. */
-utf8 *Util_readText(const utf8 *path);
+utf8 *Util_readText(string path);
 
-utf8 **Util_environmentWith(const utf8 *name, const utf8 *value);
+utf8 **Util_environmentWith(string name, string value);
 fn Util_freeEnvironment(utf8 **environment);
 
 #ifdef _WIN32
-utf8 *Util_realPath(const utf8 *path, utf8 *resolved);
-i32 Util_lstat(const utf8 *path, struct stat *information);
-i32 Util_scandir(const utf8 *directory, struct dirent ***entries,
+utf8 *Util_realPath(string path, utf8 *resolved);
+i32 Util_lstat(string path, struct stat *information);
+i32 Util_scandir(string directory, struct dirent ***entries,
                  i32 (*filter)(const struct dirent *),
                  i32 (*compare)(const struct dirent **, const struct dirent **));
 i32 Util_alphasort(const struct dirent **left, const struct dirent **right);

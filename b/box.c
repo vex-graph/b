@@ -88,7 +88,7 @@
 #define BOX_COPY_BUFFER 65536u
 #define BOX_FORMAT_PORTABLE "portable"
 
-static const utf8 *const BOX_KNOWN_FORMATS[] = {
+static string const BOX_KNOWN_FORMATS[] = {
     "portable", "exe", "app", "msi", "pkg", "dmg", "iso", "zip", "tar",
 };
 
@@ -101,7 +101,7 @@ static utf8 *allocateText(bytes size) {
 }
 
 /** Copy owned text; nullptr propagates so callers can fail without a check. */
-static utf8 *copyText(const utf8 *text) {
+static utf8 *copyText(string text) {
     if (text == nullptr)
         return nullptr;
     bytes length = strlen(text);
@@ -131,15 +131,15 @@ static bool appendText(utf8 ***items, bytes *count, utf8 *value) {
 }
 
 /** Skip JSON whitespace; the manifest grammar is whitespace-insensitive. */
-static const utf8 *skipSpace(const utf8 *cursor) {
+static string skipSpace(string cursor) {
     while (*cursor == ' ' || *cursor == '\t' || *cursor == '\n' || *cursor == '\r')
         ++cursor;
     return cursor;
 }
 
 /** Require one structural character and advance past it. */
-static bool expectCharacter(const utf8 **cursor, utf8 expected, const utf8 *field) {
-    const utf8 *position = skipSpace(*cursor);
+static bool expectCharacter(string *cursor, utf8 expected, string field) {
+    string position = skipSpace(*cursor);
     if (*position != expected) {
         THROW("manifest: %s expects '%c'", field, expected);
         return false;
@@ -149,8 +149,8 @@ static bool expectCharacter(const utf8 **cursor, utf8 expected, const utf8 *fiel
 }
 
 /** Parse one quoted string with escape handling; \u escapes are unsupported. */
-static bool parseString(const utf8 **cursor, const utf8 *field, utf8 **out) {
-    const utf8 *position = skipSpace(*cursor);
+static bool parseString(string *cursor, string field, utf8 **out) {
+    string position = skipSpace(*cursor);
     if (*position != '"') {
         THROW("manifest: %s must be a string", field);
         return false;
@@ -211,10 +211,10 @@ static bool parseString(const utf8 **cursor, const utf8 *field, utf8 **out) {
 }
 
 /** Parse an array of strings; an empty array yields a null list. */
-static bool parseStringArray(const utf8 **cursor, const utf8 *field, utf8 ***items, bytes *count) {
+static bool parseStringArray(string *cursor, string field, utf8 ***items, bytes *count) {
     if (!expectCharacter(cursor, '[', field))
         return false;
-    const utf8 *position = skipSpace(*cursor);
+    string position = skipSpace(*cursor);
     if (*position == ']') {
         *cursor = position + 1;
         return true;
@@ -242,8 +242,8 @@ static bool parseStringArray(const utf8 **cursor, const utf8 *field, utf8 ***ite
 }
 
 /** Parse a non-negative decimal integer without accepting a fractional part. */
-static bool parseInteger(const utf8 **cursor, const utf8 *field, i32 *out) {
-    const utf8 *position = skipSpace(*cursor);
+static bool parseInteger(string *cursor, string field, i32 *out) {
+    string position = skipSpace(*cursor);
     if (*position < '0' || *position > '9') {
         THROW("manifest: %s must be an integer", field);
         return false;
@@ -263,12 +263,12 @@ static bool parseInteger(const utf8 **cursor, const utf8 *field, i32 *out) {
 }
 
 /** Parse the declared schema number. */
-static bool parseSchemaVersion(const utf8 **cursor, i32 *out) {
+static bool parseSchemaVersion(string *cursor, i32 *out) {
     return parseInteger(cursor, "schemaVersion", out);
 }
 
 ;;GETTER
-static inline const utf8 *dirent_d_name(const struct dirent *self)
+static inline string dirent_d_name(const struct dirent *self)
 {
     return (*self).d_name;
 }
@@ -469,13 +469,13 @@ static inline bytes *BoxManifest_formatCountPtr(BoxManifest *self)
 }
 
 /** Parse the application object and copy its declared fields. */
-static bool parseApplication(const utf8 **cursor, BoxManifest *manifest) {
+static bool parseApplication(string *cursor, BoxManifest *manifest) {
     if (!expectCharacter(cursor, '{', "application"))
         return false;
     bool identifierSeen = false, nameSeen = false, versionSeen = false;
     bool authorsSeen = false, publisherSeen = false, descriptionSeen = false;
     bool licenseSeen = false, homepageSeen = false, iconSeen = false;
-    const utf8 *position = skipSpace(*cursor);
+    string position = skipSpace(*cursor);
     if (*position == '}') {
         THROW("manifest: application must not be empty");
         return false;
@@ -488,7 +488,7 @@ static bool parseApplication(const utf8 **cursor, BoxManifest *manifest) {
             free(key);
             return false;
         }
-        const utf8 *field = nullptr;
+        string field = nullptr;
         utf8 **target = nullptr;
         bool *seen = nullptr;
         if (bStrEq(key, "id")) {
@@ -566,8 +566,8 @@ static bool parseApplication(const utf8 **cursor, BoxManifest *manifest) {
 }
 
 /** Parse one payload.files entry: a source string or a {source, destination}. */
-static bool parseFileEntry(const utf8 **cursor, utf8 **source, utf8 **destination) {
-    const utf8 *position = skipSpace(*cursor);
+static bool parseFileEntry(string *cursor, utf8 **source, utf8 **destination) {
+    string position = skipSpace(*cursor);
     if (*position == '"')
         return parseString(cursor, "payload.files source", source);
     if (*position != '{') {
@@ -577,7 +577,7 @@ static bool parseFileEntry(const utf8 **cursor, utf8 **source, utf8 **destinatio
     if (!expectCharacter(cursor, '{', "payload.files entry"))
         return false;
     bool sourceSeen = false, destinationSeen = false;
-    const utf8 *inner = skipSpace(*cursor);
+    string inner = skipSpace(*cursor);
     if (*inner == '}') {
         THROW("manifest: payload.files entry requires a source");
         return false;
@@ -634,11 +634,11 @@ static bool parseFileEntry(const utf8 **cursor, utf8 **source, utf8 **destinatio
 }
 
 /** Parse the payload object: entry plus the declared file list. */
-static bool parsePayload(const utf8 **cursor, BoxManifest *manifest) {
+static bool parsePayload(string *cursor, BoxManifest *manifest) {
     if (!expectCharacter(cursor, '{', "payload"))
         return false;
     bool entrySeen = false, filesSeen = false;
-    const utf8 *position = skipSpace(*cursor);
+    string position = skipSpace(*cursor);
     if (*position == '}') {
         THROW("manifest: payload must not be empty");
         return false;
@@ -737,10 +737,10 @@ static bool parsePayload(const utf8 **cursor, BoxManifest *manifest) {
 }
 
 /** Require the schema-1 `targets` array to be empty; target exports are future. */
-static bool parseTargets(const utf8 **cursor) {
+static bool parseTargets(string *cursor) {
     if (!expectCharacter(cursor, '[', "targets"))
         return false;
-    const utf8 *position = skipSpace(*cursor);
+    string position = skipSpace(*cursor);
     if (*position != ']') {
         THROW("manifest: target-specific exports are not implemented; targets must be empty");
         return false;
@@ -750,12 +750,12 @@ static bool parseTargets(const utf8 **cursor) {
 }
 
 /** Parse the root object and collect the declared top-level fields. */
-static bool parseRoot(const utf8 **cursor, BoxManifest *manifest) {
+static bool parseRoot(string *cursor, BoxManifest *manifest) {
     if (!expectCharacter(cursor, '{', "manifest root"))
         return false;
     bool versionSeen = false, applicationSeen = false, payloadSeen = false;
     bool targetsSeen = false, formatsSeen = false, stateSeen = false;
-    const utf8 *position = skipSpace(*cursor);
+    string position = skipSpace(*cursor);
     if (*position == '}') {
         THROW("manifest: the root object must not be empty");
         return false;
@@ -839,8 +839,8 @@ static bool parseRoot(const utf8 **cursor, BoxManifest *manifest) {
 }
 
 /** Require every character of text to appear in the allowed set. */
-static bool validateCharacters(const utf8 *text, const utf8 *field, const utf8 *allowed) {
-    for (const utf8 *position = text; *position != '\0'; ++position) {
+static bool validateCharacters(string text, string field, string allowed) {
+    for (string position = text; *position != '\0'; ++position) {
         if (bStrFindChar(allowed, *position) == nullptr) {
             THROW("manifest: %s contains an unsupported character: %s", field, text);
             return false;
@@ -850,7 +850,7 @@ static bool validateCharacters(const utf8 *text, const utf8 *field, const utf8 *
 }
 
 /** Validate the stable application identifier used for platform identity. */
-static bool validateIdentifier(const utf8 *text) {
+static bool validateIdentifier(string text) {
     if (text == nullptr) {
         THROW("manifest: application.id is required");
         return false;
@@ -868,7 +868,7 @@ static bool validateIdentifier(const utf8 *text) {
 }
 
 /** Validate the author-supplied release version without inventing a new one. */
-static bool validateVersion(const utf8 *text) {
+static bool validateVersion(string text) {
     if (text == nullptr) {
         THROW("manifest: application.version is required");
         return false;
@@ -886,7 +886,7 @@ static bool validateVersion(const utf8 *text) {
 }
 
 /** Require a relative path with no "." or ".." component and no control bytes. */
-static bool validateRelativePath(const utf8 *text, const utf8 *field) {
+static bool validateRelativePath(string text, string field) {
     if (text == nullptr || *text == '\0') {
         THROW("manifest: %s is required", field);
         return false;
@@ -899,9 +899,9 @@ static bool validateRelativePath(const utf8 *text, const utf8 *field) {
         THROW("manifest: %s must be relative: %s", field, text);
         return false;
     }
-    const utf8 *position = text;
+    string position = text;
     while (true) {
-        const utf8 *slash = bStrFindChar(position, '/');
+        string slash = bStrFindChar(position, '/');
         bytes length = slash == nullptr ? strlen(position) : (bytes) (slash - position);
         if (length == 0) {
             THROW("manifest: %s has an empty path component: %s", field, text);
@@ -924,7 +924,7 @@ static bool validateRelativePath(const utf8 *text, const utf8 *field) {
 }
 
 /** Validate the requested export formats against the known id set. */
-static bool validateFormats(const BoxManifest *self, const utf8 *field) {
+static bool validateFormats(const BoxManifest *self, string field) {
     bytes formatCount = BoxManifest_formatCount(self);
     if (formatCount == 0) {
         THROW("manifest: formats must declare at least one export format");
@@ -932,7 +932,7 @@ static bool validateFormats(const BoxManifest *self, const utf8 *field) {
     }
     utf8 **formats = BoxManifest_formats(self);
     for (bytes index = 0; index < formatCount; ++index) {
-        const utf8 *format = formats[index];
+        string format = formats[index];
         if (format == nullptr || *format == '\0' || strlen(format) > BOX_FORMAT_MAX) {
             THROW("manifest: formats contains an invalid entry");
             return false;
@@ -951,26 +951,26 @@ static bool validateFormats(const BoxManifest *self, const utf8 *field) {
 }
 
 /** Return the final path component of an owned or borrowed path. */
-static const utf8 *baseNameOf(const utf8 *path) {
-    const utf8 *slash = strrchr(path, '/');
+static string baseNameOf(string path) {
+    string slash = strrchr(path, '/');
     return slash == nullptr ? path : slash + 1;
 }
 
 /** Require every declared payload destination to be distinct before exporting. */
 static bool validateDestinations(const BoxManifest *self) {
-    const utf8 *entryName = baseNameOf(BoxManifest_entry(self));
+    string entryName = baseNameOf(BoxManifest_entry(self));
     bytes fileCount = BoxManifest_fileCount(self);
     utf8 **sources = BoxManifest_sources(self);
     utf8 **destinations = BoxManifest_destinations(self);
     for (bytes index = 0; index < fileCount; ++index) {
-        const utf8 *destination = destinations[index] != nullptr
+        string destination = destinations[index] != nullptr
             ? destinations[index] : baseNameOf(sources[index]);
         if (bStrEq(destination, entryName)) {
             THROW("manifest: payload entry and %s share one export destination: %s", sources[index], destination);
             return false;
         }
         for (bytes other = 0; other < index; ++other) {
-            const utf8 *earlier = destinations[other] != nullptr
+            string earlier = destinations[other] != nullptr
                 ? destinations[other] : baseNameOf(sources[other]);
             if (bStrEq(earlier, destination)) {
                 THROW("manifest: payload.files declares the same destination twice: %s", destination);
@@ -985,7 +985,7 @@ static bool validateDestinations(const BoxManifest *self) {
 static bool validateManifest(BoxManifest *manifest) {
     if (!validateIdentifier(BoxManifest_identifier(manifest)))
         return false;
-    const utf8 *name = BoxManifest_name(manifest);
+    string name = BoxManifest_name(manifest);
     if (name == nullptr) {
         THROW("manifest: application.name is required");
         return false;
@@ -997,12 +997,12 @@ static bool validateManifest(BoxManifest *manifest) {
     }
     if (!validateVersion(BoxManifest_version(manifest)))
         return false;
-    const utf8 *description = BoxManifest_description(manifest);
+    string description = BoxManifest_description(manifest);
     if (description != nullptr && strlen(description) > BOX_DESCRIPTION_MAX) {
         THROW("manifest: application.description exceeds %u characters", BOX_DESCRIPTION_MAX);
         return false;
     }
-    const utf8 *icon = BoxManifest_icon(manifest);
+    string icon = BoxManifest_icon(manifest);
     if (icon != nullptr && !validateRelativePath(icon, "application.icon"))
         return false;
     if (!validateRelativePath(BoxManifest_entry(manifest), "payload.entry"))
@@ -1010,7 +1010,7 @@ static bool validateManifest(BoxManifest *manifest) {
     bytes authorCount = BoxManifest_authorCount(manifest);
     utf8 **authors = BoxManifest_authors(manifest);
     for (bytes index = 0; index < authorCount; ++index) {
-        const utf8 *author = authors[index];
+        string author = authors[index];
         if (author == nullptr || *author == '\0' || strlen(author) > BOX_TEXT_MAX) {
             THROW("manifest: application.authors entries must be 1..%u characters", BOX_TEXT_MAX);
             return false;
@@ -1020,16 +1020,16 @@ static bool validateManifest(BoxManifest *manifest) {
     utf8 **sources = BoxManifest_sources(manifest);
     utf8 **destinations = BoxManifest_destinations(manifest);
     for (bytes index = 0; index < fileCount; ++index) {
-        const utf8 *source = sources[index];
+        string source = sources[index];
         if (!validateRelativePath(source, "payload.files source"))
             return false;
-        const utf8 *destination = destinations[index];
+        string destination = destinations[index];
         if (destination != nullptr && !validateRelativePath(destination, "payload.files destination"))
             return false;
     }
     if (BoxManifest_statePolicy(manifest) == nullptr)
         BoxManifest_setStatePolicy(manifest, copyText("clean"));
-    const utf8 *statePolicy = BoxManifest_statePolicy(manifest);
+    string statePolicy = BoxManifest_statePolicy(manifest);
     if (statePolicy == nullptr)
         return false;
     if (!bStrEq(statePolicy, "clean")) {
@@ -1049,7 +1049,7 @@ static fn freeTextList(utf8 **items, bytes count) {
 }
 
 /** Join a base path and a relative path with exactly one separator. */
-static utf8 *joinPath(const utf8 *base, const utf8 *relative) {
+static utf8 *joinPath(string base, string relative) {
     bytes baseLength = strlen(base);
     bool separator = baseLength > 0 && base[baseLength - 1] != '/';
     bytes relativeLength = strlen(relative);
@@ -1064,7 +1064,7 @@ static utf8 *joinPath(const utf8 *base, const utf8 *relative) {
 }
 
 /** Return the directory containing a path, or "." when it has no separator. */
-static utf8 *parentOf(const utf8 *path) {
+static utf8 *parentOf(string path) {
     utf8 *directory = copyText(path);
     if (directory == nullptr)
         return nullptr;
@@ -1082,14 +1082,14 @@ static utf8 *parentOf(const utf8 *path) {
 }
 
 /** Build the private staging path next to the export destination. */
-static utf8 *stagingPath(const utf8 *parent) {
+static utf8 *stagingPath(string parent) {
     utf8 suffix[64];
     snprintf(suffix, sizeof suffix, ".b-box-staging-%lld", (i64) getpid());
     return joinPath(parent, suffix);
 }
 
 /** Remove a staged tree after a failed export; report a refusal, never silence. */
-static bool removeTree(const utf8 *path) {
+static bool removeTree(string path) {
     struct stat info;
     if (lstat(path, &info) != 0)
         return true;
@@ -1102,7 +1102,7 @@ static bool removeTree(const utf8 *path) {
         bool removed = true;
         struct dirent *entry;
         while ((entry = readdir(directory)) != nullptr) {
-            const utf8 *name = dirent_d_name(entry);
+            string name = dirent_d_name(entry);
             if (bStrEq(name, ".") || bStrEq(name, ".."))
                 continue;
             utf8 *child = joinPath(path, name);
@@ -1128,7 +1128,7 @@ static bool removeTree(const utf8 *path) {
 }
 
 /** Copy one regular file, preserving its permission bits. */
-static bool copyRegularFile(const utf8 *source, const utf8 *target, mode_t mode) {
+static bool copyRegularFile(string source, string target, mode_t mode) {
     i32 input = open(source, O_RDONLY | BOX_BINARY_MODE);
     if (input < 0) {
         THROW("cannot read payload file %s: %s", source, strerror(errno));
@@ -1181,7 +1181,7 @@ static bool copyRegularFile(const utf8 *source, const utf8 *target, mode_t mode)
 }
 
 /** Copy a declared payload entry, refusing symlinks and unsupported types. */
-static bool copyTree(const utf8 *source, const utf8 *target, bytes depth) {
+static bool copyTree(string source, string target, bytes depth) {
     if (depth > BOX_COPY_DEPTH_MAX) {
         THROW("payload tree is deeper than %u levels: %s", BOX_COPY_DEPTH_MAX, source);
         return false;
@@ -1226,7 +1226,7 @@ static bool copyTree(const utf8 *source, const utf8 *target, bytes depth) {
     bool copied = true;
     struct dirent *entry;
     while (copied && (entry = readdir(directory)) != nullptr) {
-        const utf8 *name = dirent_d_name(entry);
+        string name = dirent_d_name(entry);
         if (bStrEq(name, ".") || bStrEq(name, ".."))
             continue;
         utf8 *childSource = joinPath(source, name);
@@ -1245,7 +1245,7 @@ static bool copyTree(const utf8 *source, const utf8 *target, bytes depth) {
 }
 
 /** Append literal text to a bounded projection, flagging any truncation. */
-static fn emitText(utf8 *dest, bytes capacity, bytes *used, bool *outTruncated, const utf8 *text) {
+static fn emitText(utf8 *dest, bytes capacity, bytes *used, bool *outTruncated, string text) {
     bytes length = strlen(text);
     if (*used + length >= capacity) {
         bytes room = capacity > 0 && *used < capacity - 1 ? capacity - 1 - *used : 0;
@@ -1263,9 +1263,9 @@ static fn emitText(utf8 *dest, bytes capacity, bytes *used, bool *outTruncated, 
 }
 
 /** Append one quoted, escaped string field. */
-static fn emitQuoted(utf8 *dest, bytes capacity, bytes *used, bool *outTruncated, const utf8 *text) {
+static fn emitQuoted(utf8 *dest, bytes capacity, bytes *used, bool *outTruncated, string text) {
     emitText(dest, capacity, used, outTruncated, "\"");
-    for (const utf8 *position = text; *position != '\0'; ++position) {
+    for (string position = text; *position != '\0'; ++position) {
         utf8 character = *position;
         if (character == '"' || character == '\\') {
             utf8 escaped[3] = { '\\', character, '\0' };
@@ -1303,7 +1303,7 @@ static fn emitList(utf8 *dest, bytes capacity, bytes *used, bool *outTruncated, 
 }
 
 /** Read the whole manifest into owned, NUL-terminated text within a fixed cap. */
-static utf8 *readManifestText(const utf8 *path) {
+static utf8 *readManifestText(string path) {
     struct stat info;
     if (stat(path, &info) != 0 || !S_ISREG(info.st_mode)) {
         THROW("manifest does not exist or is not a regular file: %s", path);
@@ -1345,7 +1345,7 @@ static utf8 *readManifestText(const utf8 *path) {
 }
 
 /** Write the starter schema-1 form without replacing an existing path. */
-i32 BoxManifest_writeTemplate(const utf8 *path) {
+i32 BoxManifest_writeTemplate(string path) {
     static const utf8 template[] =
         "{\n"
         "  \"application\": {\n"
@@ -1392,7 +1392,7 @@ i32 BoxManifest_writeTemplate(const utf8 *path) {
 }
 
 /** Parse and validate a manifest file into an owned record. */
-BoxManifest *BoxManifest_load(const utf8 *path) {
+BoxManifest *BoxManifest_load(string path) {
     if (path == nullptr || *path == '\0') {
         THROW("manifest path must not be empty");
         return nullptr;
@@ -1408,7 +1408,7 @@ BoxManifest *BoxManifest_load(const utf8 *path) {
     memset(manifest, 0, sizeof(BoxManifest));
     BoxManifest_setSchemaVersion(manifest, 1);
     BoxManifest_setBaseDirectory(manifest, parentOf(path));
-    const utf8 *cursor = text;
+    string cursor = text;
     bool valid = BoxManifest_baseDirectory(manifest) != nullptr && parseRoot(&cursor, manifest);
     if (valid && *skipSpace(cursor) != '\0') {
         THROW("manifest has unexpected trailing content");
@@ -1448,7 +1448,7 @@ fn BoxManifest_free(BoxManifest *self) {
 }
 
 /** Export the declared payload as a portable directory payload. */
-i32 BoxManifest_export(const BoxManifest *self, const utf8 *destination) {
+i32 BoxManifest_export(const BoxManifest *self, string destination) {
     if (self == nullptr || destination == nullptr || *destination == '\0') {
         THROW("export requires a loaded manifest and a destination path");
         return EXIT_FAILURE;
@@ -1461,8 +1461,8 @@ i32 BoxManifest_export(const BoxManifest *self, const utf8 *destination) {
             return EXIT_FAILURE;
         }
     }
-    const utf8 *baseDir = BoxManifest_baseDirectory(self);
-    const utf8 *entry = BoxManifest_entry(self);
+    string baseDir = BoxManifest_baseDirectory(self);
+    string entry = BoxManifest_entry(self);
     utf8 *entrySource = joinPath(baseDir, entry);
     if (entrySource == nullptr)
         return EXIT_FAILURE;
@@ -1476,10 +1476,10 @@ i32 BoxManifest_export(const BoxManifest *self, const utf8 *destination) {
     utf8 **sources = BoxManifest_sources(self);
     utf8 **destinations = BoxManifest_destinations(self);
     if (S_ISDIR(info.st_mode)) {
-        const utf8 *entryName = baseNameOf(entry);
+        string entryName = baseNameOf(entry);
         bytes nameLength = strlen(entryName);
         for (bytes index = 0; index < fileCount; ++index) {
-            const utf8 *destName = destinations[index] != nullptr
+            string destName = destinations[index] != nullptr
                 ? destinations[index] : baseNameOf(sources[index]);
             if (bStrPrefixN(destName, entryName, nameLength) &&
                 (destName[nameLength] == '\0' || destName[nameLength] == '/')) {
@@ -1538,7 +1538,7 @@ i32 BoxManifest_export(const BoxManifest *self, const utf8 *destination) {
             copied = false;
             break;
         }
-        const utf8 *declared = destinations[index];
+        string declared = destinations[index];
         utf8 *target = joinPath(staging, declared != nullptr ? declared : baseNameOf(sources[index]));
         if (target == nullptr)
             copied = false;
@@ -1583,11 +1583,11 @@ fn BoxManifest_toString(const BoxManifest *self, utf8 *dest, bytes capacity, boo
         emitText(dest, capacity, &used, outTruncated, "nullptr");
         return;
     }
-    const utf8 *name = BoxManifest_name(self);
-    const utf8 *version = BoxManifest_version(self);
-    const utf8 *identifier = BoxManifest_identifier(self);
-    const utf8 *entry = BoxManifest_entry(self);
-    const utf8 *statePolicy = BoxManifest_statePolicy(self);
+    string name = BoxManifest_name(self);
+    string version = BoxManifest_version(self);
+    string identifier = BoxManifest_identifier(self);
+    string entry = BoxManifest_entry(self);
+    string statePolicy = BoxManifest_statePolicy(self);
     emitText(dest, capacity, &used, outTruncated, name != nullptr ? name : "unnamed");
     emitText(dest, capacity, &used, outTruncated, " ");
     emitText(dest, capacity, &used, outTruncated, version != nullptr ? version : "unversioned");
@@ -1620,17 +1620,17 @@ fn BoxManifest_toStringStruct(const BoxManifest *self, utf8 *dest, bytes capacit
         emitText(dest, capacity, &used, outTruncated, "nullptr");
         return;
     }
-    const utf8 *baseDir = BoxManifest_baseDirectory(self);
-    const utf8 *identifier = BoxManifest_identifier(self);
-    const utf8 *name = BoxManifest_name(self);
-    const utf8 *version = BoxManifest_version(self);
-    const utf8 *publisher = BoxManifest_publisher(self);
-    const utf8 *description = BoxManifest_description(self);
-    const utf8 *license = BoxManifest_license(self);
-    const utf8 *homepage = BoxManifest_homepage(self);
-    const utf8 *icon = BoxManifest_icon(self);
-    const utf8 *entry = BoxManifest_entry(self);
-    const utf8 *statePolicy = BoxManifest_statePolicy(self);
+    string baseDir = BoxManifest_baseDirectory(self);
+    string identifier = BoxManifest_identifier(self);
+    string name = BoxManifest_name(self);
+    string version = BoxManifest_version(self);
+    string publisher = BoxManifest_publisher(self);
+    string description = BoxManifest_description(self);
+    string license = BoxManifest_license(self);
+    string homepage = BoxManifest_homepage(self);
+    string icon = BoxManifest_icon(self);
+    string entry = BoxManifest_entry(self);
+    string statePolicy = BoxManifest_statePolicy(self);
     bytes authorCount = BoxManifest_authorCount(self);
     bytes fileCount = BoxManifest_fileCount(self);
     bytes formatCount = BoxManifest_formatCount(self);

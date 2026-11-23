@@ -94,13 +94,13 @@ typedef struct BoxManifest {
 } BoxManifest;
 
 /** Write the starter schema-1 JSON form; never replaces an existing path. */
-i32 BoxManifest_writeTemplate(const utf8 *path);
+i32 BoxManifest_writeTemplate(string path);
 /** Parse and validate a manifest; nullptr with a THROW diagnostic on rejection. */
-BoxManifest *BoxManifest_load(const utf8 *path);
+BoxManifest *BoxManifest_load(string path);
 /** Release every owned string and the record itself; nullptr is permitted. */
 fn BoxManifest_free(BoxManifest *self);
 /** Export declared payload into destination (which must not exist yet). */
-i32 BoxManifest_export(const BoxManifest *self, const utf8 *destination);
+i32 BoxManifest_export(const BoxManifest *self, string destination);
 /** Bounded value projection; dest-last with a truncation flag. */
 fn BoxManifest_toString(const BoxManifest *self, utf8 *dest, bytes capacity, bool *outTruncated);
 /** Bounded field projection mirroring STRUCT FIELDS; one layer only. */

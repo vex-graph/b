@@ -13,4 +13,4 @@
  * reports optional missing tools successfully. It does not prove tool versions.
  */
 i32 Inspect_adapters();
-i32 Inspect_doctor(const utf8 *adapter);
+i32 Inspect_doctor(string adapter);

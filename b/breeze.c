@@ -33,18 +33,18 @@
  */
 
 /** Return whether path resolves to a regular file. */
-static bool regularFile(const utf8 *path) {
+static bool regularFile(string path) {
     struct stat info;
     return path != nullptr && stat(path, &info) == 0 && S_ISREG(info.st_mode);
 }
 
 ;;GETTER
-static inline i32 (*Adapter_run(const Adapter *self))(const utf8 *, i32, utf8 **, bool)
+static inline i32 (*Adapter_run(const Adapter *self))(string , i32, utf8 **, bool)
 {
     return (*self).run;
 }
 ;;GETTER
-static inline const utf8 *Adapter_name(const Adapter *self)
+static inline string Adapter_name(const Adapter *self)
 {
     return (*self).name;
 }
@@ -53,7 +53,7 @@ static inline const utf8 *Adapter_name(const Adapter *self)
  * Dispatch a source file to its adapter or execute an existing native binary.
  * Refuses if the file lives outside a claimed territory.
  */
-static i32 runFile(const utf8 *input, bool buildArtifact, i32 argc, utf8 **argv) {
+static i32 runFile(string input, bool buildArtifact, i32 argc, utf8 **argv) {
     if (!regularFile(input)) {
         THROW("run file does not exist or is not regular: %s", input);
         return EXIT_FAILURE;
@@ -120,10 +120,10 @@ static i32 runUnit(i32 argc, utf8 **argv) {
     fclose(manifest);
 
     utf8 unit[256] = "";
-    const utf8 *application = bStrFind(text, "\"application\"");
-    const utf8 *name = application != nullptr ? bStrFind(application, "\"name\"") : nullptr;
+    string application = bStrFind(text, "\"application\"");
+    string name = application != nullptr ? bStrFind(application, "\"name\"") : nullptr;
     if (name != nullptr) {
-        const utf8 *quote = bStrFindChar(name, ':');
+        string quote = bStrFindChar(name, ':');
         if (quote != nullptr) {
             quote = bStrFindChar(quote, '"');
             if (quote != nullptr) {
@@ -185,7 +185,7 @@ i32 Breeze_command(i32 argc, utf8 **argv) {
         THROW("usage: b.sh run|breeze [exec|instance] <file> [arguments...]");
         return EXIT_FAILURE;
     }
-    const utf8 *file = argv[first++];
+    string file = argv[first++];
     if (first < argc && bStrEq(argv[first], "--"))
         ++first;
     return runFile(file, buildArtifact, argc - first, argv + first);
